@@ -1,0 +1,19 @@
+[
+    {
+      "id": 1,
+      "departure": "Bhopal",
+      "arrival": "Jabalpur",
+      "date": "2025-03-24",
+      "departureTime": "10:00 AM",
+      "arrivalTime": "11:00 AM",
+      "duration": "1h",
+      "flightNumber": "Vt+Dej/Vt-emj(1)",
+      "stops": "Non Stop",
+      "availableSeats": 6,
+      "price": 3300,
+      "currency": "INR",
+      "refundable": true,
+      "status": "Flight Departed"
+    }
+  ]
+  
