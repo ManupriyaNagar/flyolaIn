@@ -1,9 +1,85 @@
-import Image from "next/image";
+import React from "react";
+import { FaFacebookF, FaLinkedinIn, FaInstagram, FaTwitter, FaGlobe } from "react-icons/fa";
 
-export default function Footer() {
+const Footer = () => {
   return (
-   <div>
-    <h2>Footer</h2>
-   </div>
+    <footer className="bg-[#0B2045] text-white">
+      {/* Special Discount Section */}
+      
+
+      {/* Main Footer */}
+      <div className="container mx-auto px-6 py-10">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {/* Logo & About */}
+          <div>
+            <img src="/images/logo.png" alt="Flyola Logo" className="h-12" />
+            <p className="text-sm mt-4">
+              Jet Serve Aviation is a premier provider of private jet services, catering to travelers seeking luxury, comfort, and convenience.
+            </p>
+            {/* Social Media Icons */}
+            <div className="flex space-x-4 mt-4">
+              <FaFacebookF className="cursor-pointer hover:text-gray-400" />
+              <FaLinkedinIn className="cursor-pointer hover:text-gray-400" />
+              <FaInstagram className="cursor-pointer hover:text-gray-400" />
+              <FaTwitter className="cursor-pointer hover:text-gray-400" />
+              <FaGlobe className="cursor-pointer hover:text-gray-400" />
+            </div>
+          </div>
+
+          {/* Useful Links */}
+          <div>
+            <h3 className="font-semibold text-lg mb-3">Useful Links</h3>
+            <ul className="space-y-2">
+              <li><a href="#" className="hover:text-gray-400">Home</a></li>
+              <li><a href="#" className="hover:text-gray-400">About Us</a></li>
+              <li><a href="#" className="hover:text-gray-400">Blogs</a></li>
+              <li><a href="#" className="hover:text-gray-400">Contact Us</a></li>
+              <li><a href="#" className="hover:text-gray-400">Download Ticket</a></li>
+            </ul>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <h3 className="font-semibold text-lg mb-3">Legal</h3>
+            <ul className="space-y-2">
+              <li><a href="#" className="hover:text-gray-400">Privacy Policy</a></li>
+              <li><a href="#" className="hover:text-gray-400">Refund Policy</a></li>
+              <li><a href="#" className="hover:text-gray-400">Terms & Conditions</a></li>
+              <li><a href="#" className="hover:text-gray-400">Disclaimer</a></li>
+            </ul>
+          </div>
+
+          {/* Services */}
+          <div>
+            <h3 className="font-semibold text-lg mb-3">Services</h3>
+            <ul className="space-y-2">
+              <li><a href="#" className="hover:text-gray-400">Personal Charter</a></li>
+              <li><a href="#" className="hover:text-gray-400">Hire Charter</a></li>
+              <li><a href="#" className="hover:text-gray-400">Business Class Charter</a></li>
+              <li><a href="#" className="hover:text-gray-400">Jet Hire</a></li>
+              <li><a href="#" className="hover:text-gray-400">Helicopter Hire</a></li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Payment Methods */}
+        <div className="mt-8">
+          <h3 className="font-semibold text-lg mb-3">Payment Methods</h3>
+          <div className="flex space-x-4">
+            <img src="/images/payment-amex.png" alt="Amex" className="h-6" />
+            <img src="/images/payment-googlepay.png" alt="Google Pay" className="h-6" />
+            <img src="/images/payment-applepay.png" alt="Apple Pay" className="h-6" />
+            <img src="/images/payment-visa.png" alt="Visa" className="h-6" />
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Footer */}
+      <div className="bg-[#09182C] text-center text-sm py-4">
+        Jet Serve Aviation Pvt. Ltd © 2024. All Rights Reserved | Managed By Hover Business Services LLP
+      </div>
+    </footer>
   );
-}
+};
+
+export default Footer;

@@ -13,10 +13,13 @@ export default function FlightBooking() {
   const [passengers, setPassengers] = useState(1);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4" 
+    style={{ backgroundImage: "url('/back.jpg')" }}>
+      
       <Card className="w-full max-w-4xl bg-white shadow-lg rounded-2xl">
         <CardContent className="p-6 flex flex-col gap-4">
           <h1 className="text-2xl font-bold text-center">Book Your Flight</h1>
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Input
               type="text"
