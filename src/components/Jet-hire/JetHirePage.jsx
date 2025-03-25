@@ -32,7 +32,7 @@ function JetHirePage() {  // Renamed from CarouselDemo to be more specific to th
   ];
 
   return (
-    <section className="relative w-full min-h-screen py-20 bg-gradient-to-b from-gray-900 to-gray-800 mt-30">
+    <section className="relative w-full min-h-screen py-20 bg-gradient-to-b from-gray-900 to-gray-800">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

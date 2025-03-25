@@ -1,3 +1,4 @@
+"use client"
 import React from "react";
 import { FaMoneyBillWave, FaUmbrellaBeach, FaSuitcaseRolling, FaHeadset } from "react-icons/fa";
 

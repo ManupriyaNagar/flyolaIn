@@ -1,0 +1,12 @@
+{
+  "movies": [
+    { "poster": "/1.png", "name": "Airplane" },
+    { "poster": "/2.png", "name": "Family man" },
+    { "poster": "/3.png", "name": "Laboratory" },
+    { "poster": "/4.png", "name": "Napoleon" },
+    { "poster": "/back.jpg", "name": "Person in Darkness" },
+    { "poster": "/back.jpg", "name": "Scary Building" },
+    { "poster": "/back.jpg", "name": "Stars" }
+  ]
+}
+  

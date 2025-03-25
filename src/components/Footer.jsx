@@ -12,7 +12,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Logo & About */}
           <div>
-            <img src="/images/logo.png" alt="Flyola Logo" className="h-12" />
+            <img src="/logo.png" alt="Flyola Logo" className="h-12" />
             <p className="text-sm mt-4">
               Jet Serve Aviation is a premier provider of private jet services, catering to travelers seeking luxury, comfort, and convenience.
             </p>
@@ -66,10 +66,10 @@ const Footer = () => {
         <div className="mt-8">
           <h3 className="font-semibold text-lg mb-3">Payment Methods</h3>
           <div className="flex space-x-4">
-            <img src="/images/payment-amex.png" alt="Amex" className="h-6" />
-            <img src="/images/payment-googlepay.png" alt="Google Pay" className="h-6" />
-            <img src="/images/payment-applepay.png" alt="Apple Pay" className="h-6" />
-            <img src="/images/payment-visa.png" alt="Visa" className="h-6" />
+            <img src="/1.png" alt="Amex" className="h-6" />
+            <img src="/2.png" alt="Google Pay" className="h-6" />
+            <img src="/3.png" alt="Apple Pay" className="h-6" />
+            <img src="/4.png" alt="Visa" className="h-6" />
           </div>
         </div>
       </div>

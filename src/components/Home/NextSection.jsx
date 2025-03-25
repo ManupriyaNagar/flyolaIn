@@ -1,4 +1,4 @@
-// components/FlightSearchCard.jsx
+"use client"
 export default function FlightSearchCard() {
     return (
       <div className="relative w-full p-6 bg-white rounded-2xl shadow-lg">

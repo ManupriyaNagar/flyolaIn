@@ -9,19 +9,19 @@ const services = [
     title: "Luxurious Fleet",
     description:
       "Our fleet comprises state-of-the-art private jets equipped with luxurious amenities and cutting-edge technology, ensuring a comfortable and enjoyable journey.",
-    image: "/luxury-fleet.jpg",
+    image: "/1.png",
   },
   {
     title: "Personalized Service",
     description:
       "We understand that every traveler is unique, which is why we offer personalized service to cater to your specific preferences and requirements. From in-flight dining options to customized itineraries, we strive to exceed your expectations.",
-    image: "/personalized-service.jpg",
+    image: "/2.png",
   },
   {
     title: "Flexible Scheduling",
     description:
       "With Jet Serve Aviation, you have the flexibility to fly according to your schedule. Whether it's a last-minute business trip or a leisurely getaway, our team works around the clock to accommodate your travel needs.",
-    image: "/flexible-scheduling.jpg",
+    image: "/3.png",
   },
 ];
 

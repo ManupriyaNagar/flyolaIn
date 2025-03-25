@@ -3,19 +3,19 @@ import React from "react";
 const services = [
   {
     title: "Personal Charter",
-    image: "/images/personal-charter.jpg",
+      image: "/1.png",
   },
   {
     title: "Helicopter Hire",
-    image: "/images/helicopter-hire.jpg",
+    image: "/2.png",
   },
   {
     title: "Jet Hire",
-    image: "/images/jet-hire.jpg",
+    image: "/3.png",
   },
   {
     title: "Business Class Charter",
-    image: "/images/business-class.jpg",
+    image: "/4.png",
   },
 ];
 

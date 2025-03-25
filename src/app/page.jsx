@@ -8,7 +8,8 @@ import ArticleSection from "@/components/Home/Article";
 import FlightSearchCard from "@/components/Home/NextSection";
 import { HoverEffect } from "@/components/ui/card-hover-effect";
 // import FlightScheduleTable from "@/components/Home/Table";
-
+import CityCaurasol from "@/components/Home/CityCaurasol";
+import PopularDestinations from "@/components/Home/PopularDestinations";
 export default function Home() {
   return (
     <div className="">
@@ -19,6 +20,8 @@ export default function Home() {
        <Hero/>
        <ArticleSection/>
        <HoverEffect/>
+       <CityCaurasol/>
+       <PopularDestinations/>
        {/* <FlightScheduleTable/> */}
     </div>
   );

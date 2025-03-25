@@ -3,21 +3,21 @@ import React from "react";
 const ArticleSection = () => {
   const articles = [
     {
-      image: "/images/travel-1.jpg",
+      image: "/1.png",
       category: "Event",
       title: "Seamless Travel Starts Here: Why Flyola Is Your Go-To Flight Booking Platform",
       description: "Traveling can often be a stressful experience, from finding the right flight to managing reservations and navigating airport procedures...",
       link: "#"
     },
     {
-      image: "/images/travel-2.jpg",
+      image: "/2.png",
       category: "Event",
       title: "How Flyola Makes Last-Minute Travel Plans Easy and Affordable",
       description: "Sometimes, travel plans change unexpectedly, and finding a last-minute flight can be challenging. At Flyola, we understand the urgency...",
       link: "#"
     },
     {
-      image: "/images/travel-3.jpg",
+      image: "/3.png",
       category: "Event",
       title: "The Flyola Advantage: Why Our Customers Love Us",
       description: "At Flyola, we believe that the best way to build lasting relationships with our customers is by delivering exceptional service...",
