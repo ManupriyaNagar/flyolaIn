@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { FaPlaneDeparture, FaUser } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -263,9 +264,11 @@ export default function FlightBooking() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
             >
+              <Link href="/scheduled-flight">
               <Button className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-4 text-lg font-semibold rounded-lg flex items-center justify-center gap-3 hover:from-indigo-700 hover:to-blue-700 transition-all duration-300 shadow-md hover:shadow-lg">
                 <FaPlaneDeparture className="text-xl" /> Search Flights
               </Button>
+              </Link>
             </motion.div>
           </CardContent>
         </Card>

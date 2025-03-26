@@ -44,7 +44,7 @@ const Header = () => {
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
               <Image
-                src="/logo.png"
+                src="/logo-04.png"
                 alt="Flyola Logo"
                 width={120}
                 height={60}
@@ -70,7 +70,7 @@ const Header = () => {
           {/* Sign In Button */}
           <div className="flex items-center gap-4">
             <Link
-              href="/Contact-Us"
+              href="/SignIn"
               className="hidden md:flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-indigo-500 to-blue-500 text-white font-medium text-sm shadow-md hover:shadow-lg hover:from-indigo-600 hover:to-blue-600 transition-all duration-300 transform hover:scale-105"
             >
               <span className="mr-2">🔑</span> Sign In / Register

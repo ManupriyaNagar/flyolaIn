@@ -1,9 +1,9 @@
 export const movies = [
-  { poster: "/img/apple-tv-rebuild/posters/airplane.webp", name: "Airplane" },
-  { poster: "/img/apple-tv-rebuild/posters/family-man.webp", name: "Family man" },
-  { poster: "/img/apple-tv-rebuild/posters/laboratory.webp", name: "Laboratory" },
-  { poster: "/img/apple-tv-rebuild/posters/napoleon.webp", name: "Napoleon" },
-  { poster: "/img/apple-tv-rebuild/posters/person-in-darkness.webp", name: "Person in Darkness" },
-  { poster: "/img/apple-tv-rebuild/posters/scary-building.webp", name: "Scary Building" },
-  { poster: "/img/apple-tv-rebuild/posters/stars.webp", name: "Stars" }
+  { poster: "/1.png", name: "Airplane" },
+  { poster: "/2.png", name: "Family man" },
+  { poster: "/3.png", name: "Laboratory" },
+  { poster: "/1.png", name: "Napoleon" },
+  { poster: "/2.png", name: "Person in Darkness" },
+  { poster: "/3.png", name: "Scary Building" },
+  { poster: "/1.png", name: "Stars" }
 ]; 

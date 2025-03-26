@@ -4,22 +4,16 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 
 export default function Loader({ onLoadingComplete }) {
-  // Animation variants for the spinner
   const spinnerVariants = {
     animate: {
       rotate: 360,
-      transition: {
-        repeat: Infinity,
-        duration: 1.5,
-        ease: "linear",
-      },
+      transition: { repeat: Infinity, duration: 1.2, ease: "linear" },
     },
   };
 
-  // Animation for the entire loader
   const containerVariants = {
     initial: { opacity: 1 },
-    exit: { opacity: 0, transition: { duration: 0.5 } },
+    exit: { opacity: 0, transition: { duration: 0.6 } },
   };
 
   return (
@@ -27,47 +21,57 @@ export default function Loader({ onLoadingComplete }) {
       variants={containerVariants}
       initial="initial"
       exit="exit"
-      className="fixed inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-indigo-900 to-gray-900 z-50"
-      onAnimationComplete={() => onLoadingComplete()} // Callback when animation completes
+      className="fixed inset-0 flex flex-col items-center justify-center bg-pink-400 z-50"
+      onAnimationComplete={onLoadingComplete}
     >
+      <Image
+        src="/background2.png"
+        alt="Sky background"
+        fill
+        className="object-cover"
+        priority
+      />
       {/* Logo */}
       <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
+        initial={{ scale: 0.7, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="mb-8"
+        transition={{ duration: 0.9 }}
+        className="mb-10"
       >
-        <Image
-          src="/logo.png" // Ensure this matches your logo path
-          alt="Flyola Logo"
-          width={150}
-          height={75}
-          className="object-contain"
-        />
+        <Image src="/logo-04.png" alt="Flyola Logo" width={180} height={90} />
       </motion.div>
 
       {/* Spinner */}
       <motion.div
         variants={spinnerVariants}
         animate="animate"
-        className="relative w-16 h-16"
+        className="relative w-20 h-20"
       >
-        {/* Outer Circle */}
-        <div className="absolute inset-0 border-4 border-t-transparent border-indigo-400 rounded-full" />
-        {/* Inner Circle (Airplane Effect) */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-4 h-4 bg-yellow-400 rounded-full shadow-lg" />
+        {/* Gradient border */}
+        <div className="absolute inset-0 rounded-full border-4 border-transparent bg-gradient-to-tr from-indigo-400 to-yellow-400 p-[2px]">
+          <div className="w-full h-full bg-gray-900 rounded-full" />
         </div>
+
+        {/* Rotating airplane icon */}
+        <motion.svg
+          className="absolute top-1/2 left-1/2 w-8 h-8 text-yellow-400"
+          viewBox="0 0 24 24"
+          initial={{ rotate: -45 }}
+          animate={{ rotate: 315 }}
+          transition={{ repeat: Infinity, duration: 1.2, ease: "linear" }}
+        >
+          <path fill="currentColor" d="M2.5 19L13 12 2.5 5v14zM13 12l8.5-7v14L13 12z" />
+        </motion.svg>
       </motion.div>
 
       {/* Loading Text */}
       <motion.p
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3, duration: 0.5 }}
-        className="mt-6 text-white text-lg font-medium"
+        transition={{ delay: 0.4, duration: 0.6 }}
+        className="mt-8 text-white text-xl font-semibold tracking-wide"
       >
-        Preparing for Takeoff...
+        Preparing for Takeoff…
       </motion.p>
     </motion.div>
   );

@@ -1,7 +1,9 @@
-import { Button } from "../Business-class/Button";
+"use client"
+
 import { Container } from "../Business-class/Container";
 import { useScroll, useTransform, motion } from "framer-motion";
 import { useRef } from "react";
+
 
 export const Hero = () => {
   const videoContainerRef = useRef(null);
@@ -12,7 +14,7 @@ export const Hero = () => {
   const opacity = useTransform(scrollYProgress, [0, 0.7, 1], [1, 1, 0]);
 
   return (
-    <div className="bg-background text-white">
+    <div className="bg-background text-white mt-30 mb-30">
       <motion.div
         style={{ opacity }}
         ref={videoContainerRef}
@@ -20,7 +22,7 @@ export const Hero = () => {
       >
         <img
           className="sticky top-0 h-screen w-full object-cover"
-          src="/4.png"
+          src="/1.png"
         />
       </motion.div>
       <Container className="relative z-10 h-[--hero-height] pb-7">
@@ -39,10 +41,7 @@ export const Hero = () => {
             All Apple Originals. <br />
             Only on Apple TV+.
           </h1>
-          {/* <Button className="mb-16" size="large">
-            Stream now
-          </Button>
-          <p className="font-semibold">Watch on the 📺 app.</p> */}
+        
         </motion.div>
       </Container>
     </div>

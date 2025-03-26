@@ -12,7 +12,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Logo & About */}
           <div>
-            <img src="/logo.png" alt="Flyola Logo" className="h-12" />
+            <img src="/logo-04.png" alt="Flyola Logo" className="h-12" />
             <p className="text-sm mt-4">
               Jet Serve Aviation is a premier provider of private jet services, catering to travelers seeking luxury, comfort, and convenience.
             </p>

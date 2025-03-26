@@ -124,3 +124,19 @@
   }
 }
 
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+.arrow {
+  @apply absolute top-1/2 transform -translate-y-1/2 bg-white rounded-full p-3 shadow hover:bg-gray-100 transition;
+  z-index: 10;
+}
+.arrow:hover { @apply scale-105; }
+.arrow.left-0 { left: -1rem; }
+.arrow.right-0 { right: -1rem; }
+
+.badge {
+  @apply absolute top-3 left-3 text-xs font-bold text-white py-1 px-2 rounded-full;
+}
+
+

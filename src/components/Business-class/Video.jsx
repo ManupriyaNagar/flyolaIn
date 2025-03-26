@@ -1,6 +1,6 @@
 import { movies } from "../../data/movies";
 import { randomMoviesSet1, randomMoviesSet2 } from "../../data/MovieUtils";
-import { Button } from "./Button";
+import { Button } from "@/components/ui/button";
 import {
   useScroll,
   useTransform,

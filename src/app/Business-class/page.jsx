@@ -9,9 +9,9 @@ export default function BusinessClass() {
   return (
     <div className="bg-background relative z-10 mt-30">
       <Hero />
-  <Usps/>
+      <Usps/>
       <VideoCarousel />
-      <div className="h-[300vh]" />
+      <div/>
     </div>
   );
 }

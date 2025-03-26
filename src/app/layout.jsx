@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion"; // Add motion import here
 import Loader from "@/components/Loader";
 import Header from "@/components/Header"; // Assuming you have the Header component
-
+import Footer from "@/components/Footer"; // Assuming you have the Footer component
 export default function RootLayout({ children }) {
   const [isLoading, setIsLoading] = useState(true);
 
@@ -12,7 +12,7 @@ export default function RootLayout({ children }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 3000); // Adjust the duration as needed
+    }, 3000); 
 
     return () => clearTimeout(timer);
   }, []);
@@ -30,8 +30,9 @@ export default function RootLayout({ children }) {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
             >
-              <Header />
+              <Header className="mb-10"/>
               {children}
+              <Footer />
             </motion.div>
           )}
         </AnimatePresence>
