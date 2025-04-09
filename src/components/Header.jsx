@@ -9,9 +9,9 @@ import { useAuth } from "./AuthContext";
 
 // Static data
 const NAV_ITEMS = [
-  { name: "Personal Charter", path: "/personal-chater" },
-  { name: "Hire Charter", path: "/hire-charter" },
-  { name: "Business Class Charter", path: "/business-class" },
+  { name: "Personal Charter", path: "/personalchater" },
+  { name: "Hire Charter", path: "/hirecharter" },
+  { name: "Business Class Charter", path: "/businessclass" },
   { name: "Jet Hire", path: "/jet-hire" },
   { name: "Helicopter Hire", path: "/helicopter" },
   { name: "Download Tickets", path: "/tickets" },
