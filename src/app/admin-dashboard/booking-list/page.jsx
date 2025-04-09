@@ -1,6 +1,7 @@
 "use client";
 import BASE_URL from "@/baseUrl/baseUrl";
 import React, { useState, useEffect } from "react";
+import * as XLSX from "xlsx";
 
 const Booking = () => {
   const [bookings, setBookings] = useState([]);
@@ -13,7 +14,10 @@ const Booking = () => {
       try {
         const response = await fetch(`${BASE_URL}/bookings?status=${status}`);
         const data = await response.json();
-        setBookings(data);
+        
+        // Sort bookings by booking date in descending order
+        const sortedBookings = data.sort((a, b) => new Date(b.bookDate) - new Date(a.bookDate));
+        setBookings(sortedBookings);
       } catch (error) {
         console.error("Error fetching bookings:", error);
       } finally {
@@ -23,7 +27,14 @@ const Booking = () => {
   
     fetchBookings();
   }, [status]);
-  
+
+  // Function to export data as Excel
+  const exportToExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(bookings); // Convert bookings data to a worksheet
+    const wb = XLSX.utils.book_new(); // Create a new workbook
+    XLSX.utils.book_append_sheet(wb, ws, "Bookings"); // Append the worksheet to the workbook
+    XLSX.writeFile(wb, "Bookings.xlsx"); // Export the file with the name "Bookings.xlsx"
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -44,6 +55,16 @@ const Booking = () => {
             {filter}
           </button>
         ))}
+      </div>
+
+      {/* Export Button */}
+      <div className="mb-6">
+        <button
+          onClick={exportToExcel}
+          className="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+        >
+          Download as Excel
+        </button>
       </div>
 
       {/* Bookings Table */}
