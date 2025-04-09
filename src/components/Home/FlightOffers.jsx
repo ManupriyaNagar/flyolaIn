@@ -18,19 +18,18 @@ const FlightOffers = () => {
   const scrollBy = dir => scrollRef.current?.scrollBy({ left: dir * 240, behavior: "smooth" });
 
   return (
-    <section className="bg-gradient-to-b from-[#e6f0fa] to-white py-10 px-6">
+    <section className="bg-white py-10  mx-auto">
       <header className="max-w-4xl mx-auto text-center mb-8">
         <h2 className="text-3xl font-extrabold text-[#1a3c5e]">Flight Route Offers</h2>
         <p className="text-gray-600 mt-2">Find unbeatable deals on your next flight route.</p>
       </header>
 
-      <div className="relative max-w-5xl mx-auto">
-      <button onClick={() => scrollBy(-1)} className="arrow left-0">&#10094;</button>
-      <button onClick={() => scrollBy(1)} className="arrow right-0">&#10095;</button>
-        <button onClick={() => scrollBy(-1)} className="absolute left-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full p-3 shadow hover:bg-gray-100 transition">&#10094;</button>
-        <button onClick={() => scrollBy(1)} className="absolute right-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full p-3 shadow hover:bg-gray-100 transition">&#10095;</button>
+      <div className="relative  px-10">
+ 
+      {/* <button onClick={() => scrollBy(1)} className="arrow right-0">&#10095;</button>
+        <button onClick={() => scrollBy(-1)} className="absolute left-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full p-3 shadow hover:bg-gray-100 transition">&#10094;</button> */}
 
-        <div ref={scrollRef} className="flex space-x-6 overflow-x-auto pb-4 scrollbar-hide scroll-smooth">
+        <div ref={scrollRef} className="flex space-x-12 overflow-x-auto pb-4 scrollbar-hide scroll-smooth">
           {flightData.map((f, i) => (
             <article key={i} className="relative flex-shrink-0 w-60 rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition p-[1px] bg-gradient-to-br from-[#1a3c5e] to-[#4ca1af]">
               <div className="bg-white rounded-3xl p-6 flex flex-col h-full relative">

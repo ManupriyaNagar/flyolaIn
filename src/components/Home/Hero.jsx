@@ -1,9 +1,11 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 
 const Hero = () => {
+  const [sparklePositions, setSparklePositions] = useState([]);
+
   // Sparkle animation variants
   const sparkleVariants = {
     animate: {
@@ -16,6 +18,15 @@ const Hero = () => {
       },
     },
   };
+
+  useEffect(() => {
+    // Generate random positions for sparkles on the client side
+    const positions = Array.from({ length: 15 }).map(() => ({
+      top: `${Math.random() * 100}%`,
+      left: `${Math.random() * 100}%`,
+    }));
+    setSparklePositions(positions);
+  }, []);
 
   return (
     <section className="relative h-screen overflow-hidden">
@@ -34,13 +45,13 @@ const Hero = () => {
       </div>
 
       {/* Sparkles */}
-      {[...Array(15)].map((_, i) => (
+      {sparklePositions.map((position, i) => (
         <motion.div
           key={i}
           className="absolute w-2 h-2 bg-white rounded-full"
           style={{
-            top: `${Math.random() * 100}%`,
-            left: `${Math.random() * 100}%`,
+            top: position.top,
+            left: position.left,
           }}
           variants={sparkleVariants}
           animate="animate"

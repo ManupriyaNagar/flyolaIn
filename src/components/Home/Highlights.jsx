@@ -3,10 +3,10 @@ import Image from 'next/image';
 
 const AviationHighlights = () => {
   return (
-    <div className="max-w-7xl mx-auto py-20 px-4 sm:px-6 lg:px-8 space-y-20 bg-gray-50">
+    <div className=" mx-auto py-20 px-4 sm:px-6 md:px-16 space-y-20 bg-white">
       {/* First Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center group hover:scale-[1.01] transition-transform duration-500 ease-out">
-        <div className="space-y-6 md:pr-8">
+        <div className="space-y-6 md:pl-8">
           <h2 className="text-4xl font-extrabold text-gray-900 tracking-tight animate-in fade-in slide-in-from-top-4 duration-600">
             Super King Air 200
           </h2>

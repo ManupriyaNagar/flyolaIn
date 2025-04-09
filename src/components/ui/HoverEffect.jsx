@@ -1,18 +1,19 @@
-"use client"
-import { cn } from "@/lib/utils";
-// import { AnimatePresence, motion } from "motion/react";
-import { AnimatePresence, motion } from "framer-motion";
+// "@/components/ui/HoverEffect.js"
+"use client";
 
+import { cn } from "@/lib/utils";
+import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useState } from "react";
 
-export const HoverEffect = ({ items = [], className }) => {
+// Export as default to match lazy loading expectation
+export default function HoverEffect({ items = [], className }) {
   let [hoveredIndex, setHoveredIndex] = useState(null);
 
   console.log("items:", items); // Debugging
 
   return (
-    <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 py-10", className)}>
+    <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 ", className)}>
       {items.map((item, idx) => (
         <Link
           href={item?.link || "#"}
@@ -40,7 +41,7 @@ export const HoverEffect = ({ items = [], className }) => {
       ))}
     </div>
   );
-};
+}
 
 export const Card = ({
   className,
@@ -58,6 +59,7 @@ export const Card = ({
     </div>
   );
 };
+
 export const CardTitle = ({
   className,
   children
@@ -68,6 +70,7 @@ export const CardTitle = ({
     </h4>
   );
 };
+
 export const CardDescription = ({
   className,
   children

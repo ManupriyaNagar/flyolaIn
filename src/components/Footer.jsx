@@ -3,7 +3,7 @@ import { FaFacebookF, FaLinkedinIn, FaInstagram, FaTwitter, FaGlobe } from "reac
 
 const Footer = () => {
   return (
-    <footer className="bg-[#0B2045] text-white">
+    <footer className="bg-[#0B2045] text-white z-10">
       {/* Special Discount Section */}
       
 
@@ -74,9 +74,14 @@ const Footer = () => {
         </div>
       </div>
 
+<div className="flex justify-between items-center bg-[#09182C] text-sm py-4 px-6">
       {/* Bottom Footer */}
       <div className="bg-[#09182C] text-center text-sm py-4">
-        Jet Serve Aviation Pvt. Ltd © 2024. All Rights Reserved | Managed By Hover Business Services LLP
+        Jet Serve Aviation Pvt. Ltd © 2025. All Rights Reserved 
+      </div>
+      <div className="bg-[#09182C] text-center text-sm py-4">
+        Powered By RBSH Studio
+      </div>
       </div>
     </footer>
   );

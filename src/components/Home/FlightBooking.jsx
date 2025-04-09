@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import BASE_URL from "@/baseUrl/baseUrl";
 
 export default function FlightBooking() {
   const [departure, setDeparture] = useState("");
@@ -17,8 +18,24 @@ export default function FlightBooking() {
     children: 0,
     infants: 0,
   });
+  const [airports, setAirports] = useState([]);
   const [isPassengerDropdownOpen, setIsPassengerDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+
+  // Fetch airport data
+  useEffect(() => {
+    const fetchAirports = async () => {
+      try {
+        const response = await fetch(`${BASE_URL}/airport`);
+        const data = await response.json();
+        setAirports(data);
+      } catch (error) {
+        console.error("Error fetching airports:", error);
+      }
+    };
+    fetchAirports();
+  }, []);
+  
 
   // Calculate total passengers
   const totalPassengers =
@@ -49,7 +66,7 @@ export default function FlightBooking() {
 
   return (
     <div
-      className="relative flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-4 mt-30"
+      className="relative flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-4 mt-20"
       style={{
         backgroundImage: "url('/back.jpg')",
         backgroundSize: "cover",
@@ -57,16 +74,13 @@ export default function FlightBooking() {
         backgroundBlendMode: "overlay",
       }}
     >
-      {/* Overlay for better contrast */}
-      {/* <div className="absolute inset-0 bg-black/50"  /> */}
-
-      <motion.div
+      <div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="relative z-10 w-full max-w-5xl"
+        className="relative z-10 w-full max-w-7xl "
       >
-        <Card className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl border border-gray-200 m-30">
+        <Card className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl border border-gray-200 m-40 py-14 px-14">
           <CardContent className="p-8 flex flex-col gap-6">
             <h1 className="text-3xl md:text-4xl font-bold text-center text-gray-800">
               Book Your Flight with Flyola
@@ -76,38 +90,48 @@ export default function FlightBooking() {
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Departure Input */}
-              <motion.div
+              {/* Departure Airport Dropdown */}
+              <div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                <Input
-                  type="text"
-                  placeholder="Departure From"
+                <select
                   value={departure}
                   onChange={(e) => setDeparture(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-all duration-300"
-                />
-              </motion.div>
+                  className="w-full h-12 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-all duration-300"
+                >
+                  <option value="">Select Departure Airport</option>
+                  {airports.map((airport) => (
+                    <option key={airport.id} value={airport.airport_code}>
+                      {airport.airport_name} ({airport.city})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              {/* Arrival Input */}
-              <motion.div
+              {/* Arrival Airport Dropdown */}
+              <div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.2 }}
               >
-                <Input
-                  type="text"
-                  placeholder="Arrival To"
+                <select
                   value={arrival}
                   onChange={(e) => setArrival(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-all duration-300"
-                />
-              </motion.div>
+                  className="w-full h-12 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-all duration-300"
+                >
+                  <option value="">Select Arrival Airport</option>
+                  {airports.map((airport) => (
+                    <option key={airport.id} value={airport.airport_code}>
+                      {airport.airport_name} ({airport.city})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               {/* Date Input */}
-              <motion.div
+              <div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 }}
@@ -116,12 +140,12 @@ export default function FlightBooking() {
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-all duration-300"
+                  className="w-full h-12 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-all duration-300"
                 />
-              </motion.div>
+              </div>
 
               {/* Passenger Selection */}
-              <motion.div
+              <div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.4 }}
@@ -158,11 +182,11 @@ export default function FlightBooking() {
 
                 {/* Passenger Dropdown */}
                 {isPassengerDropdownOpen && (
-                  <motion.div
+                  <div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="absolute top-14 left-0 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-10 p-4"
+                    className="absolute top-14 left-0 w-60 bg-white border border-gray-200 rounded-lg shadow-xl z-10 p-4"
                   >
                     {/* Adults */}
                     <div className="flex items-center justify-between py-3 border-b border-gray-100">
@@ -253,9 +277,9 @@ export default function FlightBooking() {
                         </button>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
-              </motion.div>
+              </div>
             </div>
 
             {/* Search Button */}
@@ -265,14 +289,14 @@ export default function FlightBooking() {
               transition={{ delay: 0.5 }}
             >
               <Link href="/scheduled-flight">
-              <Button className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-4 text-lg font-semibold rounded-lg flex items-center justify-center gap-3 hover:from-indigo-700 hover:to-blue-700 transition-all duration-300 shadow-md hover:shadow-lg">
-                <FaPlaneDeparture className="text-xl" /> Search Flights
-              </Button>
+                <Button className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-4 text-lg font-semibold rounded-lg flex items-center justify-center gap-3 hover:from-indigo-700 hover:to-blue-700 transition-all duration-300 shadow-md hover:shadow-lg">
+                  <FaPlaneDeparture className="text-xl" /> Search Flights
+                </Button>
               </Link>
             </motion.div>
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
     </div>
   );
 }

@@ -26,7 +26,7 @@ const ArticleSection = () => {
   ];
 
   return (
-    <section className="py-12 px-4 md:px-16 bg-white">
+    <section className="py-12 px-4 md:px-12 bg-white">
       <div className="text-center">
         <h2 className="text-3xl font-bold text-gray-900">Trending & Popular Articles</h2>
         <p className="text-gray-600 mt-2 max-w-2xl mx-auto">

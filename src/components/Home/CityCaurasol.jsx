@@ -24,7 +24,7 @@ const infiniteCities = [...cities, ...cities];
 
 export default function CityCarousel() {
   return (
-    <div className="max-w-7xl mx-auto py-12 overflow-hidden bg-gray-50">
+    <div className=" py-12 overflow-hidden bg-gray-50">
       <h1 className="text-center text-4xl font-bold mb-10">Find Your Next Destination</h1>
       <motion.div
         className="flex gap-6"

@@ -36,10 +36,10 @@ const PrivateJetRental = () => {
         </p>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 max-w-6xl mx-auto">
+      <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 px-14 mx-auto">
         {services.map((service, index) => (
           <div key={index} className="bg-white shadow-md rounded-lg overflow-hidden">
-            <img src={service.image} alt={service.title} className="w-full h-48 object-cover" />
+            <img src={service.image} alt={service.title} className="w-full h-72 object-cover" />
             <div className="p-3 text-center">
               <h3 className="font-semibold text-lg text-gray-900">{service.title}</h3>
             </div>

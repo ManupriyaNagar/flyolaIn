@@ -1,7 +1,9 @@
-"use client"
-import React from "react";
+"use client";
+
+import React, { memo } from "react";
 import { FaMoneyBillWave, FaUmbrellaBeach, FaSuitcaseRolling, FaHeadset } from "react-icons/fa";
 
+// Memoize features array to prevent unnecessary re-renders
 const features = [
   {
     icon: <FaMoneyBillWave className="text-red-500 text-4xl" />,
@@ -37,23 +39,37 @@ const features = [
   },
 ];
 
-const FeatureCards = () => {
+/**
+ * FeatureCards Component to display feature cards in a grid layout
+ * @returns {JSX.Element} Grid of feature cards
+ */
+const FeatureCards = memo(() => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 px-6 py-12">
+    <div
+      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 py-12 px-14 bg-white"
+      // Lazy loading via CSS containment to improve performance
+      style={{ contain: "layout" }}
+    >
       {features.map((feature, index) => (
         <div
           key={index}
-          className={`${feature.bgColor} p-6 rounded-2xl shadow-md`}
+          className={`${feature.bgColor} p-6 rounded-2xl shadow-md transition-all duration-300 hover:shadow-lg`}
+          // Add data attribute for potential future analytics or testing
+          data-feature={feature.title.toLowerCase().replace(" ", "-")}
         >
-          <div className="mb-4">{feature.icon}</div>
-          <h3 className={`text-xl font-bold ${feature.textColor} mb-2`}>
+          <div className="mb-4 flex justify-center">{feature.icon}</div>
+          <h3 className={`text-xl font-bold ${feature.textColor} mb-2 text-center`}>
             {feature.title}
           </h3>
-          <p className="text-gray-700">{feature.description}</p>
+          <p className="text-gray-700 text-center line-clamp-3">
+            {feature.description}
+          </p>
         </div>
       ))}
     </div>
   );
-};
+});
+
+FeatureCards.displayName = "FeatureCards";
 
 export default FeatureCards;

@@ -38,19 +38,14 @@ const destinations = [
 
 export default function PopularDestinations() {
   return (
-    <section className="py-16 bg-gradient-to-b from-gray-50 to-gray-100">
-      <div className="container mx-auto px-4">
+    <section className="py-16 bg-white px-10">
+      <div className=" px-4">
         {/* Header */}
         <div className="flex justify-between items-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-800">
             Popular Destinations
           </h2>
-          <a
-            href="#"
-            className="text-indigo-600 font-medium hover:underline transition-colors duration-300"
-          >
-            See More Destinations
-          </a>
+         
         </div>
 
         {/* Destinations Grid */}
