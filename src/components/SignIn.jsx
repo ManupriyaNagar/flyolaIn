@@ -27,29 +27,30 @@ const SignIn = () => {
       });
       const data = await response.json();
       console.log("Login response:", data);
-
+  
       if (response.ok) {
         const token = data.token;
         const role = data.role;
-
+  
         document.cookie = `token=${token}; path=/; max-age=3600; samesite=strict`;
         localStorage.setItem("token", token);
         localStorage.setItem("authState", JSON.stringify({ isLoggedIn: true, userRole: role }));
-
+  
         setAuthState({
           isLoggedIn: true,
           userRole: role,
-          user: { email, role }, // Adjust based on API response
+          user: { email, role },
         });
-
-        setTimeout(() => {
-          if (role === 1) router.push("/admin-dashboard");
-          else if (role === 3) router.push("/user-dashboard");
-          else {
-            router.push("/sign-in");
-            setErrorMessage("Invalid role. Please contact support.");
-          }
-        }, 1000);
+  
+        // Directly redirect after state update
+        if (role === 1) {
+          router.push("/admin-dashboard");
+        } else if (role === 3) {
+          router.push("/user-dashboard");
+        } else {
+          router.push("/sign-in");
+          setErrorMessage("Invalid role. Please contact support.");
+        }
       } else {
         setErrorMessage(data.error || "Login failed");
       }
@@ -58,6 +59,7 @@ const SignIn = () => {
       setErrorMessage("An error occurred. Please try again.");
     }
   };
+  
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 mt-10">
