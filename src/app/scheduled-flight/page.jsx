@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import dynamic from "next/dynamic"; // Import dynamic for client-side rendering
+import { useRouter } from "next/navigation"; // Use App Router's useRouter
 import FilterSidebar from "@/components/ScheduledFlight/FilterSidebar";
 import FlightCard from "@/components/ScheduledFlight/FlightCard";
 import Header2 from "@/components/ScheduledFlight/Header";
@@ -8,14 +8,10 @@ import { useAuth } from "@/components/AuthContext";
 import { getNextWeekday } from "@/lib/utils2";
 import BASE_URL from "@/baseUrl/baseUrl";
 
-// Dynamically import useRouter to ensure it's only used client-side
-const useRouter = dynamic(() => import("next/router").then((mod) => mod.useRouter), {
-  ssr: false, // Disable server-side rendering for this import
-});
-
 const ScheduledFlightsPage = () => {
-  const [isClient, setIsClient] = useState(false);
+  const router = useRouter();
   const { authState, setAuthState } = useAuth();
+
   const [flightSchedules, setFlightSchedules] = useState([]);
   const [flights, setFlights] = useState([]);
   const [airports, setAirports] = useState([]);
@@ -34,25 +30,29 @@ const ScheduledFlightsPage = () => {
     passengers: 1,
   });
 
-  // Initialize router only on client side
-  const router = typeof window !== "undefined" ? useRouter() : null;
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true); // Mark as client-side after mount
   }, []);
 
   useEffect(() => {
-    if (!isClient || !router) return; // Skip if not client-side or router is not available
+    if (!isClient) return; // Skip if not client-side
 
-    const { departure, arrival, date, passengers } = router.query;
+    // Access searchParams in App Router using URLSearchParams
+    const searchParams = new URLSearchParams(window.location.search);
+    const departure = searchParams.get("departure") || "";
+    const arrival = searchParams.get("arrival") || "";
+    const date = searchParams.get("date") || "";
+    const passengers = searchParams.get("passengers") || "1";
 
-    setFilterDepartureCity(departure || "");
-    setFilterArrivalCity(arrival || "");
+    setFilterDepartureCity(departure);
+    setFilterArrivalCity(arrival);
     setFilterMinSeats(parseInt(passengers) || 1);
     setSearchCriteria({
-      departure: departure || "",
-      arrival: arrival || "",
-      date: date || "",
+      departure,
+      arrival,
+      date,
       passengers: parseInt(passengers) || 1,
     });
 
@@ -72,9 +72,8 @@ const ScheduledFlightsPage = () => {
       }
     };
     fetchData();
-  }, [router?.query, isClient]); // Use optional chaining to safely access router.query
+  }, [isClient]); // Depend only on isClient
 
-  // Rest of your code remains the same...
   useEffect(() => {
     if (flightSchedules.length > 0 && flights.length > 0) {
       const uniqueDates = new Set();
@@ -84,10 +83,12 @@ const ScheduledFlightsPage = () => {
         const formattedDate = departureDate.toISOString().split("T")[0];
         uniqueDates.add(formattedDate);
       });
-      setDates([...uniqueDates].map((date) => ({
-        date,
-        day: new Date(date).toLocaleDateString("en-US", { weekday: "long" }),
-      })));
+      setDates(
+        [...uniqueDates].map((date) => ({
+          date,
+          day: new Date(date).toLocaleDateString("en-US", { weekday: "long" }),
+        }))
+      );
     }
   }, [flightSchedules, flights]);
 
@@ -197,7 +198,12 @@ const ScheduledFlightsPage = () => {
               onClick={() => setIsFilterOpen(true)}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                />
               </svg>
               Filters
             </button>
