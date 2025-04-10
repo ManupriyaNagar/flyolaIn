@@ -1,7 +1,5 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 import FilterSidebar from "@/components/ScheduledFlight/FilterSidebar";
 import FlightCard from "@/components/ScheduledFlight/FlightCard";
 import Header2 from "@/components/ScheduledFlight/Header";
@@ -11,8 +9,8 @@ import BASE_URL from "@/baseUrl/baseUrl";
 
 const ScheduledFlightsPage = () => {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { authState, setAuthState } = useAuth();
+  
   const [flightSchedules, setFlightSchedules] = useState([]);
   const [flights, setFlights] = useState([]);
   const [airports, setAirports] = useState([]);
@@ -31,20 +29,26 @@ const ScheduledFlightsPage = () => {
     passengers: 1,
   });
 
-  useEffect(() => {
-    const departure = searchParams.get("departure") || "";
-    const arrival = searchParams.get("arrival") || "";
-    const date = searchParams.get("date") || "";
-    const passengers = parseInt(searchParams.get("passengers")) || 1;
+  const [isClient, setIsClient] = useState(false); // To track if the code is running client-side
 
-    setFilterDepartureCity(departure);
-    setFilterArrivalCity(arrival);
-    setFilterMinSeats(passengers);
+  useEffect(() => {
+    // Set `isClient` to true once the component has mounted on the client
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return; // Skip logic if not on the client-side
+
+    const { departure, arrival, date, passengers } = router.query;
+
+    setFilterDepartureCity(departure || "");
+    setFilterArrivalCity(arrival || "");
+    setFilterMinSeats(parseInt(passengers) || 1);
     setSearchCriteria({
-      departure,
-      arrival,
-      date,
-      passengers,
+      departure: departure || "",
+      arrival: arrival || "",
+      date: date || "",
+      passengers: parseInt(passengers) || 1,
     });
 
     const fetchData = async () => {
@@ -63,7 +67,7 @@ const ScheduledFlightsPage = () => {
       }
     };
     fetchData();
-  }, [searchParams]);
+  }, [router.query, isClient]); // Trigger when `router.query` or `isClient` changes
 
   useEffect(() => {
     if (flightSchedules.length > 0 && flights.length > 0) {
@@ -173,11 +177,10 @@ const ScheduledFlightsPage = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto h-screen">
-
         <div className="px-6">
-        <Header2 />
+          <Header2 />
         </div>
-  
+
         <main className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
@@ -198,15 +201,15 @@ const ScheduledFlightsPage = () => {
             <div className="space-y-6">
               {filteredAndSortedFlightSchedules.map((flightSchedule, index) => (
                 <FlightCard
-                key={index}
-                flightSchedule={flightSchedule}
-                flights={flights}
-                airports={airports}
-                authState={authState}
-                dates={dates.map((d) => d.date)}
-                selectedDate={searchCriteria.date}
-                passengers={searchCriteria.passengers} // Pass passengers from filter
-              />
+                  key={index}
+                  flightSchedule={flightSchedule}
+                  flights={flights}
+                  airports={airports}
+                  authState={authState}
+                  dates={dates.map((d) => d.date)}
+                  selectedDate={searchCriteria.date}
+                  passengers={searchCriteria.passengers} // Pass passengers from filter
+                />
               ))}
             </div>
           ) : (
