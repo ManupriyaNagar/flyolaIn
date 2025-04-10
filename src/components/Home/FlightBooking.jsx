@@ -22,7 +22,6 @@ export default function FlightBooking() {
   const [isPassengerDropdownOpen, setIsPassengerDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Fetch airport data
   useEffect(() => {
     const fetchAirports = async () => {
       try {
@@ -35,34 +34,34 @@ export default function FlightBooking() {
     };
     fetchAirports();
   }, []);
-  
 
-  // Calculate total passengers
   const totalPassengers =
     passengerData.adults + passengerData.children + passengerData.infants;
 
-  // Handle passenger count changes
   const handlePassengerChange = (type, action) => {
     setPassengerData((prev) => {
       const newValue =
         action === "increment"
           ? prev[type] + 1
-          : Math.max(0, prev[type] - 1); // Prevent negative values
+          : Math.max(0, prev[type] - 1);
       return { ...prev, [type]: newValue };
     });
   };
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsPassengerDropdownOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const getCityFromCode = (code) => {
+    const airport = airports.find((a) => a.airport_code === code);
+    return airport ? airport.city : "";
+  };
 
   return (
     <div
@@ -74,11 +73,11 @@ export default function FlightBooking() {
         backgroundBlendMode: "overlay",
       }}
     >
-      <div
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="relative z-10 w-full max-w-7xl "
+        className="relative z-10 w-full max-w-7xl"
       >
         <Card className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl border border-gray-200 m-40 py-14 px-14">
           <CardContent className="p-8 flex flex-col gap-6">
@@ -91,7 +90,7 @@ export default function FlightBooking() {
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {/* Departure Airport Dropdown */}
-              <div
+              <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 }}
@@ -108,10 +107,10 @@ export default function FlightBooking() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </motion.div>
 
               {/* Arrival Airport Dropdown */}
-              <div
+              <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.2 }}
@@ -128,10 +127,10 @@ export default function FlightBooking() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </motion.div>
 
               {/* Date Input */}
-              <div
+              <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 }}
@@ -140,12 +139,13 @@ export default function FlightBooking() {
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
+                  min={new Date().toISOString().split("T")[0]}
                   className="w-full h-12 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-all duration-300"
                 />
-              </div>
+              </motion.div>
 
               {/* Passenger Selection */}
-              <div
+              <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.4 }}
@@ -180,9 +180,8 @@ export default function FlightBooking() {
                   </svg>
                 </div>
 
-                {/* Passenger Dropdown */}
                 {isPassengerDropdownOpen && (
-                  <div
+                  <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
@@ -277,9 +276,9 @@ export default function FlightBooking() {
                         </button>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 )}
-              </div>
+              </motion.div>
             </div>
 
             {/* Search Button */}
@@ -288,7 +287,17 @@ export default function FlightBooking() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
             >
-              <Link href="/scheduled-flight">
+              <Link
+                href={{
+                  pathname: "/scheduled-flight",
+                  query: {
+                    departure: getCityFromCode(departure) || "",
+                    arrival: getCityFromCode(arrival) || "",
+                    date: date || "",
+                    passengers: totalPassengers,
+                  },
+                }}
+              >
                 <Button className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-4 text-lg font-semibold rounded-lg flex items-center justify-center gap-3 hover:from-indigo-700 hover:to-blue-700 transition-all duration-300 shadow-md hover:shadow-lg">
                   <FaPlaneDeparture className="text-xl" /> Search Flights
                 </Button>
@@ -296,7 +305,7 @@ export default function FlightBooking() {
             </motion.div>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -4,7 +4,6 @@ import BASE_URL from '@/baseUrl/baseUrl';
 import React, { useState, useEffect } from 'react';
 
 const FlightsPage = () => {
-  // State for flights data (keeping all the previous state and functions unchanged)
   const [flights, setFlights] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
@@ -15,8 +14,6 @@ const FlightsPage = () => {
     seat_limit: 6,
     status: 1,
   });
-
-
 
   useEffect(() => {
     fetchFlights();
@@ -109,9 +106,55 @@ const FlightsPage = () => {
     }
   };
 
+  // Bulk activate all flights
+// Bulk activate all flights
+const activateAllFlights = async () => {
+  if (confirm('Are you sure you want to activate all flights?')) {
+    try {
+      const response = await fetch(`${BASE_URL}/flights/activate-all`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (response.ok) fetchFlights();
+    } catch (error) {
+      console.error('Error activating all flights:', error);
+    }
+  }
+};
+
+// Bulk edit all flights
+const editAllFlights = async () => {
+  const newSeatLimit = prompt('Enter new seat limit for all flights:');
+  if (newSeatLimit && !isNaN(newSeatLimit)) {
+    try {
+      const response = await fetch(`${BASE_URL}/flights/edit-all`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seat_limit: parseInt(newSeatLimit) }),
+      });
+      if (response.ok) fetchFlights();
+    } catch (error) {
+      console.error('Error editing all flights:', error);
+    }
+  }
+};
+
+// Bulk delete all flights
+const deleteAllFlights = async () => {
+  if (confirm('Are you sure you want to delete all flights?')) {
+    try {
+      const response = await fetch(`${BASE_URL}/flights/delete-all`, {
+        method: 'DELETE',
+      });
+      if (response.ok) fetchFlights();
+    } catch (error) {
+      console.error('Error deleting all flights:', error);
+    }
+  }
+};
+
   return (
     <div className="container mx-auto px-4 mt-4">
-      {/* Filters */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex space-x-2">
           <select className="border rounded p-2">
@@ -129,19 +172,29 @@ const FlightsPage = () => {
             <option>Inactive</option>
           </select>
         </div>
-        <button
-          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-          onClick={() => {
-            setIsEdit(false);
-            setFormData({ flight_number: '', departure_day: 'Monday', seat_limit: 6, status: 1 });
-            setShowModal(true);
-          }}
-        >
-          + Add Flights
-        </button>
+        <div className="flex space-x-2">
+          <button className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600" onClick={activateAllFlights}>
+            Activate All
+          </button>
+          <button className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600" onClick={editAllFlights}>
+            Edit All
+          </button>
+          <button className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600" onClick={deleteAllFlights}>
+            Delete All
+          </button>
+          <button
+            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+            onClick={() => {
+              setIsEdit(false);
+              setFormData({ flight_number: '', departure_day: 'Monday', seat_limit: 6, status: 1 });
+              setShowModal(true);
+            }}
+          >
+            + Add Flights
+          </button>
+        </div>
       </div>
-
-      {/* Table */}
+      {/* Rest of the component remains the same */}
       <div className="bg-white rounded shadow">
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">
@@ -207,8 +260,6 @@ const FlightsPage = () => {
           </table>
         </div>
       </div>
-
-      {/* Modal for Add/Edit Flight */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">

@@ -15,6 +15,6 @@ const SignInPage = () => {
   }, [setAuthState]);
 
   return <SignIn />;
-};
+}; 
 
 export default SignInPage;

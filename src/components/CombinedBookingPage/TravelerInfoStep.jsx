@@ -46,6 +46,47 @@ const TravelerInfoStep = ({ travelerDetails, setTravelerDetails, handleNextStep,
             </div>
           </div>
         </div>
+        <div>
+          <h3 className="font-medium text-gray-800">Contact Information</h3>
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className="block text-gray-700 mb-1">Email</label>
+              <input
+                type="email"
+                value={travelerDetails.email}
+                onChange={(e) => setTravelerDetails({ ...travelerDetails, email: e.target.value })}
+                className="w-full p-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            <div>
+              <label className="block text-gray-700 mb-1">Phone Number</label>
+              <input
+                type="tel"
+                value={travelerDetails.phoneNumber}
+                onChange={(e) => setTravelerDetails({ ...travelerDetails, phoneNumber: e.target.value })}
+                className="w-full p-2 border border-gray-300 rounded-md"
+              />
+            </div>
+          </div>
+        </div>
+        <div>
+
+          <div className="grid grid-cols-2 gap-4 mt-4">
+           
+            <div>
+              <label className="block text-gray-700 mb-1">Address City</label>
+              <input
+                type="text"
+                value={travelerDetails.city}
+                onChange={(e) => setTravelerDetails({ ...travelerDetails, city: e.target.value })}
+                className="w-full p-2 border border-gray-300 rounded-md"
+              />
+            </div>
+           
+           
+          
+          </div>
+        </div>
         <div className="flex justify-between mt-4">
           <button
             onClick={handlePreviousStep}

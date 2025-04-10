@@ -1,8 +1,7 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import FilterSidebar from "@/components/ScheduledFlight/FilterSidebar";
 import FlightCard from "@/components/ScheduledFlight/FlightCard";
 import Header2 from "@/components/ScheduledFlight/Header";
@@ -12,6 +11,7 @@ import BASE_URL from "@/baseUrl/baseUrl";
 
 const ScheduledFlightsPage = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { authState, setAuthState } = useAuth();
   const [flightSchedules, setFlightSchedules] = useState([]);
   const [flights, setFlights] = useState([]);
@@ -32,14 +32,29 @@ const ScheduledFlightsPage = () => {
   });
 
   useEffect(() => {
+    const departure = searchParams.get("departure") || "";
+    const arrival = searchParams.get("arrival") || "";
+    const date = searchParams.get("date") || "";
+    const passengers = parseInt(searchParams.get("passengers")) || 1;
+
+    setFilterDepartureCity(departure);
+    setFilterArrivalCity(arrival);
+    setFilterMinSeats(passengers);
+    setSearchCriteria({
+      departure,
+      arrival,
+      date,
+      passengers,
+    });
+
     const fetchData = async () => {
       try {
         const [flightSchedulesResponse, flightsResponse, airportsResponse] = await Promise.all([
-          fetch(`${BASE_URL}/flight-schedules`).then((res) => res.json()),
-          fetch(`${BASE_URL}/flights`).then((res) => res.json()),
+          fetch(`${BASE_URL}/flight-schedules?user=true`).then((res) => res.json()),
+          fetch(`${BASE_URL}/flights?user=true`).then((res) => res.json()),
           fetch(`${BASE_URL}/airport`).then((res) => res.json()),
         ]);
-  
+
         setFlightSchedules(flightSchedulesResponse || []);
         setFlights(flightsResponse || []);
         setAirports(airportsResponse || []);
@@ -48,26 +63,23 @@ const ScheduledFlightsPage = () => {
       }
     };
     fetchData();
-  }, []);
-  
+  }, [searchParams]);
 
   useEffect(() => {
-    const generateFlightDates = () => {
-      return flightSchedules.map((flightSchedule) => {
-        const departureDate = getNextWeekday(flightSchedule.departure_day);
-        const formattedDate = departureDate.toLocaleDateString("en-US");
-        return {
-          ...flightSchedule,
-          departure_date: formattedDate,
-        };
+    if (flightSchedules.length > 0 && flights.length > 0) {
+      const uniqueDates = new Set();
+      flightSchedules.forEach((flightSchedule) => {
+        const flight = flights.find((f) => f.id === flightSchedule.flight_id);
+        const departureDate = flight ? getNextWeekday(flight.departure_day) : new Date();
+        const formattedDate = departureDate.toISOString().split("T")[0];
+        uniqueDates.add(formattedDate);
       });
-    };
-
-    if (flightSchedules.length > 0) {
-      const flightsWithDates = generateFlightDates();
-      setFlightSchedules(flightsWithDates);
+      setDates([...uniqueDates].map((date) => ({
+        date,
+        day: new Date(date).toLocaleDateString("en-US", { weekday: "long" }),
+      })));
     }
-  }, [flightSchedules]);
+  }, [flightSchedules, flights]);
 
   const getFilteredAndSortedFlightSchedules = () => {
     return flightSchedules
@@ -75,6 +87,8 @@ const ScheduledFlightsPage = () => {
         const flight = flights.find((f) => f.id === flightSchedule.flight_id) || {};
         const departureAirport = airports.find((a) => a.id === flightSchedule.departure_airport_id) || { city: "Unknown" };
         const arrivalAirport = airports.find((a) => a.id === flightSchedule.arrival_airport_id) || { city: "Unknown" };
+        const departureDate = flight.departure_day ? getNextWeekday(flight.departure_day) : new Date();
+        const formattedDate = departureDate.toISOString().split("T")[0];
 
         const stopIds = flightSchedule.via_stop_id ? JSON.parse(flightSchedule.via_stop_id) : [];
         const routeCities = stopIds.map((id) => airports.find((a) => a.id === id)?.city || "Unknown");
@@ -93,6 +107,7 @@ const ScheduledFlightsPage = () => {
           departureCity: departureAirport.city,
           arrivalCity: arrivalAirport.city,
           isMultiStop,
+          departure_date: formattedDate, // Add departure_date here
         };
       })
       .filter((flightSchedule) => {
@@ -106,9 +121,19 @@ const ScheduledFlightsPage = () => {
         const matchesStatus = filterStatus === "All" || (filterStatus === "Scheduled" && status === 0) || (filterStatus === "Departed" && status === 1);
         const matchesSeats = seatLimit >= filterMinSeats;
         const matchesStops = filterStops === "All" || (filterStops !== "All" && stops.length === parseInt(filterStops));
-        const matchesSearchCriteria = (!searchCriteria.departure || departureCity === searchCriteria.departure) && (!searchCriteria.arrival || arrivalCity === searchCriteria.arrival) && (!searchCriteria.date || new Date(flightSchedule.departure_time).toLocaleDateString("zh-CN") === searchCriteria.date);
+        const matchesSearchCriteria =
+          (!searchCriteria.departure || departureCity === searchCriteria.departure) &&
+          (!searchCriteria.arrival || arrivalCity === searchCriteria.arrival) &&
+          (!searchCriteria.date || flightSchedule.departure_date === searchCriteria.date);
 
-        return (matchesDepartureCity || (isMultiStop && isValidDeparture)) && (matchesArrivalCity || (isMultiStop && isValidArrival)) && matchesStatus && matchesSeats && matchesStops && matchesSearchCriteria;
+        return (
+          (matchesDepartureCity || (isMultiStop && isValidDeparture)) &&
+          (matchesArrivalCity || (isMultiStop && isValidArrival)) &&
+          matchesStatus &&
+          matchesSeats &&
+          matchesStops &&
+          matchesSearchCriteria
+        );
       })
       .sort((a, b) => {
         if (sortOption === "Price: Low to High") return parseFloat(a.price || 0) - parseFloat(b.price || 0);
@@ -121,9 +146,8 @@ const ScheduledFlightsPage = () => {
   const filteredAndSortedFlightSchedules = getFilteredAndSortedFlightSchedules();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header2 />
-      <div className="py-12 px-4 sm:px-6 lg:px-8 flex gap-8 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 flex mt-20">
+      <div className="w-72 flex-shrink-0 overflow-y-auto h-screen">
         <FilterSidebar
           airports={airports}
           sortOption={sortOption}
@@ -145,10 +169,16 @@ const ScheduledFlightsPage = () => {
           dates={dates}
           selectedDate={searchCriteria.date}
           setSearchCriteria={setSearchCriteria}
-          className={`${isFilterOpen ? "block" : "hidden"} md:block`}
         />
+      </div>
 
-        <main className="flex-1">
+      <div className="flex-1 overflow-y-auto h-screen">
+
+        <div className="px-6">
+        <Header2 />
+        </div>
+  
+        <main className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
               Available Flights ({filteredAndSortedFlightSchedules.length})
@@ -165,22 +195,23 @@ const ScheduledFlightsPage = () => {
           </div>
 
           {filteredAndSortedFlightSchedules.length > 0 ? (
-            <div className="space-y-6 ">
+            <div className="space-y-6">
               {filteredAndSortedFlightSchedules.map((flightSchedule, index) => (
                 <FlightCard
-                  key={index}
-                  flightSchedule={flightSchedule}
-                  flights={flights}
-                  airports={airports}
-                  authState={authState}
-                  dates={dates.map((d) => d.date)}
-                  selectedDate={searchCriteria.date}
-                />
+                key={index}
+                flightSchedule={flightSchedule}
+                flights={flights}
+                airports={airports}
+                authState={authState}
+                dates={dates.map((d) => d.date)}
+                selectedDate={searchCriteria.date}
+                passengers={searchCriteria.passengers} // Pass passengers from filter
+              />
               ))}
             </div>
           ) : (
             <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No flights available matching your criteria.</p>
+              <p className="text-gray-500 text-lg">No active flights available matching your criteria.</p>
               <p className="text-gray-400 text-sm mt-2">Try adjusting your filters or search criteria.</p>
             </div>
           )}

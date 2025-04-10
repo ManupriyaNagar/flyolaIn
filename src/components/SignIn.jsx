@@ -1,5 +1,4 @@
-"use client";
-
+// SignIn Component
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
@@ -59,7 +58,6 @@ const SignIn = () => {
       setErrorMessage("An error occurred. Please try again.");
     }
   };
-  
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 mt-10">
@@ -69,15 +67,45 @@ const SignIn = () => {
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <Label htmlFor="email">Email</Label>
-              <Input type="email" id="email" placeholder="Enter your email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <Input
+                type="email"
+                id="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
             <div>
               <Label htmlFor="password">Password</Label>
-              <Input type="password" id="password" placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <Input
+                type="password"
+                id="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </div>
-            <Button className="w-full" type="submit">Sign In</Button>
+            <Button className="w-full" type="submit">
+              Sign In
+            </Button>
             {errorMessage && <p className="text-red-500 text-sm text-center mt-2">{errorMessage}</p>}
           </form>
+
+          <p className="text-center text-sm text-gray-300 mt-4">
+            Don't have an account?{" "}
+            <a
+              href="/sign-up"
+              className="text-blue-500"
+              onClick={(e) => {
+                e.preventDefault();
+                router.push("/sign-up"); // Add redirect to sign-up
+              }}
+            >
+              Sign Up
+            </a>
+          </p>
         </CardContent>
       </Card>
     </div>

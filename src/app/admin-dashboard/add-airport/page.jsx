@@ -13,7 +13,11 @@ const AddAirport = () => {
   useEffect(() => {
     fetch(`${BASE_URL}/airport`)
       .then((res) => res.json())
-      .then((data) => setAirports(data))
+      .then((data) => {
+        console.log("Fetched airports:", data);
+        const validAirports = data.filter((airport) => airport.id); // Filter out invalid entries
+        setAirports(validAirports);
+      })
       .catch((error) => console.error("Error fetching airports:", error));
   }, []);
 
@@ -48,7 +52,8 @@ const AddAirport = () => {
       })
         .then((response) => response.json())
         .then((newAirport) => {
-          setAirports([...airports, { ...airportData, id: newAirport.id }]);
+          console.log("New airport:", newAirport);
+          setAirports([...airports, { ...airportData, id: newAirport.id || Date.now() }]);
           setCity("");
           setAirportCode("");
           setAirportName("");
@@ -76,7 +81,6 @@ const AddAirport = () => {
 
   return (
     <div className="space-y-8">
-      {/* Form Section */}
       <div className="bg-white p-6 rounded-2xl shadow-lg">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">
           {editMode ? "Edit Airport" : "Add Airport"}
@@ -126,7 +130,6 @@ const AddAirport = () => {
         </form>
       </div>
 
-      {/* Airport List Section */}
       {airports.length > 0 && (
         <div className="bg-white p-6 rounded-2xl shadow-lg">
           <h3 className="text-xl font-semibold text-gray-800 mb-4">Airport List</h3>
@@ -142,7 +145,10 @@ const AddAirport = () => {
               </thead>
               <tbody>
                 {airports.map((airport) => (
-                  <tr key={airport.id} className="border-b hover:bg-gray-50">
+                  <tr
+                    key={airport.id || `${airport.airport_code}-${airport.city}`} // Fallback key
+                    className="border-b hover:bg-gray-50"
+                  >
                     <td className="p-3">{airport.city}</td>
                     <td className="p-3">{airport.airport_code}</td>
                     <td className="p-3">{airport.airport_name}</td>

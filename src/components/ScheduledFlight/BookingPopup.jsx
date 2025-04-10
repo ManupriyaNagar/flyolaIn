@@ -6,23 +6,23 @@ import { useState } from "react";
 const BookingPopup = ({ closePopup, passengerData, departure, arrival, selectedDate, flightSchedule }) => {
   const router = useRouter();
 
-  // Default passenger counts (can be overridden by props)
+
   const [passengers, setPassengers] = useState({
     adults: passengerData.adults || 1,
     children: passengerData.children || 0,
     infants: passengerData.infants || 0,
   });
 
-  // Assume flightSchedule contains price, departure_time, and arrival_time
-  const basePrice = parseFloat(flightSchedule.price || 0); // Base price per adult
-  const childDiscount = 0.5; // 50% discount for children
-  const infantFee = 10; // Small fee for infants
+  
+  const basePrice = parseFloat(flightSchedule.price || 0); 
+  const childDiscount = 0.5; 
+  const infantFee = 10; 
 
   // Calculate total price
   const calculateTotalPrice = () => {
-    const adultPrice = basePrice * passengers.adults;
-    const childPrice = basePrice * passengers.children * childDiscount;
-    const infantPrice = passengers.infants * infantFee;
+    const adultPrice = basePrice * passengerData.adults;
+    const childPrice = basePrice * passengerData.children * childDiscount;
+    const infantPrice = passengerData.infants * infantFee;
     return (adultPrice + childPrice + infantPrice).toFixed(2);
   };
 
@@ -56,7 +56,7 @@ const BookingPopup = ({ closePopup, passengerData, departure, arrival, selectedD
       };
       console.log("Booking data to store:", bookingData);
 
-      // Store booking data in localStorage
+
       if (typeof window !== "undefined") {
         localStorage.setItem("bookingData", JSON.stringify(bookingData));
         console.log("Booking data stored in localStorage");
@@ -84,7 +84,7 @@ const BookingPopup = ({ closePopup, passengerData, departure, arrival, selectedD
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg transform scale-100 transition-all duration-300 mb-44">
+    <div className=" rounded-xl shadow-2xl p-6 w-full max-w-md  transform  transition-all duration-300 ">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-gray-800">Book Your Flight</h2>
         <button
@@ -125,27 +125,21 @@ const BookingPopup = ({ closePopup, passengerData, departure, arrival, selectedD
 
         {/* Passenger Selection */}
         <div>
-          <p className="text-sm font-semibold text-gray-800 flex items-center gap-2 mb-3">
-            <FaUserFriends className="text-indigo-500" /> Select Passengers
-          </p>
-          <div className="grid grid-cols-3 gap-4">
-            {["adults", "children", "infants"].map((type) => (
-              <div key={type} className="flex flex-col">
-                <span className="text-xs text-gray-600 capitalize">{type}</span>
-                <select
-                  value={passengers[type]}
-                  onChange={(e) => handlePassengerChange(type, e.target.value)}
-                  className="w-full p-2 border border-gray-200 rounded-md bg-white focus:ring-2 focus:ring-indigo-400 focus:outline-none"
-                >
-                  {Array.from({ length: 6 }, (_, i) => (
-                    <option key={i} value={i}>{i}</option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-        </div>
-
+  <p className="text-sm font-semibold text-gray-800 flex items-center gap-2 mb-3">
+    <FaUserFriends className="text-indigo-500" /> Passengers (Fixed)
+  </p>
+  <div className="space-y-2">
+    <p className="flex items-center">
+      <span className="font-medium">Adults:</span> {passengerData.adults}
+    </p>
+    <p className="flex items-center">
+      <span className="font-medium">Children:</span> {passengerData.children}
+    </p>
+    <p className="flex items-center">
+      <span className="font-medium">Infants:</span> {passengerData.infants}
+    </p>
+  </div>
+</div>
         {/* Total Price and Confirm Button */}
         <div className="bg-gray-100 p-4 rounded-lg">
           <p className="text-sm font-semibold text-gray-800">

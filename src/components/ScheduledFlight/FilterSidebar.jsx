@@ -1,7 +1,8 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { FaFilter, FaTimes } from "react-icons/fa";
-
+import { getCurrentISTDate } from "@/utils/getCurrentISTDate"; 
 const FilterSidebar = ({
   airports,
   sortOption,
@@ -15,7 +16,7 @@ const FilterSidebar = ({
   filterMinSeats,
   setFilterMinSeats,
   filterStops,
-  setFilterStops, // New prop for stop filter
+  setFilterStops,
   isFilterOpen,
   setIsFilterOpen,
   authState,
@@ -26,11 +27,14 @@ const FilterSidebar = ({
 }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(authState.isLoggedIn);
 
+
+  const formattedDate = getCurrentISTDate();
+
+
+
   useEffect(() => {
     setIsLoggedIn(authState.isLoggedIn);
   }, [authState.isLoggedIn]);
-
-
 
   const handleDateChange = (e) => {
     const newDate = e.target.value;
@@ -38,9 +42,7 @@ const FilterSidebar = ({
   };
 
   return (
-    <aside
-      className={`fixed inset-y-0 left-0 transform ${isFilterOpen ? "translate-x-0" : "-translate-x-full"} w-64 bg-white shadow-lg p-6 transition-transform duration-300 ease-in-out z-20 md:static md:translate-x-0`}
-    >
+    <aside className={`bg-white shadow-lg p-6 h-full ${isFilterOpen ? "block" : "hidden"} md:block`}>
       <button
         className="md:hidden absolute top-4 right-4 text-gray-500 hover:text-gray-700"
         onClick={() => setIsFilterOpen(false)}
@@ -50,23 +52,22 @@ const FilterSidebar = ({
       <h2 className="text-xl font-semibold text-gray-800 mb-6">Filters</h2>
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-        <select
-          value={selectedDate || dates[0]?.date}
-          onChange={handleDateChange}
-          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          {dates.map((dateObj, index) => (
-            <option key={index} value={dateObj.date}>
-              {dateObj.date} ({dateObj.day})
-            </option>
-          ))}
-        </select>
+        <input
+  type="date"
+  value={selectedDate}
+  onChange={handleDateChange}
+  className="..."
+  min={formattedDate} // Use IST date from getCurrentISTDate()
+/>
       </div>
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">Departure</label>
         <select
           value={filterDepartureCity}
-          onChange={(e) => setFilterDepartureCity(e.target.value)}
+          onChange={(e) => {
+            setFilterDepartureCity(e.target.value);
+            setSearchCriteria((prev) => ({ ...prev, departure: e.target.value }));
+          }}
           className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           <option value="">All</option>
@@ -81,7 +82,10 @@ const FilterSidebar = ({
         <label className="block text-sm font-medium text-gray-700 mb-2">Arrival</label>
         <select
           value={filterArrivalCity}
-          onChange={(e) => setFilterArrivalCity(e.target.value)}
+          onChange={(e) => {
+            setFilterArrivalCity(e.target.value);
+            setSearchCriteria((prev) => ({ ...prev, arrival: e.target.value }));
+          }}
           className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           <option value="">All</option>
@@ -109,7 +113,11 @@ const FilterSidebar = ({
         <input
           type="number"
           value={filterMinSeats}
-          onChange={(e) => setFilterMinSeats(parseInt(e.target.value) || 0)}
+          onChange={(e) => {
+            const value = parseInt(e.target.value) || 0;
+            setFilterMinSeats(value);
+            setSearchCriteria((prev) => ({ ...prev, passengers: value }));
+          }}
           min="0"
           className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
@@ -139,7 +147,6 @@ const FilterSidebar = ({
           <option value="Departure Time">Departure Time</option>
         </select>
       </div>
-    
     </aside>
   );
 };

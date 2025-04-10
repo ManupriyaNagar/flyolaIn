@@ -1,6 +1,4 @@
 "use client";
-"use client";
-
 import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { FcGoogle } from "react-icons/fc";
 import { FaFacebook } from "react-icons/fa";
+import { useRouter } from "next/navigation";  // Corrected import
 
 const SignUp = () => {
   const [name, setName] = useState("");
@@ -15,8 +14,8 @@ const SignUp = () => {
   const [password, setPassword] = useState("");
   const [number, setNumber] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const router = useRouter();  // Initialize useRouter
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -125,7 +124,14 @@ const SignUp = () => {
 
           <p className="text-center text-sm text-gray-300 mt-4">
             Already have an account?{" "}
-            <a href="/sign-in" className="text-blue-500">
+            <a
+              href="/sign-in"
+              className="text-blue-500"
+              onClick={(e) => {
+                e.preventDefault();
+                router.push("/sign-in"); // Redirect to sign-in
+              }}
+            >
               Sign In
             </a>
           </p>

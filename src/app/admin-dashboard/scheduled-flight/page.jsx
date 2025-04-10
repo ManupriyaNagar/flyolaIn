@@ -12,59 +12,101 @@ const FlightSchedulePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-
-
-  // Fetch flights and schedules data
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [flightsResponse, schedulesResponse] = await Promise.all([
-          fetch(`${BASE_URL}/flights`),
-          fetch(`${BASE_URL}/flight-schedules`),
-        ]);
-
-        if (!flightsResponse.ok || !schedulesResponse.ok) {
-          throw new Error('Failed to fetch data from one or more endpoints');
-        }
-
-        const flights = await flightsResponse.json();
-        const schedules = await schedulesResponse.json();
-
-        // Combine data
-        const combinedData = schedules.map(schedule => {
-          const flight = flights.find(f => f.id === schedule.flight_id) || {};
-          const stops = flight.airport_stop_ids && flight.airport_stop_ids.length > 2 
-            ? 'REW, JABALPUR' 
-            : 'Direct';
-          return {
-            ...schedule,
-            flight_number: flight.flight_number || 'N/A',
-            departure_day: flight.departure_day || 'N/A',
-            startAirport: flight.start_airport_id ? `Airport ${flight.start_airport_id}` : 'N/A',
-            endAirport: flight.end_airport_id ? `Airport ${flight.end_airport_id}` : 'N/A',
-            price: schedule.price || 'N/A',
-            stops: stops,
-            status: schedule.status === 1 ? 'Active' : 'Inactive',
-            date: schedule.updated_at ? new Date(schedule.updated_at).toLocaleDateString('en-GB') : 'N/A',
-            departure_time: schedule.departure_time || 'N/A',
-            arrival_time: schedule.arrival_time || 'N/A',
-          };
-        });
-        setSchedules(combinedData);
-      } catch (err) {
-        console.error('Error fetching data:', err.message);
-        setError('Failed to load data. Please check the server or try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, []);
 
-  // Filter and search logic
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [flightsResponse, schedulesResponse] = await Promise.all([
+        fetch(`${BASE_URL}/flights`),
+        fetch(`${BASE_URL}/flight-schedules`),
+      ]);
+
+      if (!flightsResponse.ok || !schedulesResponse.ok) {
+        throw new Error('Failed to fetch data from one or more endpoints');
+      }
+
+      const flights = await flightsResponse.json();
+      const schedules = await schedulesResponse.json();
+
+      const combinedData = schedules.map(schedule => {
+        const flight = flights.find(f => f.id === schedule.flight_id) || {};
+        const stops = flight.airport_stop_ids && flight.airport_stop_ids.length > 2 
+          ? 'REW, JABALPUR' 
+          : 'Direct';
+        return {
+          ...schedule,
+          flight_number: flight.flight_number || 'N/A',
+          departure_day: flight.departure_day || 'N/A',
+          startAirport: flight.start_airport_id ? `Airport ${flight.start_airport_id}` : 'N/A',
+          endAirport: flight.end_airport_id ? `Airport ${flight.end_airport_id}` : 'N/A',
+          price: schedule.price || 'N/A',
+          stops: stops,
+          status: schedule.status === 1 ? 'Active' : 'Inactive',
+          date: schedule.updated_at ? new Date(schedule.updated_at).toLocaleDateString('en-GB') : 'N/A',
+          departure_time: schedule.departure_time || 'N/A',
+          arrival_time: schedule.arrival_time || 'N/A',
+        };
+      });
+      setSchedules(combinedData);
+    } catch (err) {
+      console.error('Error fetching data:', err.message);
+      setError('Failed to load data. Please check the server or try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Bulk activate all schedules
+// Bulk activate all schedules
+const activateAllSchedules = async () => {
+  if (confirm('Are you sure you want to activate all schedules?')) {
+    try {
+      const response = await fetch(`${BASE_URL}/flight-schedules/activate-all`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (response.ok) fetchData();
+    } catch (error) {
+      console.error('Error activating all schedules:', error);
+    }
+  }
+};
+
+// Bulk edit all schedules
+const editAllSchedules = async () => {
+  const newPrice = prompt('Enter new price for all schedules:');
+  if (newPrice && !isNaN(newPrice)) {
+    try {
+      const response = await fetch(`${BASE_URL}/flight-schedules/edit-all`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ price: parseFloat(newPrice) }),
+      });
+      if (response.ok) fetchData();
+    } catch (error) {
+      console.error('Error editing all schedules:', error);
+    }
+  }
+};
+
+// Bulk delete all schedules
+const deleteAllSchedules = async () => {
+  if (confirm('Are you sure you want to delete all schedules?')) {
+    try {
+      const response = await fetch(`${BASE_URL}/flight-schedules/delete-all`, {
+        method: 'DELETE',
+      });
+      if (response.ok) fetchData();
+    } catch (error) {
+      console.error('Error deleting all schedules:', error);
+    }
+  }
+};
+
   const filteredSchedules = schedules.filter(schedule => {
     const matchesDay = filterDay === 'All Days' || schedule.departure_day === filterDay;
     const matchesStatus = filterStatus === 'All' || 
@@ -76,7 +118,6 @@ const FlightSchedulePage = () => {
     return matchesDay && matchesStatus && matchesSearch;
   });
 
-  // Pagination
   const totalPages = Math.ceil(filteredSchedules.length / entriesPerPage);
   const [currentPage, setCurrentPage] = useState(1);
   const paginatedSchedules = filteredSchedules.slice(
@@ -89,7 +130,6 @@ const FlightSchedulePage = () => {
 
   return (
     <div className="container mx-auto px-4 py-6 bg-gray-50 min-h-screen">
-      {/* Filters */}
       <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow">
         <div className="flex space-x-4">
           <select
@@ -116,12 +156,22 @@ const FlightSchedulePage = () => {
             <option>All</option>
           </select>
         </div>
-        <button className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
-          + Add Schedule
-        </button>
+        <div className="flex space-x-2">
+          <button className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600" onClick={activateAllSchedules}>
+            Activate All
+          </button>
+          <button className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600" onClick={editAllSchedules}>
+            Edit All
+          </button>
+          <button className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600" onClick={deleteAllSchedules}>
+            Delete All
+          </button>
+          <button className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+            + Add Schedule
+          </button>
+        </div>
       </div>
-
-      {/* Table Controls */}
+      {/* Rest of the component remains the same */}
       <div className="flex justify-between items-center mb-4 bg-white p-4 rounded-lg shadow">
         <div className="flex items-center space-x-2">
           <span>Show</span>
@@ -147,8 +197,6 @@ const FlightSchedulePage = () => {
           />
         </div>
       </div>
-
-      {/* Table */}
       <div className="bg-white rounded-lg shadow overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead className="bg-gray-100">
@@ -202,8 +250,6 @@ const FlightSchedulePage = () => {
           </tbody>
         </table>
       </div>
-
-      {/* Pagination */}
       <div className="flex justify-between items-center mt-4">
         <span>
           Showing {(currentPage - 1) * entriesPerPage + 1} to{' '}
