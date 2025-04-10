@@ -1,5 +1,6 @@
+"use client";
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/router";
+import dynamic from "next/dynamic"; // Import dynamic for client-side rendering
 import FilterSidebar from "@/components/ScheduledFlight/FilterSidebar";
 import FlightCard from "@/components/ScheduledFlight/FlightCard";
 import Header2 from "@/components/ScheduledFlight/Header";
@@ -7,10 +8,14 @@ import { useAuth } from "@/components/AuthContext";
 import { getNextWeekday } from "@/lib/utils2";
 import BASE_URL from "@/baseUrl/baseUrl";
 
+// Dynamically import useRouter to ensure it's only used client-side
+const useRouter = dynamic(() => import("next/router").then((mod) => mod.useRouter), {
+  ssr: false, // Disable server-side rendering for this import
+});
+
 const ScheduledFlightsPage = () => {
-  const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
   const { authState, setAuthState } = useAuth();
-  
   const [flightSchedules, setFlightSchedules] = useState([]);
   const [flights, setFlights] = useState([]);
   const [airports, setAirports] = useState([]);
@@ -29,15 +34,15 @@ const ScheduledFlightsPage = () => {
     passengers: 1,
   });
 
-  const [isClient, setIsClient] = useState(false); // To track if the code is running client-side
+  // Initialize router only on client side
+  const router = typeof window !== "undefined" ? useRouter() : null;
 
   useEffect(() => {
-    // Set `isClient` to true once the component has mounted on the client
-    setIsClient(true);
+    setIsClient(true); // Mark as client-side after mount
   }, []);
 
   useEffect(() => {
-    if (!isClient) return; // Skip logic if not on the client-side
+    if (!isClient || !router) return; // Skip if not client-side or router is not available
 
     const { departure, arrival, date, passengers } = router.query;
 
@@ -67,8 +72,9 @@ const ScheduledFlightsPage = () => {
       }
     };
     fetchData();
-  }, [router.query, isClient]); // Trigger when `router.query` or `isClient` changes
+  }, [router?.query, isClient]); // Use optional chaining to safely access router.query
 
+  // Rest of your code remains the same...
   useEffect(() => {
     if (flightSchedules.length > 0 && flights.length > 0) {
       const uniqueDates = new Set();
@@ -111,7 +117,7 @@ const ScheduledFlightsPage = () => {
           departureCity: departureAirport.city,
           arrivalCity: arrivalAirport.city,
           isMultiStop,
-          departure_date: formattedDate, // Add departure_date here
+          departure_date: formattedDate,
         };
       })
       .filter((flightSchedule) => {
@@ -208,7 +214,7 @@ const ScheduledFlightsPage = () => {
                   authState={authState}
                   dates={dates.map((d) => d.date)}
                   selectedDate={searchCriteria.date}
-                  passengers={searchCriteria.passengers} // Pass passengers from filter
+                  passengers={searchCriteria.passengers}
                 />
               ))}
             </div>
