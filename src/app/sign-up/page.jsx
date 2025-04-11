@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { FcGoogle } from "react-icons/fc";
 import { FaFacebook } from "react-icons/fa";
 import { useRouter } from "next/navigation";  // Corrected import
+import BASE_URL from "@/baseUrl/baseUrl";
 
 const SignUp = () => {
   const [name, setName] = useState("");
@@ -18,22 +19,22 @@ const SignUp = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
     try {
-      const response = await fetch("http://localhost:4000/users/register", {
+      const response = await fetch(`${BASE_URL}/users/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ name, email, password, number }),
       });
-
+  
       const data = await response.json();
-
+  
       if (response.ok) {
         console.log("User registered successfully!");
-        console.log(data); // Handle the response, such as redirecting to login
-        window.location.href = "/sign-in"; // Redirect to the login page
+        console.log(data);
+        window.location.href = "/sign-in";
       } else {
         setErrorMessage(data.message);
         console.log("Registration failed:", data.message);

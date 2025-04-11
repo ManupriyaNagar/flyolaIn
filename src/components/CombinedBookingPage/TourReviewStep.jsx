@@ -1,5 +1,5 @@
-import React from 'react';
-import { FaPlane } from 'react-icons/fa';
+import React from "react";
+import { FaPlane } from "react-icons/fa";
 
 const TourReviewStep = ({ bookingData, handleNextStep, handlePreviousStep, step }) => {
   return (
@@ -14,7 +14,7 @@ const TourReviewStep = ({ bookingData, handleNextStep, handlePreviousStep, step 
             <div className="flex items-center">
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
                 <FaPlane className="text-blue-600" />
-              </div>
+              </div> 
               <div>
                 <div className="flex items-center">
                   <div className="font-medium text-gray-700">Departure</div>

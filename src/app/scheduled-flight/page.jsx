@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // Use App Router's useRouter
+import { useRouter } from "next/navigation";
 import FilterSidebar from "@/components/ScheduledFlight/FilterSidebar";
 import FlightCard from "@/components/ScheduledFlight/FlightCard";
 import Header2 from "@/components/ScheduledFlight/Header";
@@ -29,17 +29,15 @@ const ScheduledFlightsPage = () => {
     date: "",
     passengers: 1,
   });
-
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setIsClient(true); // Mark as client-side after mount
+    setIsClient(true);
   }, []);
 
   useEffect(() => {
-    if (!isClient) return; // Skip if not client-side
+    if (!isClient) return;
 
-    // Access searchParams in App Router using URLSearchParams
     const searchParams = new URLSearchParams(window.location.search);
     const departure = searchParams.get("departure") || "";
     const arrival = searchParams.get("arrival") || "";
@@ -64,35 +62,50 @@ const ScheduledFlightsPage = () => {
           fetch(`${BASE_URL}/airport`).then((res) => res.json()),
         ]);
 
-        setFlightSchedules(flightSchedulesResponse || []);
-        setFlights(flightsResponse || []);
-        setAirports(airportsResponse || []);
+        console.log("flightSchedulesResponse:", flightSchedulesResponse);
+        console.log("flightsResponse:", flightsResponse);
+        console.log("airportsResponse:", airportsResponse);
+
+        setFlightSchedules(Array.isArray(flightSchedulesResponse) ? flightSchedulesResponse : []);
+        setFlights(Array.isArray(flightsResponse) ? flightsResponse : []);
+        setAirports(Array.isArray(airportsResponse) ? airportsResponse : []);
       } catch (error) {
         console.error("Error fetching data:", error);
+        setFlightSchedules([]);
+        setFlights([]);
+        setAirports([]);
       }
     };
     fetchData();
-  }, [isClient]); // Depend only on isClient
+  }, [isClient]);
 
   useEffect(() => {
-    if (flightSchedules.length > 0 && flights.length > 0) {
-      const uniqueDates = new Set();
-      flightSchedules.forEach((flightSchedule) => {
-        const flight = flights.find((f) => f.id === flightSchedule.flight_id);
-        const departureDate = flight ? getNextWeekday(flight.departure_day) : new Date();
-        const formattedDate = departureDate.toISOString().split("T")[0];
-        uniqueDates.add(formattedDate);
-      });
-      setDates(
-        [...uniqueDates].map((date) => ({
-          date,
-          day: new Date(date).toLocaleDateString("en-US", { weekday: "long" }),
-        }))
-      );
+    if (!Array.isArray(flightSchedules) || !Array.isArray(flights) || flightSchedules.length === 0 || flights.length === 0) {
+      console.log("Skipping dates computation: flightSchedules or flights not ready");
+      setDates([]);
+      return;
     }
+
+    const uniqueDates = new Set();
+    flightSchedules.forEach((flightSchedule) => {
+      const flight = flights.find((f) => f.id === flightSchedule.flight_id);
+      const departureDate = flight ? getNextWeekday(flight.departure_day) : new Date();
+      const formattedDate = departureDate.toISOString().split("T")[0];
+      uniqueDates.add(formattedDate);
+    });
+    setDates(
+      [...uniqueDates].map((date) => ({
+        date,
+        day: new Date(date).toLocaleDateString("en-US", { weekday: "long" }),
+      }))
+    );
   }, [flightSchedules, flights]);
 
   const getFilteredAndSortedFlightSchedules = () => {
+    if (!Array.isArray(flightSchedules) || !Array.isArray(flights) || !Array.isArray(airports)) {
+      return [];
+    }
+
     return flightSchedules
       .map((flightSchedule) => {
         const flight = flights.find((f) => f.id === flightSchedule.flight_id) || {};
