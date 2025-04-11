@@ -6,7 +6,7 @@ const TravelerInfoStep = ({ travelerDetails, setTravelerDetails, handleNextStep,
     if (!title || !fullName || !dateOfBirth || !email || !phone || !address) {
       alert("Please fill in all required fields.");
       return;
-    } 
+    }
     if (!/\S+@\S+\.\S+/.test(email)) {
       alert("Please enter a valid email address.");
       return;
@@ -20,9 +20,7 @@ const TravelerInfoStep = ({ travelerDetails, setTravelerDetails, handleNextStep,
 
   return (
     <div className="w-full max-w-3xl bg-white p-6 rounded-lg shadow-lg mt-20">
-      <h2 className="text-2xl font-semibold text-indigo-700 mb-4">
-        Traveler Info
-      </h2>
+      <h2 className="text-2xl font-semibold text-indigo-700 mb-4">Traveler Info</h2>
       <div className="space-y-4">
         <div className="bg-green-100 p-4 rounded-lg mb-4">
           <p>Please fill in the traveler details below.</p>

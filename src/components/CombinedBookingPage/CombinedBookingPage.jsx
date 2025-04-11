@@ -36,8 +36,6 @@ const CombinedBookingPage = () => {
           });
         } else {
           console.error("No booking data found in localStorage");
-          // Optionally redirect back to flight selection if no data
-          // router.push("/scheduled-flights");
         }
       } catch (err) {
         console.error("Error parsing booking data from localStorage:", err);
@@ -54,7 +52,6 @@ const CombinedBookingPage = () => {
     if (step > 1) setStep(step - 1);
   };
 
-  // Only render if bookingData is available
   if (!bookingData) {
     return (
       <div className="flex flex-col items-center py-8 px-4 mt-40">
@@ -91,9 +88,7 @@ const CombinedBookingPage = () => {
       )}
       {step === 4 && (
         <div className="w-full max-w-3xl bg-white p-6 rounded-lg shadow-lg">
-          <h2 className="text-2xl font-semibold text-green-700 mb-4">
-            Booking Confirmed!
-          </h2>
+          <h2 className="text-2xl font-semibold text-green-700 mb-4">Booking Confirmed!</h2>
           <p>Your flight from {bookingData.departure} to {bookingData.arrival} has been booked successfully.</p>
         </div>
       )}

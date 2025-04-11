@@ -4,9 +4,7 @@ import { FaPlane } from "react-icons/fa";
 const TourReviewStep = ({ bookingData, handleNextStep, handlePreviousStep, step }) => {
   return (
     <div className="w-full max-w-3xl bg-white p-6 rounded-lg shadow-lg">
-      <h2 className="text-2xl font-semibold text-indigo-700 mb-4">
-        Tour Review
-      </h2>
+      <h2 className="text-2xl font-semibold text-indigo-700 mb-4">Tour Review</h2>
       <div className="space-y-4">
         <div>
           <h3 className="font-medium text-gray-800">Flight Detail</h3>
@@ -14,7 +12,7 @@ const TourReviewStep = ({ bookingData, handleNextStep, handlePreviousStep, step 
             <div className="flex items-center">
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
                 <FaPlane className="text-blue-600" />
-              </div> 
+              </div>
               <div>
                 <div className="flex items-center">
                   <div className="font-medium text-gray-700">Departure</div>
