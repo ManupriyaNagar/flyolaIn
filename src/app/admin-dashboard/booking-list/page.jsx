@@ -102,7 +102,7 @@ const Booking = () => {
                   <td className="px-6 py-4 whitespace-nowrap">{booking.noOfPassengers}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{booking.schedule_id}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    ${parseFloat(booking.totalFare).toFixed(2)}
+                    Rs {parseFloat(booking.totalFare).toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span

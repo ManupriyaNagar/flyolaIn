@@ -1,9 +1,8 @@
 "use client";
 
-import BASE_URL from '@/baseUrl/baseUrl';
 import React, { useState } from 'react';
 import { FaPlane, FaClock, FaUserFriends } from 'react-icons/fa';
-
+import BASE_URL from '@/baseUrl/baseUrl';
 
 const PaymentStep = ({ bookingData, travelerDetails, handlePreviousStep, onConfirm }) => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -27,19 +26,24 @@ const PaymentStep = ({ bookingData, travelerDetails, handlePreviousStep, onConfi
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded) throw new Error('Failed to load Razorpay SDK');
 
-      // Step 1: Create order on backend
+      console.log('Creating order with amount:', parseFloat(bookingData.totalPrice));
       const orderResponse = await fetch(`${BASE_URL}/payments/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: parseFloat(bookingData.totalPrice) }),
       });
-      if (!orderResponse.ok) throw new Error('Failed to create order');
-      const { order_id } = await orderResponse.json();
 
-      // Step 2: Open Razorpay checkout
+      if (!orderResponse.ok) {
+        const errorData = await orderResponse.json();
+        console.error('Order creation failed:', errorData);
+        throw new Error(errorData.details || errorData.error || 'Failed to create order');
+      }
+      const { order_id } = await orderResponse.json();
+      console.log('Order ID received:', order_id);
+
       const options = {
-        key: 'rzp_test_DiMiYr3VpklxK8', // Test key_id
-        amount: parseFloat(bookingData.totalPrice) * 100, // In paise
+        key: 'rzp_live_ZkjTCpioNNhl3g', // Updated to match dashboard
+        amount: parseFloat(bookingData.totalPrice) * 100,
         currency: 'INR',
         order_id: order_id,
         name: 'Flyola Aviation',
@@ -62,7 +66,7 @@ const PaymentStep = ({ bookingData, travelerDetails, handlePreviousStep, onConfi
               bookDate: bookingData.selectedDate,
               schedule_id: bookingData.id,
               totalFare: parseFloat(bookingData.totalPrice),
-              bookedUserId: 1, // Replace with auth user ID
+              bookedUserId: 1,
             },
             billing: {
               billing_name: `${travelerDetails.title} ${travelerDetails.fullName}`,
@@ -73,7 +77,7 @@ const PaymentStep = ({ bookingData, travelerDetails, handlePreviousStep, onConfi
               billing_state: 'Unknown',
               billing_pin_code: '000000',
               GST_Number: travelerDetails.gstNumber || null,
-              user_id: 1, // Replace with auth user ID
+              user_id: 1,
             },
             payment: {
               transaction_id: `TXN${Date.now()}`,
@@ -84,7 +88,7 @@ const PaymentStep = ({ bookingData, travelerDetails, handlePreviousStep, onConfi
               payment_mode: 'RAZORPAY',
               payment_amount: parseFloat(bookingData.totalPrice),
               message: 'Payment successful via Razorpay',
-              user_id: 1, // Replace with auth user ID
+              user_id: 1,
             },
           };
 
@@ -189,7 +193,6 @@ const PaymentStep = ({ bookingData, travelerDetails, handlePreviousStep, onConfi
 };
 
 export default PaymentStep;
-
 
 // import BASE_URL from '@/baseUrl/baseUrl';
 // import React, { useState } from 'react';
