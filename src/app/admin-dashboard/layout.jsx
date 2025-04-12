@@ -1,13 +1,41 @@
 "use client";
 
 import { useState } from "react";
-import { FaBars, FaHome, FaPlane, FaPlus, FaClock, FaBook, FaUsers, FaTimes } from 'react-icons/fa'; // Example using react-icons. Install with: npm install @react-icons/all-files
+import { usePathname } from "next/navigation";
+import {
+  FaBars,
+  FaHome,
+  FaPlane,
+  FaPlus,
+  FaClock,
+  FaBook,
+  FaUsers,
+  FaTimes,
+} from "react-icons/fa";
+
+// Function to remove trailing slashes
+const normalizePath = (path) => path.replace(/\/+$/, "");
 
 export default function AdminDashboardLayout({ children }) {
+  const pathname = usePathname();
+  const normalizedPathname = normalizePath(pathname);
   const [isSidebarVisible, setSidebarVisible] = useState(true);
 
+  // Updated helper function using normalized paths.
+  const isActive = (href) => {
+    const normalizedHref = normalizePath(href);
+    // For the Home link, ensure an exact match.
+    if (normalizedHref === "/admin-dashboard") {
+      return normalizedPathname === normalizedHref;
+    }
+    // For other links, check if the current path starts with the normalized href.
+    return normalizedPathname.startsWith(normalizedHref);
+  };
+
+  const activeClass = "bg-indigo-700 text-white";
+
   return (
-    <div className="flex min-h-screen  bg-gradient-to-br from-gray-50 to-indigo-100">
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-indigo-100">
       {/* Sidebar */}
       <aside
         className={`${
@@ -29,56 +57,69 @@ export default function AdminDashboardLayout({ children }) {
         <nav className="space-y-4 flex-1">
           <a
             href="/admin-dashboard"
-            className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors text-lg font-medium text-white hover:text-white"
+            className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
+              isActive("/admin-dashboard") ? activeClass : "hover:bg-indigo-700 text-white"
+            }`}
           >
             <FaHome className="text-indigo-300" />
             Home
           </a>
+
           <a
             href="/admin-dashboard/bookflight"
-            className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors text-lg font-medium text-white hover:text-white"
+            className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
+              isActive("/admin-dashboard/bookflight") ? activeClass : "hover:bg-indigo-700 text-white"
+            }`}
           >
             <FaPlane className="text-indigo-300" />
             Book Flight
           </a>
+
           <a
             href="/admin-dashboard/add-airport"
-            className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors text-lg font-medium text-white hover:text-white"
+            className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
+              isActive("/admin-dashboard/add-airport") ? activeClass : "hover:bg-indigo-700 text-white"
+            }`}
           >
             <FaPlus className="text-indigo-300" />
             Add Airport
           </a>
+
           <a
             href="/admin-dashboard/add-flight"
-            className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors text-lg font-medium text-white hover:text-white"
+            className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
+              isActive("/admin-dashboard/add-flight") ? activeClass : "hover:bg-indigo-700 text-white"
+            }`}
           >
             <FaPlus className="text-indigo-300" />
-           Flight
+            Flight
           </a>
+
           <a
             href="/admin-dashboard/scheduled-flight"
-            className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors text-lg font-medium text-white hover:text-white"
+            className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
+              isActive("/admin-dashboard/scheduled-flight") ? activeClass : "hover:bg-indigo-700 text-white"
+            }`}
           >
             <FaClock className="text-indigo-300" />
             Scheduled Flight
           </a>
-          <a
-            href="/admin-dashboard/scheduled-flight"
-            className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors text-lg font-medium text-white hover:text-white"
-          >
-            <FaPlane className="text-indigo-300" />
-             Flight
-          </a>
+
           <a
             href="/admin-dashboard/booking-list"
-            className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors text-lg font-medium text-white hover:text-white"
+            className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
+              isActive("/admin-dashboard/booking-list") ? activeClass : "hover:bg-indigo-700 text-white"
+            }`}
           >
             <FaBook className="text-indigo-300" />
             Booking List
           </a>
+
           <a
             href="/admin-dashboard/all-users"
-            className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors text-lg font-medium text-white hover:text-white"
+            className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
+              isActive("/admin-dashboard/all-users") ? activeClass : "hover:bg-indigo-700 text-white"
+            }`}
           >
             <FaUsers className="text-indigo-300" />
             Manage Users
