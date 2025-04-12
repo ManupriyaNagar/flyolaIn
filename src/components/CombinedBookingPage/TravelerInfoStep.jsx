@@ -2,8 +2,8 @@ import React from "react";
 
 const TravelerInfoStep = ({ travelerDetails, setTravelerDetails, handleNextStep, handlePreviousStep }) => {
   const handleSubmit = () => {
-    const { title, fullName, dateOfBirth, email, phone, address } = travelerDetails;
-    if (!title || !fullName || !dateOfBirth || !email || !phone || !address) {
+    const { title, fullName, dateOfBirth, email, phone } = travelerDetails;
+    if (!title || !fullName || !dateOfBirth) {
       alert("Please fill in all required fields.");
       return;
     }
@@ -79,20 +79,6 @@ const TravelerInfoStep = ({ travelerDetails, setTravelerDetails, handleNextStep,
                 type="tel"
                 value={travelerDetails.phone}
                 onChange={(e) => setTravelerDetails({ ...travelerDetails, phone: e.target.value })}
-                className="w-full p-2 border border-gray-300 rounded-md"
-              />
-            </div>
-          </div>
-        </div>
-        <div>
-          <h3 className="font-medium text-gray-800">Address</h3>
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <div>
-              <label className="block text-gray-700 mb-1">Address</label>
-              <input
-                type="text"
-                value={travelerDetails.address}
-                onChange={(e) => setTravelerDetails({ ...travelerDetails, address: e.target.value })}
                 className="w-full p-2 border border-gray-300 rounded-md"
               />
             </div>

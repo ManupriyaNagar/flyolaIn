@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import TourReviewStep from "./TourReviewStep";
 import TravelerInfoStep from "./TravelerInfoStep";
 import PaymentStep from "./PaymentStep";
+import TicketComponent from "./TicketComponent";
 
 const CombinedBookingPage = () => {
   const [step, setStep] = useState(1);
@@ -76,6 +77,7 @@ const CombinedBookingPage = () => {
           setTravelerDetails={setTravelerDetails}
           handleNextStep={handleNextStep}
           handlePreviousStep={handlePreviousStep}
+          bookingData={bookingData}
         />
       )}
       {step === 3 && (
@@ -87,10 +89,10 @@ const CombinedBookingPage = () => {
         />
       )}
       {step === 4 && (
-        <div className="w-full max-w-3xl bg-white p-6 rounded-lg shadow-lg">
-          <h2 className="text-2xl font-semibold text-green-700 mb-4">Booking Confirmed!</h2>
-          <p>Your flight from {bookingData.departure} to {bookingData.arrival} has been booked successfully.</p>
-        </div>
+        <TicketComponent
+          bookingData={bookingData}
+          travelerDetails={travelerDetails}
+        />
       )}
     </div>
   );
