@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import FilterSidebar from "@/components/ScheduledFlight/FilterSidebar";
@@ -170,8 +171,8 @@ const ScheduledFlightsPage = () => {
   const filteredAndSortedFlightSchedules = getFilteredAndSortedFlightSchedules();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex mt-20">
-      <div className="w-72 flex-shrink-0 overflow-y-auto h-screen">
+    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row mt-20">
+      <div className="w-full md:w-72 md:flex-shrink-0 overflow-y-auto h-auto md:h-screen bg-white shadow-lg md:sticky top-20">
         <FilterSidebar
           airports={airports}
           sortOption={sortOption}
@@ -196,18 +197,18 @@ const ScheduledFlightsPage = () => {
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto h-screen">
-        <div className="px-6">
+      <div className="flex-1 overflow-y-auto h-auto">
+        <div className="px-4 sm:px-6 lg:px-8">
           <Header2 />
         </div>
 
-        <main className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
+        <main className="py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row justify-between items-center mb-6">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-4 md:mb-0">
               Available Flights ({filteredAndSortedFlightSchedules.length})
             </h2>
             <button
-              className="md:hidden px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-blue-600 text-white rounded-lg text-sm font-semibold hover:from-indigo-600 hover:to-blue-700 transition-all duration-200 flex items-center gap-2"
+              className="md:hidden w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-indigo-500 to-blue-600 text-white rounded-lg text-sm font-semibold hover:from-indigo-600 hover:to-blue-700 transition-all duration-200 flex items-center gap-2"
               onClick={() => setIsFilterOpen(true)}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -238,8 +239,8 @@ const ScheduledFlightsPage = () => {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No active flights available matching your criteria.</p>
+            <div className="text-center py-6 sm:py-12">
+              <p className="text-gray-500 text-base sm:text-lg">No active flights available matching your criteria.</p>
               <p className="text-gray-400 text-sm mt-2">Try adjusting your filters or search criteria.</p>
             </div>
           )}
