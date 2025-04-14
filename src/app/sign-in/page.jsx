@@ -13,15 +13,12 @@ const SignInPage = () => {
   useEffect(() => {
     const token =
       localStorage.getItem("token") ||
-      document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("token="))
-        ?.split("=")[1];
+      document.cookie.split("; ").find((row) => row.startsWith("token="))?.split("=")[1];
 
     if (!token) {
       setAuthState({ isLoggedIn: false, userRole: null, user: null });
     }
-  }, [setAuthState]);
+  }, []);
 
   // Redirect after successful login
   useEffect(() => {
@@ -32,7 +29,7 @@ const SignInPage = () => {
         router.push("/user-dashboard");
       }
     }
-  }, [authState, router]);
+  }, [authState]);
 
   return <SignIn />;
 };
