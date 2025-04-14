@@ -10,13 +10,14 @@ import BASE_URL from "@/baseUrl/baseUrl";
 
 const BOOKINGS_PER_PAGE = 50;
 
-
 export default function AllBookingsPage() {
   const [allData, setAllData] = useState([]);
   const [status, setStatus] = useState("All");
   const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [airportMap, setAirportMap] = useState({});
+  const [downloadRange, setDownloadRange] = useState("page");
 
   // Debounced search handler
   const debouncedSearch = useCallback(
@@ -30,67 +31,80 @@ export default function AllBookingsPage() {
   // Fetch and merge all data
   useEffect(() => {
     async function fetchAllData() {
-        setIsLoading(true);
-        try {
-          const [bookingsRes, billingsRes, paymentsRes, passengersRes, bookedSeatRes] = await Promise.all([
-            fetch(`${BASE_URL}/bookings${status !== "All" ? `?status=${status}` : ""}`),
-            fetch(`${BASE_URL}/billings`),
-            fetch(`${BASE_URL}/payments`),
-            fetch(`${BASE_URL}/passenger`),
-            fetch(`${BASE_URL}/booked-seat`),
-          ]);
-      
-          if (
-            !bookingsRes.ok ||
-            !billingsRes.ok ||
-            !paymentsRes.ok ||
-            !passengersRes.ok ||
-            !bookedSeatRes.ok
-          ) {
-            throw new Error("Failed to fetch data");
-          }
-      
-          const [bookingsData, billingsData, paymentsData, passengersData, bookedSeatData] = await Promise.all([
-            bookingsRes.json(),
-            billingsRes.json(),
-            paymentsRes.json(),
-            passengersRes.json(),
-            bookedSeatRes.json(), // <--- Fixed: Use bookedSeatRes instead of bookedSeatData
-          ]);
-      
-          // Rest of the merging logic remains the same
-          const merged = bookingsData.map((booking) => {
-            const matchingSeat = bookedSeatData.find(
-              (seat) => seat.schedule_id === booking.schedule_id && seat.bookDate === booking.bookDate
-            );
-            const matchingPassengers = passengersData.filter((p) => p.bookingId === booking.id);
-            const matchingPayment = paymentsData.find((p) => p.booking_id === booking.id);
-            const matchingBilling = billingsData.find((b) => b.user_id === booking.bookedUserId);
-      
-            return {
-              ...booking,
-              FlightSchedule: matchingSeat?.FlightSchedule ?? {},
-              booked_seat: matchingSeat?.booked_seat ?? null,
-              passengers: matchingPassengers,
-              payment: matchingPayment ?? {},
-              billing: matchingBilling ?? {},
-              departureAirportId: matchingSeat?.FlightSchedule?.departure_airport_id ?? "N/A",
-              arrivalAirportId: matchingSeat?.FlightSchedule?.arrival_airport_id ?? "N/A",
-            };
-          });
-      
-          merged.sort(
-            (a, b) => new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime()
-          );
-          setAllData(merged);
-          setCurrentPage(1);
-        } catch (err) {
-          console.error("Error fetching data", err);
-          toast.error("Failed to load data. Please try again.");
-        } finally {
-          setIsLoading(false);
+      setIsLoading(true);
+      try {
+        const [bookingsRes, billingsRes, paymentsRes, passengersRes, bookedSeatRes, airportRes] = await Promise.all([
+          fetch(`${BASE_URL}/bookings${status !== "All" ? `?status=${status}` : ""}`),
+          fetch(`${BASE_URL}/billings`),
+          fetch(`${BASE_URL}/payments`),
+          fetch(`${BASE_URL}/passenger`),
+          fetch(`${BASE_URL}/booked-seat`),
+          fetch(`${BASE_URL}/airport`),
+        ]);
+
+        if (
+          !bookingsRes.ok ||
+          !billingsRes.ok ||
+          !paymentsRes.ok ||
+          !passengersRes.ok ||
+          !bookedSeatRes.ok ||
+          !airportRes.ok
+        ) {
+          throw new Error("Failed to fetch data");
         }
+
+        const [bookingsData, billingsData, paymentsData, passengersData, bookedSeatData, airportData] = await Promise.all([
+          bookingsRes.json(),
+          billingsRes.json(),
+          paymentsRes.json(),
+          passengersRes.json(),
+          bookedSeatRes.json(),
+          airportRes.json(),
+        ]);
+
+        // Build airport id -> name map
+        const map = {};
+        airportData.forEach((a) => {
+          map[a.id] = a.airport_name;
+        });
+        setAirportMap(map);
+
+        // Merge datasets
+        const merged = bookingsData.map((booking) => {
+          const matchingSeat = bookedSeatData.find(
+            (seat) => seat.schedule_id === booking.schedule_id && seat.bookDate === booking.bookDate
+          );
+          const matchingPassengers = passengersData.filter((p) => p.bookingId === booking.id);
+          const matchingPayment = paymentsData.find((p) => p.booking_id === booking.id);
+          const matchingBilling = billingsData.find((b) => b.user_id === booking.bookedUserId);
+
+          const depId = matchingSeat?.FlightSchedule?.departure_airport_id;
+          const arrId = matchingSeat?.FlightSchedule?.arrival_airport_id;
+
+          return {
+            ...booking,
+            FlightSchedule: matchingSeat?.FlightSchedule ?? {},
+            booked_seat: matchingSeat?.booked_seat ?? null,
+            passengers: matchingPassengers,
+            payment: matchingPayment ?? {},
+            billing: matchingBilling ?? {},
+            departureAirportName: map[depId] ?? depId ?? "N/A",
+            arrivalAirportName: map[arrId] ?? arrId ?? "N/A",
+          };
+        });
+
+        merged.sort(
+          (a, b) => new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime()
+        );
+        setAllData(merged);
+        setCurrentPage(1);
+      } catch (err) {
+        console.error("Error fetching data", err);
+        toast.error("Failed to load data. Please try again.");
+      } finally {
+        setIsLoading(false);
       }
+    }
     fetchAllData();
   }, [status]);
 
@@ -128,21 +142,50 @@ export default function AllBookingsPage() {
 
   // Excel export
   const exportToExcel = useCallback(() => {
-    const data = currentData.map((item) => ({
+    let exportData = [];
+    let filename = `AllBookings_Page_${currentPage}.xlsx`;
+
+    if (downloadRange === "page") {
+      exportData = currentData;
+    } else if (downloadRange === "all") {
+      exportData = filteredData;
+      filename = "AllBookings_AllData.xlsx";
+    } else if (downloadRange.startsWith("month-")) {
+      const [year, month] = downloadRange.split("-").slice(1);
+      exportData = filteredData.filter((item) => {
+        const date = new Date(item.bookDate);
+        return date.getFullYear() === parseInt(year) && date.getMonth() === parseInt(month) - 1;
+      });
+      filename = `AllBookings_${year}_${month}.xlsx`;
+    } else if (downloadRange.startsWith("year-")) {
+      const year = downloadRange.split("-")[1];
+      exportData = filteredData.filter((item) => {
+        const date = new Date(item.bookDate);
+        return date.getFullYear() === parseInt(year);
+      });
+      filename = `AllBookings_${year}.xlsx`;
+    }
+
+    if (!exportData.length) {
+      toast.warn("No data available for the selected range.");
+      return;
+    }
+
+    const data = exportData.map((item) => ({
       BookingId: item.bookingNo,
       PNR: item.pnr,
       FlyDate: new Date(item.bookDate).toLocaleDateString(),
       Email: item.email_id,
       ContactNumber: item.contact_no,
       Passengers: item.noOfPassengers,
-      PassengerNames: item.passengers.map((p) => p.name).join(", "),
+      PassengerNames: item.passengers.map((p) => p.name).join(", ") || "N/A",
       Sector: item.schedule_id,
       TotalFare: parseFloat(item.totalFare).toFixed(2),
       BookingStatus: item.bookingStatus,
       DepartureTime: item.FlightSchedule?.departure_time ?? "N/A",
       ArrivalTime: item.FlightSchedule?.arrival_time ?? "N/A",
-      DepartureAirportId: item.departureAirportId,
-      ArrivalAirportId: item.arrivalAirportId,
+      DepartureAirport: item.departureAirportName,
+      ArrivalAirport: item.arrivalAirportName,
       BookedSeats: item.booked_seat ?? "N/A",
       PaymentId: item.payment?.payment_id ?? "N/A",
       PaymentStatus: item.payment?.payment_status ?? "N/A",
@@ -157,9 +200,38 @@ export default function AllBookingsPage() {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "AllBookings");
-    XLSX.writeFile(wb, `AllBookings_Page_${currentPage}.xlsx`);
+    XLSX.writeFile(wb, filename);
     toast.success("Excel file downloaded successfully!");
-  }, [currentData]);
+  }, [currentData, filteredData, downloadRange]);
+
+  // Generate download range options
+  const downloadOptions = useMemo(() => {
+    const options = [{ value: "page", label: "Current Page" }, { value: "all", label: "All Data" }];
+    
+    // Extract unique years and months from data
+    const yearMonthMap = new Map();
+    filteredData.forEach((item) => {
+      const date = new Date(item.bookDate);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      if (!yearMonthMap.has(year)) {
+        yearMonthMap.set(year, new Set());
+      }
+      yearMonthMap.get(year).add(month);
+    });
+
+    // Add year options
+    yearMonthMap.forEach((months, year) => {
+      options.push({ value: `year-${year}`, label: `Year ${year}` });
+      // Add month options for each year
+      months.forEach((month) => {
+        const monthName = new Date(0, month - 1).toLocaleString("default", { month: "long" });
+        options.push({ value: `month-${year}-${month}`, label: `${monthName} ${year}` });
+      });
+    });
+
+    return options;
+  }, [filteredData]);
 
   // Pagination with ellipsis
   const getPaginationItems = () => {
@@ -241,21 +313,35 @@ export default function AllBookingsPage() {
 
       {/* Export and Info */}
       <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
-        <button
-          onClick={exportToExcel}
-          className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 shadow-sm flex items-center gap-2"
-          aria-label="Download current page as Excel"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H3a2 2 0 01-2-2V3a2 2 0 012-2h18a2 2 0 012 2v16a2 2 0 01-2 2z"
-            />
-          </svg>
-          Download Excel
-        </button>
+        <div className="flex items-center gap-4">
+          <select
+            value={downloadRange}
+            onChange={(e) => setDownloadRange(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Select download range"
+          >
+            {downloadOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={exportToExcel}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 shadow-sm flex items-center gap-2"
+            aria-label="Download as Excel"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H3a2 2 0 01-2-2V3a2 2 0 012-2h18a2 2 0 012 2v16a2 2 0 01-2 2z"
+              />
+            </svg>
+            Download Excel
+          </button>
+        </div>
         <span className="text-sm text-gray-600">
           Showing {(currentPage - 1) * BOOKINGS_PER_PAGE + 1}–
           {Math.min(currentPage * BOOKINGS_PER_PAGE, filteredData.length)} of {filteredData.length} records
@@ -347,7 +433,7 @@ export default function AllBookingsPage() {
                     {new Date(item.bookDate).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.email_id}</td>
-                  <td className="px- by-4 whitespace-nowrap">{item.contact_no}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{item.contact_no}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.noOfPassengers}</td>
                   <td className="px-6 py-4">
                     {item.passengers.map((p) => p.name).join(", ") || "N/A"}
@@ -377,8 +463,8 @@ export default function AllBookingsPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     {item.FlightSchedule?.arrival_time || "N/A"}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{item.departureAirportId}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{item.arrivalAirportId}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{item.departureAirportName}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{item.arrivalAirportName}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.booked_seat || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {item.payment?.payment_id || "N/A"}
