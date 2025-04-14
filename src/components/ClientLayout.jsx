@@ -1,4 +1,3 @@
-// components/ClientLayout.jsx
 "use client";
 
 import { usePathname } from "next/navigation";
@@ -14,7 +13,7 @@ export default function ClientLayout({ children }) {
 
   return (
     <AuthProvider>
-      {!isDashboard && <Header className="mb-10" />}
+      <Header className="mb-10" />
       {children}
       {!isDashboard && <Footer />}
     </AuthProvider>

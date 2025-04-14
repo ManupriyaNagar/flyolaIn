@@ -1,18 +1,17 @@
-// SignIn Component
+"use client";
+
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useAuth } from "./AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "./AuthContext";
 import BASE_URL from "@/baseUrl/baseUrl";
 
 const SignIn = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const router = useRouter();
   const { setAuthState } = useAuth();
 
   const handleSubmit = async (e) => {
@@ -24,32 +23,25 @@ const SignIn = () => {
         body: JSON.stringify({ email, password }),
         credentials: "include",
       });
+
       const data = await response.json();
       console.log("Login response:", data);
-  
+
       if (response.ok) {
         const token = data.token;
         const role = data.role;
-  
-        document.cookie = `token=${token}; path=/; max-age=3600; samesite=strict`;
+
+        // Save cookie and localStorage
+        document.cookie = `token=${token}; path=/; max-age=3600; SameSite=Lax; Secure`;
         localStorage.setItem("token", token);
         localStorage.setItem("authState", JSON.stringify({ isLoggedIn: true, userRole: role }));
-  
+
+        // Update context
         setAuthState({
           isLoggedIn: true,
           userRole: role,
           user: { email, role },
         });
-  
-        // Directly redirect after state update
-        if (role === 1) {
-          router.push("/admin-dashboard");
-        } else if (role === 3) {
-          router.push("/user-dashboard");
-        } else {
-          router.push("/sign-in");
-          setErrorMessage("Invalid role. Please contact support.");
-        }
       } else {
         setErrorMessage(data.error || "Login failed");
       }
@@ -100,7 +92,7 @@ const SignIn = () => {
               className="text-blue-500"
               onClick={(e) => {
                 e.preventDefault();
-                router.push("/sign-up"); // Add redirect to sign-up
+                window.location.href = "/sign-up";
               }}
             >
               Sign Up
