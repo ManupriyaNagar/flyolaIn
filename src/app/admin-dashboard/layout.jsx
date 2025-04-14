@@ -124,6 +124,17 @@ export default function AdminDashboardLayout({ children }) {
             <FaUsers className="text-indigo-300" />
             Manage Users
           </a>
+
+
+          <a
+            href="/admin-dashboard/booking-data"
+            className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
+              isActive("/admin-dashboard/booking-data") ? activeClass : "hover:bg-indigo-700 text-white"
+            }`}
+          >
+            <FaClock className="text-indigo-300" />
+          Booking data
+          </a>
         </nav>
       </aside>
 
