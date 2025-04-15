@@ -5,15 +5,15 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 
 const cities = [
-  { code: "BHO", image: "/1.png", name: "Raja Bhoj Airport" },
-  { code: "JLR", image: "/2.png", name: "Jabalpur Airport" },
-  { code: "HJR", image: "/3.png", name: "Khajuraho Airport" },
-  { code: "GWL", image: "/4.png", name: "Gwalior Airport" },
-  { code: "IDR", image: "/1.png", name: "Devi Ahilyabai Holkar Airport" },
-  { code: "SGR", image: "/2.png", name: "Singrauli Airport" },
-  { code: "REW", image: "/3.png", name: "Rewari Airport" },
-  { code: "UJN", image: "/4.png", name: "Ujjain Airport" },
-  { code: "TNI", image: "/1.png", name: "Bharhut Airport Satna" },
+  { code: "BHO", image: "/f1.png", name: "Raja Bhoj Airport" },
+  { code: "JLR", image: "/f2.png", name: "Jabalpur Airport" },
+  { code: "HJR", image: "/f3.png", name: "Khajuraho Airport" },
+  { code: "GWL", image: "/f4.png", name: "Gwalior Airport" },
+  { code: "IDR", image: "/f5.png", name: "Devi Ahilyabai Holkar Airport" },
+  { code: "SGR", image: "/f6.png", name: "Singrauli Airport" },
+  { code: "REW", image: "/f7.png", name: "Rewari Airport" },
+  { code: "UJN", image: "/f8.png", name: "Ujjain Airport" },
+  { code: "TNI", image: "/f9.png", name: "Bharhut Airport Satna" },
 
 
   

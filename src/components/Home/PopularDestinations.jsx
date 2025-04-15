@@ -6,31 +6,31 @@ import Image from "next/image";
 const destinations = [
   {
     image:
-      "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=3540&auto=format&fit=crop",
+      "f2.png",
     tilt: -10, // Tilt to the left
     zIndex: 1,
   },
   {
     image:
-      "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=3540&auto=format&fit=crop",
+      "f6.png",
     tilt: 5, // Slight tilt to the right
     zIndex: 2,
   },
   {
     image:
-      "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=3540&auto=format&fit=crop",
+      "f5.png",
     tilt: 0, // Straight (center card)
     zIndex: 3,
   },
   {
     image:
-      "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=3540&auto=format&fit=crop",
+      "f4.png",
     tilt: -5, // Slight tilt to the left
     zIndex: 2,
   },
   {
     image:
-      "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?q=80&w=3540&auto=format&fit=crop",
+      "f3.png",
     tilt: 10, // Tilt to the right
     zIndex: 1,
   },

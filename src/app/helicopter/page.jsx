@@ -10,19 +10,19 @@ export default function HelicopterHirePage() {
     {
       title: "Luxury Sky Tour",
       description: "Experience breathtaking views from above",
-      src: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=3540&auto=format&fit=crop",
+      src: "/1.png",
       button: "Book Now",
     },
     {
       title: "City Escape",
       description: "Quick getaways over urban landscapes",
-      src: "https://images.unsplash.com/photo-1565793298595-6a8721410033?q=80&w=3540&auto=format&fit=crop",
+      src: "/2.png",
       button: "Reserve Flight",
     },
     {
       title: "Mountain Adventure",
       description: "Soar above majestic peaks",
-      src: "https://images.unsplash.com/photo-1619985731469-7d7188d8a867?q=80&w=3540&auto=format&fit=crop",
+      src: "5.png",
       button: "Schedule Now",
     },
   ];
@@ -50,6 +50,12 @@ export default function HelicopterHirePage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
+        <div className="bg-gray-100 py-16 px-6 text-center mt-20">
+      <h2 className="text-4xl font-bold text-gray-800 mb-4">Helicopter Charter</h2>
+      <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-10">
+      Jet Serve Aviation offers swift and versatile helicopter charter services—ideal for short-distance travel, remote access, and scenic aerial experiences. With the same standard of luxury, safety, and precision, our helicopter charters provide unmatched flexibility for business, leisure, and emergency travel needs.
+      </p>
+      </div>
       {/* Hero Section with Carousel */}
       <section className="relative w-full h-[700px] bg-gradient-to-b from-gray-900 to-gray-800">
         <div className="relative h-full">

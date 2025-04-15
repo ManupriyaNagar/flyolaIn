@@ -11,7 +11,7 @@ import { useAuth } from "./AuthContext";
 const NAV_ITEMS = [
   { name: "Personal Charter", path: "/personalchater" },
   { name: "Hire Charter", path: "/hirecharter" },
-  { name: "Business Class Charter", path: "/businessclass" },
+  { name: "Business Class Charter", path: "/business-class" },
   { name: "Jet Hire", path: "/jet-hire" },
   { name: "Helicopter Hire", path: "/helicopter" },
   { name: "Download Tickets", path: "/tickets" },

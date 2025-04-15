@@ -65,8 +65,9 @@ export default function FlightBooking() {
 
   return (
     <div
-      className="relative flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-4 mt-20"
+      className="relative flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-4 mt-20 "
       style={{
+        opacity:"15",
         backgroundImage: "url('/back.jpg')",
         backgroundSize: "cover",
         backgroundPosition: "center",
@@ -81,6 +82,7 @@ export default function FlightBooking() {
       >
         <Card className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl border border-gray-200 m-40 py-14 px-14">
           <CardContent className="p-8 flex flex-col gap-6">
+            {/* <h1 className="text-center text-3xl text-orange-500 bg-amber-700">CHARDHAM YATRA</h1> */}
             <h1 className="text-3xl md:text-4xl font-bold text-center text-gray-800">
               Book Your Flight with Flyola
             </h1>
@@ -280,6 +282,27 @@ export default function FlightBooking() {
                 )}
               </motion.div>
             </div>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
+              <Link
+                href={{
+                  pathname: "/",
+                  query: {
+                    departure: getCityFromCode(departure) || "",
+                    arrival: getCityFromCode(arrival) || "",
+                    date: date || "",
+                    passengers: totalPassengers,
+                  },
+                }}
+              >
+                <Button className="w-full bg-gradient-to-r from-orange-600 to-yellow-600 text-white py-4 text-lg font-semibold rounded-lg flex items-center justify-center gap-3 hover:from-orange-700 hover:to-red-700 transition-all duration-300 shadow-md hover:shadow-lg">
+                  <FaPlaneDeparture className="text-xl" /> CHARDHAM YATRA
+                </Button>
+              </Link>
+            </motion.div>
 
             {/* Search Button */}
             <motion.div

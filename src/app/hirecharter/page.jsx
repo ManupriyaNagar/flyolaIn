@@ -5,53 +5,54 @@ import { Button } from '@/components/ui/button';
 
 export const services = [
   {
-    title: 'Stripe',
+    title: 'Business Charter',
     description:
-      'A technology company that builds economic infrastructure for the internet.',
-    link: 'https://stripe.com',
+      'Seamlessly tailored for executives and professionals, our business charters ensure punctuality, privacy, and productivity at 40,000 feet.',
+    link: '/charters/business',
     image: '/1.png',
   },
   {
-    title: 'Netflix',
+    title: 'Leisure Charter',
     description:
-      'A streaming service that offers a wide variety of award-winning TV shows, movies, anime, documentaries, and more.',
-    link: 'https://netflix.com',
+      'Indulge in stress-free travel to your favorite getaways with our luxury leisure charters, crafted for comfort and convenience.',
+    link: '/charters/leisure',
     image: '/2.png',
   },
   {
-    title: 'Google',
+    title: 'Medical Evacuation',
     description:
-      'A multinational technology company that specializes in Internet-related services and products.',
-    link: 'https://google.com',
-    image: '/3.png',
+      'Fast, safe, and discreet air ambulance services with medically-equipped jets and professional healthcare staff onboard.',
+    link: '/charters/medevac',
+    image: '/9.png',
   },
   {
-    title: 'Meta',
+    title: 'Group Charter',
     description:
-      'A technology company that focuses on building products that advance Facebook’s mission of bringing the world closer together.',
-    link: 'https://meta.com',
-    image: '/4.png',
+      'Perfect for corporate retreats, destination weddings, or sports teams—our group charters offer space, luxury, and coordination.',
+    link: '/charters/group',
+    image: '/8.png',
   },
   {
-    title: 'Amazon',
+    title: 'VIP Charter',
     description:
-      'A multinational technology company focusing on e-commerce, cloud computing, digital streaming, and artificial intelligence.',
-    link: 'https://amazon.com',
-    image: '/1.png',
+      'Fly in absolute privacy and elegance with our VIP charter service, tailored to the lifestyle of high-net-worth individuals and celebrities.',
+    link: '/charters/vip',
+    image: '/7.png',
   },
   {
-    title: 'Microsoft',
+    title: 'Cargo Charter',
     description:
-      'A multinational technology company that develops, manufactures, licenses, supports, and sells computer software and services.',
-    link: 'https://microsoft.com',
-    image: '/1.png',
+      'Efficient, on-demand air cargo solutions for urgent and high-value shipments—delivered with care and precision.',
+    link: '/charters/cargo',
+    image: '/6.png',
   },
 ];
 
+
 export default function HireCharter() {
   return (
-    <div className="bg-gray-50 py-20 px-6 text-center">
-      <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 tracking-tight">
+    <div className="bg-gray-100 py-20 px-6 text-center mt-10">
+      <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6 tracking-tight">
         Hire Charter
       </h2>
       <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-12 leading-relaxed">
