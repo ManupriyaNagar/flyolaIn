@@ -13,7 +13,8 @@ export default function ClientLayout({ children }) {
 
   return (
     <AuthProvider>
-      <Header className="mb-10" />
+
+{!isDashboard && <Header />}
       {children}
       {!isDashboard && <Footer />}
     </AuthProvider>

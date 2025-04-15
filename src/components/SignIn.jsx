@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "./AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ const SignIn = () => {
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const { setAuthState } = useAuth();
+  const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,7 +25,6 @@ const SignIn = () => {
         body: JSON.stringify({ email, password }),
         credentials: "include",
       });
-
       const data = await response.json();
       console.log("Login response:", data);
 
@@ -31,17 +32,24 @@ const SignIn = () => {
         const token = data.token;
         const role = data.role;
 
-        // Save cookie and localStorage
-        document.cookie = `token=${token}; path=/; max-age=3600; SameSite=Lax; Secure`;
+        // Save the token in localStorage for quick client access
         localStorage.setItem("token", token);
-        localStorage.setItem("authState", JSON.stringify({ isLoggedIn: true, userRole: role }));
 
-        // Update context
+        // Update the auth context immediately
         setAuthState({
           isLoggedIn: true,
           userRole: role,
           user: { email, role },
         });
+
+        // Redirect immediately based on user role
+        if (Number(role) === 1) {
+          router.push("/admin-dashboard");
+        } else if (Number(role) === 3) {
+          router.push("/scheduled-flight");
+        } else {
+          router.push("/"); // Fallback redirection
+        }
       } else {
         setErrorMessage(data.error || "Login failed");
       }
@@ -82,22 +90,33 @@ const SignIn = () => {
             <Button className="w-full" type="submit">
               Sign In
             </Button>
-            {errorMessage && <p className="text-red-500 text-sm text-center mt-2">{errorMessage}</p>}
+            {errorMessage && (
+              <p className="text-red-500 text-sm text-center mt-2">{errorMessage}</p>
+            )}
           </form>
-
-          <p className="text-center text-sm text-gray-300 mt-4">
-            Don't have an account?{" "}
+          <div className="mt-4 text-center text-sm">
             <a
-              href="/sign-up"
-              className="text-blue-500"
+              href="/forgot-password"
+              className="text-blue-500 mr-2"
               onClick={(e) => {
                 e.preventDefault();
-                window.location.href = "/sign-up";
+                router.push("/forgot-password");
+              }}
+            >
+              Forgot Password?
+            </a>
+            <span className="text-gray-300">|</span>
+            <a
+              href="/sign-up"
+              className="text-blue-500 ml-2"
+              onClick={(e) => {
+                e.preventDefault();
+                router.push("/sign-up");
               }}
             >
               Sign Up
             </a>
-          </p>
+          </div>
         </CardContent>
       </Card>
     </div>

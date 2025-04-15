@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FaPlane, FaClock, FaUserFriends, FaCheckCircle } from "react-icons/fa";
 import BookingPopup from "./BookingPopup";
 import { motion } from "framer-motion";
+import BASE_URL from "@/baseUrl/baseUrl";
 
-// Utility functions (unchanged)
 function getNextWeekday(weekday) {
   const weekdayMap = {
     Sunday: 0,
@@ -44,8 +44,27 @@ function convertUTCToIST(timeStr) {
 const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selectedDate, passengers }) => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [isCardActive, setIsCardActive] = useState(false);
+  const [availableSeats, setAvailableSeats] = useState(flightSchedule.availableSeats ?? 0);
 
-  // Find flight and validate status
+  // Fetch latest seat availability
+  useEffect(() => {
+    const fetchSeats = async () => {
+      try {
+        const response = await fetch(
+          `${BASE_URL}/flight-schedules?user=true&date=${selectedDate}`
+        );
+        const schedules = await response.json();
+        const updatedSchedule = schedules.find((fs) => fs.id === flightSchedule.id);
+        if (updatedSchedule) {
+          setAvailableSeats(updatedSchedule.availableSeats ?? 0);
+        }
+      } catch (err) {
+        console.error("Error fetching seat availability:", err);
+      }
+    };
+    fetchSeats();
+  }, [flightSchedule.id, selectedDate]);
+
   const flight = flights.find((f) => f.id === flightSchedule.flight_id) || {
     id: flightSchedule.flight_id,
     flight_number: "Unknown",
@@ -58,7 +77,6 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
     return null;
   }
 
-  // Retrieve airport data
   const departureAirport = airports.find((airport) => airport.id === flightSchedule.departure_airport_id) || {
     city: "Unknown",
     airport_code: "UNK",
@@ -87,6 +105,10 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
       alert("Please log in to book a flight. Only logged-in users can book.");
       return;
     }
+    if (availableSeats < passengers) {
+      alert(`Only ${availableSeats} seat(s) left. Please reduce the number of passengers.`);
+      return;
+    }
     setIsCardActive(true);
     setIsPopupOpen(true);
   };
@@ -99,10 +121,6 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
   return (
     <motion.div
       className={
-        // Mobile-first styling:
-        // • A new gradient background (purple-to-indigo) to enhance the mobile look
-        // • Generous default padding and rounded corners for a modern card feel
-        // Desktop view (md:) reverts back to your original gradient and adjustments.
         "relative w-full md:max-w-full max-w-2xl mx-auto rounded-xl shadow-lg transition-all duration-300 border border-gray-100 " +
         "bg-gradient-to-b from-purple-50 to-indigo-50 md:bg-gradient-to-br md:from-white md:to-gray-50 " +
         "p-6 transform hover:-translate-y-2"
@@ -112,7 +130,6 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
       transition={{ duration: 0.5 }}
     >
       <div className="flex flex-col md:flex-row md:justify-center md:items-center space-y-6 md:space-y-0 md:gap-6">
-        {/* Logo and Flight Info */}
         <div className="flex items-center gap-4">
           <motion.img
             src="./pp.svg"
@@ -130,8 +147,6 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
             </p>
           </div>
         </div>
-
-        {/* Flight Route and Time */}
         <div className="flex-1 text-center space-y-3">
           <p className="text-base font-semibold text-gray-800 flex items-center justify-center gap-2 bg-white/90 p-2 rounded-lg shadow-inner">
             <FaClock className="text-gray-600" />
@@ -160,12 +175,11 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
             <FaCheckCircle /> {stopText}
           </p>
         </div>
-
-        {/* Price and Book Button */}
         <div className="text-right space-y-4">
           <div className="bg-white/90 p-3 rounded-lg shadow-inner">
             <p className="text-sm text-gray-600 flex items-center justify-end gap-2">
-              <FaUserFriends className="text-gray-500" /> Seats: {flight.seat_limit}
+              <FaUserFriends className="text-gray-500" />
+              Seats left: {availableSeats}
             </p>
             <p className="text-xl font-bold text-gray-900 flex items-center justify-end gap-2">
               INR {parseFloat(flightSchedule.price || 0).toFixed(2)}
@@ -174,32 +188,33 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
           </div>
           <motion.button
             onClick={handleBookNowClick}
-            className="w-full md:w-auto px-4 py-3 bg-gradient-to-r from-indigo-500 to-blue-600 text-white rounded-lg text-base font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            className={`w-full md:w-auto px-4 py-3 bg-gradient-to-r from-indigo-500 to-blue-600 text-white rounded-lg text-base font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 ${
+              availableSeats < passengers ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+            whileHover={{ scale: availableSeats < passengers ? 1 : 1.05 }}
+            whileTap={{ scale: availableSeats < passengers ? 1 : 0.95 }}
+            disabled={availableSeats < passengers}
           >
             Book Now
           </motion.button>
         </div>
       </div>
-
       {isPopupOpen && (
-  <div className=" inset-0 relative flex justify-center items-center  z-50">
-    <BookingPopup
-      closePopup={closePopup}
-      passengerData={{
-        adults: passengers,
-        children: 0,
-        infants: 0,
-      }}
-      departure={departureAirport.city}
-      arrival={arrivalAirport.city}
-      selectedDate={flightSchedule.departure_date || selectedDate}
-      flightSchedule={flightSchedule}
-    />
-  </div>
-)}
-
+        <div className="inset-0 relative flex justify-center items-center z-50">
+          <BookingPopup
+            closePopup={closePopup}
+            passengerData={{
+              adults: passengers,
+              children: 0,
+              infants: 0,
+            }}
+            departure={departureAirport.city}
+            arrival={arrivalAirport.city}
+            selectedDate={flightSchedule.departure_date || selectedDate}
+            flightSchedule={{ ...flightSchedule, availableSeats }}
+          />
+        </div>
+      )}
     </motion.div>
   );
 };

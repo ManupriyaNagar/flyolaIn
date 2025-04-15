@@ -36,13 +36,36 @@ const ScheduledFlightsPage = () => {
     setIsClient(true);
   }, []);
 
+  const fetchData = async (date) => {
+    try {
+      const [flightSchedulesResponse, flightsResponse, airportsResponse] = await Promise.all([
+        fetch(`${BASE_URL}/flight-schedules?user=true&date=${date}`).then((res) => res.json()),
+        fetch(`${BASE_URL}/flights?user=true`).then((res) => res.json()),
+        fetch(`${BASE_URL}/airport`).then((res) => res.json()),
+      ]);
+
+      console.log("flightSchedulesResponse:", flightSchedulesResponse);
+      console.log("flightsResponse:", flightsResponse);
+      console.log("airportsResponse:", airportsResponse);
+
+      setFlightSchedules(Array.isArray(flightSchedulesResponse) ? flightSchedulesResponse : []);
+      setFlights(Array.isArray(flightsResponse) ? flightsResponse : []);
+      setAirports(Array.isArray(airportsResponse) ? airportsResponse : []);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      setFlightSchedules([]);
+      setFlights([]);
+      setAirports([]);
+    }
+  };
+
   useEffect(() => {
     if (!isClient) return;
 
     const searchParams = new URLSearchParams(window.location.search);
     const departure = searchParams.get("departure") || "";
     const arrival = searchParams.get("arrival") || "";
-    const date = searchParams.get("date") || "";
+    const date = searchParams.get("date") || new Date().toISOString().slice(0, 10);
     const passengers = searchParams.get("passengers") || "1";
 
     setFilterDepartureCity(departure);
@@ -55,33 +78,39 @@ const ScheduledFlightsPage = () => {
       passengers: parseInt(passengers) || 1,
     });
 
-    const fetchData = async () => {
-      try {
-        const [flightSchedulesResponse, flightsResponse, airportsResponse] = await Promise.all([
-          fetch(`${BASE_URL}/flight-schedules?user=true`).then((res) => res.json()),
-          fetch(`${BASE_URL}/flights?user=true`).then((res) => res.json()),
-          fetch(`${BASE_URL}/airport`).then((res) => res.json()),
-        ]);
-
-        console.log("flightSchedulesResponse:", flightSchedulesResponse);
-        console.log("flightsResponse:", flightsResponse);
-        console.log("airportsResponse:", airportsResponse);
-
-        setFlightSchedules(Array.isArray(flightSchedulesResponse) ? flightSchedulesResponse : []);
-        setFlights(Array.isArray(flightsResponse) ? flightsResponse : []);
-        setAirports(Array.isArray(airportsResponse) ? airportsResponse : []);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        setFlightSchedules([]);
-        setFlights([]);
-        setAirports([]);
-      }
-    };
-    fetchData();
+    fetchData(date);
   }, [isClient]);
 
+  // Periodic refresh to keep seat counts updated
   useEffect(() => {
-    if (!Array.isArray(flightSchedules) || !Array.isArray(flights) || flightSchedules.length === 0 || flights.length === 0) {
+    if (!isClient || !searchCriteria.date) return;
+    const interval = setInterval(() => fetchData(searchCriteria.date), 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, [isClient, searchCriteria.date]);
+
+  // Live seat updates
+  useEffect(() => {
+    function handleSeatUpdate(e) {
+      const { schedule_id, bookDate, seatsLeft } = e.detail;
+      setFlightSchedules((prev) =>
+        prev.map((fs) =>
+          fs.id === schedule_id && fs.departure_date === bookDate
+            ? { ...fs, availableSeats: seatsLeft }
+            : fs
+        )
+      );
+    }
+    window.addEventListener("seats-updated", handleSeatUpdate);
+    return () => window.removeEventListener("seats-updated", handleSeatUpdate);
+  }, []);
+
+  useEffect(() => {
+    if (
+      !Array.isArray(flightSchedules) ||
+      !Array.isArray(flights) ||
+      flightSchedules.length === 0 ||
+      flights.length === 0
+    ) {
       console.log("Skipping dates computation: flightSchedules or flights not ready");
       setDates([]);
       return;
@@ -90,17 +119,20 @@ const ScheduledFlightsPage = () => {
     const uniqueDates = new Set();
     flightSchedules.forEach((flightSchedule) => {
       const flight = flights.find((f) => f.id === flightSchedule.flight_id);
-      const departureDate = flight ? getNextWeekday(flight.departure_day) : new Date();
+      const departureDate = flight
+        ? getNextWeekday(flight.departure_day)
+        : new Date(flightSchedule.departure_date || searchCriteria.date);
       const formattedDate = departureDate.toISOString().split("T")[0];
       uniqueDates.add(formattedDate);
     });
+    const sortedDates = [...uniqueDates].sort((a, b) => new Date(a) - new Date(b));
     setDates(
-      [...uniqueDates].map((date) => ({
+      sortedDates.map((date) => ({
         date,
         day: new Date(date).toLocaleDateString("en-US", { weekday: "long" }),
       }))
     );
-  }, [flightSchedules, flights]);
+  }, [flightSchedules, flights, searchCriteria.date]);
 
   const getFilteredAndSortedFlightSchedules = () => {
     if (!Array.isArray(flightSchedules) || !Array.isArray(flights) || !Array.isArray(airports)) {
@@ -112,7 +144,9 @@ const ScheduledFlightsPage = () => {
         const flight = flights.find((f) => f.id === flightSchedule.flight_id) || {};
         const departureAirport = airports.find((a) => a.id === flightSchedule.departure_airport_id) || { city: "Unknown" };
         const arrivalAirport = airports.find((a) => a.id === flightSchedule.arrival_airport_id) || { city: "Unknown" };
-        const departureDate = flight.departure_day ? getNextWeekday(flight.departure_day) : new Date();
+        const departureDate = flight.departure_day
+          ? getNextWeekday(flight.departure_day)
+          : new Date(flightSchedule.departure_date || searchCriteria.date);
         const formattedDate = departureDate.toISOString().split("T")[0];
 
         const stopIds = flightSchedule.via_stop_id ? JSON.parse(flightSchedule.via_stop_id) : [];
@@ -125,6 +159,7 @@ const ScheduledFlightsPage = () => {
           ...flightSchedule,
           flight_number: flight.flight_number || "Unknown",
           seat_limit: flight.seat_limit || 0,
+          availableSeats: flightSchedule.availableSeats ?? 0, // Rely on server-provided availableSeats
           status: flight.status !== undefined ? flight.status : flightSchedule.status,
           stops: stopIds,
           departure_day: flight.departure_day || "Monday",
@@ -136,7 +171,7 @@ const ScheduledFlightsPage = () => {
         };
       })
       .filter((flightSchedule) => {
-        const { departureCity, arrivalCity, routeCities, status, seat_limit: seatLimit, isMultiStop, stops } = flightSchedule;
+        const { departureCity, arrivalCity, routeCities, status, availableSeats, isMultiStop, stops } = flightSchedule;
 
         const isValidDeparture = !filterDepartureCity || routeCities.includes(filterDepartureCity);
         const isValidArrival = !filterArrivalCity || routeCities.includes(filterArrivalCity) || arrivalCity === filterArrivalCity;
@@ -144,7 +179,7 @@ const ScheduledFlightsPage = () => {
         const matchesDepartureCity = !filterDepartureCity || departureCity === filterDepartureCity;
         const matchesArrivalCity = !filterArrivalCity || arrivalCity === filterArrivalCity;
         const matchesStatus = filterStatus === "All" || (filterStatus === "Scheduled" && status === 0) || (filterStatus === "Departed" && status === 1);
-        const matchesSeats = seatLimit >= filterMinSeats;
+        const matchesSeats = availableSeats >= filterMinSeats;
         const matchesStops = filterStops === "All" || (filterStops !== "All" && stops.length === parseInt(filterStops));
         const matchesSearchCriteria =
           (!searchCriteria.departure || departureCity === searchCriteria.departure) &&

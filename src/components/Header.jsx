@@ -77,12 +77,24 @@ const Header = () => {
   return (
     <div className="relative">
       <header
-        className={`w-full max-w-11xl px-4 sm:px-6 lg:px-8 py-4 fixed top-0 left-0 right-0 z-50 backdrop-blur-lg transition-all duration-300 ${isScrolled ? "bg-white/90 shadow-md" : "bg-white/70"} rounded-b-3xl`}
+        className={`w-full max-w-11xl px-4 sm:px-6 lg:px-8 py-4 fixed top-0 left-0 right-0 z-50 backdrop-blur-lg transition-all duration-300 ${
+          isScrolled ? "bg-white/90 shadow-md" : "bg-white/70"
+        } rounded-b-3xl`}
       >
         <div className="flex justify-between items-center p-2 px-6 transition-all duration-300">
-          <div className="flex items-center cursor-pointer" onClick={() => router.push("/")}>
-            <Image src="/logo-04.png" alt="Flyola Logo" width={120} height={60} priority className="hover:scale-105 transition-transform duration-200" />
-          </div>
+          {/* Wrap Logo with Link */}
+          <Link href="/">
+            <div className="flex items-center cursor-pointer">
+              <Image
+                src="/logo-04.png"
+                alt="Flyola Logo"
+                width={120}
+                height={60}
+                priority
+                className="hover:scale-105 transition-transform duration-200"
+              />
+            </div>
+          </Link>
 
           <nav className="hidden md:flex items-center space-x-8 text-sm font-medium">
             {renderNavLinks()}

@@ -9,11 +9,8 @@ const TourReviewStep = ({
   handlePreviousStep,
   step,
 }) => (
-  <div className="w-full max-w-3xl bg-white p-6 rounded-lg shadow-lg">
-    <h2 className="text-2xl font-semibold text-indigo-700 mb-4">
-      Tour Review
-    </h2>
-
+  <div className="w-full max-w-3xl mx-4 bg-white p-4 sm:p-6 rounded-lg shadow-lg">
+    <h2 className="text-2xl font-semibold text-indigo-700 mb-4">Tour Review</h2>
     <div className="space-y-4">
       <div>
         <h3 className="font-medium text-gray-800">Flight Detail</h3>
@@ -39,7 +36,6 @@ const TourReviewStep = ({
           </div>
         </div>
       </div>
-
       <div>
         <h3 className="font-medium text-gray-800 mt-4">Good To Know</h3>
         <p className="mt-2 text-gray-600">
@@ -47,8 +43,7 @@ const TourReviewStep = ({
           prior notice.
         </p>
       </div>
-
-      <div className="flex justify-between mt-4">
+      <div className="flex flex-col sm:flex-row justify-between mt-4 gap-2">
         <button
           onClick={handlePreviousStep}
           className="px-6 py-2 bg-gray-600 text-white rounded-lg"

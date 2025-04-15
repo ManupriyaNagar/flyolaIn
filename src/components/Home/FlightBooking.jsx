@@ -65,9 +65,8 @@ export default function FlightBooking() {
 
   return (
     <div
-      className="relative flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-4 mt-20"
+      className="relative flex flex-col items-center justify-center min-h-screen p-4 mt-20 bg-gradient-to-br from-gray-900 to-gray-800"
       style={{
-        opacity:"15",
         backgroundImage: "url('/back.jpg')",
         backgroundSize: "cover",
         backgroundPosition: "center",
@@ -78,11 +77,11 @@ export default function FlightBooking() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="relative z-10 w-full max-w-6xl mx-auto"
+        className="relative z-10 w-full max-w-7xl mx-auto"
       >
-        <Card className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl border border-gray-200 m-40 py-14 px-14">
-          <CardContent className="p-8 flex flex-col gap-6">
-            <h1 className="text-3xl md:text-4xl font-bold text-center text-gray-800">
+        <Card className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl border border-gray-200 m-6 md:m-40 py-8 md:py-14 px-6 md:px-14">
+          <CardContent className="p-4 sm:p-8 flex flex-col gap-6">
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center text-gray-800">
               Book Your Flight with Flyola
             </h1>
             <p className="text-center text-gray-600 text-sm sm:text-base">
@@ -99,7 +98,7 @@ export default function FlightBooking() {
                 <select
                   value={departure}
                   onChange={(e) => setDeparture(e.target.value)}
-                  className="w-full h-12 px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-all duration-300"
+                  className="w-full h-12 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-all duration-300"
                 >
                   <option value="">Select Departure Airport</option>
                   {airports.map((airport) => (
@@ -119,7 +118,7 @@ export default function FlightBooking() {
                 <select
                   value={arrival}
                   onChange={(e) => setArrival(e.target.value)}
-                  className="w-full h-12 px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-all duration-300"
+                  className="w-full h-12 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-all duration-300"
                 >
                   <option value="">Select Arrival Airport</option>
                   {airports.map((airport) => (
@@ -138,10 +137,11 @@ export default function FlightBooking() {
               >
                 <Input
                   type="date"
+                  placeholder="dd/mm/yyyy"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   min={new Date().toISOString().split("T")[0]}
-                  className="w-full h-12 px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-all duration-300"
+                  className="w-full h-12 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-all duration-300"
                 />
               </motion.div>
 
@@ -154,10 +154,8 @@ export default function FlightBooking() {
                 ref={dropdownRef}
               >
                 <div
-                  className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-sm sm:text-base cursor-pointer bg-white shadow-sm hover:shadow-md transition-all duration-300"
-                  onClick={() =>
-                    setIsPassengerDropdownOpen(!isPassengerDropdownOpen)
-                  }
+                  onClick={() => setIsPassengerDropdownOpen(!isPassengerDropdownOpen)}
+                  className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-sm cursor-pointer bg-white shadow-sm hover:shadow-md transition-all duration-300 h-12"
                 >
                   <FaUser className="text-indigo-500" />
                   <span className="text-gray-700 font-medium">
@@ -193,28 +191,22 @@ export default function FlightBooking() {
                         <p className="text-gray-800 font-semibold text-xs sm:text-sm">
                           Adults
                         </p>
-                        <p className="text-xs sm:text-sm text-gray-500">
-                          (12+ yrs)
-                        </p>
+                        <p className="text-xs sm:text-sm text-gray-500">(12+ yrs)</p>
                       </div>
-                      <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="flex items-center gap-2">
                         <button
-                          onClick={() =>
-                            handlePassengerChange("adults", "decrement")
-                          }
-                          className="w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 hover:bg-indigo-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={() => handlePassengerChange("adults", "decrement")}
+                          className="w-7 h-7 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 hover:bg-indigo-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                           disabled={passengerData.adults === 0}
                         >
                           -
                         </button>
-                        <span className="w-6 sm:w-8 text-center font-medium text-gray-800 text-xs sm:text-base">
+                        <span className="w-6 text-center font-medium text-gray-800 text-xs sm:text-base">
                           {passengerData.adults}
                         </span>
                         <button
-                          onClick={() =>
-                            handlePassengerChange("adults", "increment")
-                          }
-                          className="w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 hover:bg-indigo-100 transition-colors duration-200"
+                          onClick={() => handlePassengerChange("adults", "increment")}
+                          className="w-7 h-7 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 hover:bg-indigo-100 transition-colors duration-200"
                         >
                           +
                         </button>
@@ -227,28 +219,22 @@ export default function FlightBooking() {
                         <p className="text-gray-800 font-semibold text-xs sm:text-sm">
                           Children
                         </p>
-                        <p className="text-xs sm:text-sm text-gray-500">
-                          (2-12 yrs)
-                        </p>
+                        <p className="text-xs sm:text-sm text-gray-500">(2-12 yrs)</p>
                       </div>
-                      <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="flex items-center gap-2">
                         <button
-                          onClick={() =>
-                            handlePassengerChange("children", "decrement")
-                          }
-                          className="w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 hover:bg-indigo-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={() => handlePassengerChange("children", "decrement")}
+                          className="w-7 h-7 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 hover:bg-indigo-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                           disabled={passengerData.children === 0}
                         >
                           -
                         </button>
-                        <span className="w-6 sm:w-8 text-center font-medium text-gray-800 text-xs sm:text-base">
+                        <span className="w-6 text-center font-medium text-gray-800 text-xs sm:text-base">
                           {passengerData.children}
                         </span>
                         <button
-                          onClick={() =>
-                            handlePassengerChange("children", "increment")
-                          }
-                          className="w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 hover:bg-indigo-100 transition-colors duration-200"
+                          onClick={() => handlePassengerChange("children", "increment")}
+                          className="w-7 h-7 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 hover:bg-indigo-100 transition-colors duration-200"
                         >
                           +
                         </button>
@@ -261,28 +247,22 @@ export default function FlightBooking() {
                         <p className="text-gray-800 font-semibold text-xs sm:text-sm">
                           Infant(s)
                         </p>
-                        <p className="text-xs sm:text-sm text-gray-500">
-                          (0-2 yrs)
-                        </p>
+                        <p className="text-xs sm:text-sm text-gray-500">(0-2 yrs)</p>
                       </div>
-                      <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="flex items-center gap-2">
                         <button
-                          onClick={() =>
-                            handlePassengerChange("infants", "decrement")
-                          }
-                          className="w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 hover:bg-indigo-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={() => handlePassengerChange("infants", "decrement")}
+                          className="w-7 h-7 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 hover:bg-indigo-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                           disabled={passengerData.infants === 0}
                         >
                           -
                         </button>
-                        <span className="w-6 sm:w-8 text-center font-medium text-gray-800 text-xs sm:text-base">
+                        <span className="w-6 text-center font-medium text-gray-800 text-xs sm:text-base">
                           {passengerData.infants}
                         </span>
                         <button
-                          onClick={() =>
-                            handlePassengerChange("infants", "increment")
-                          }
-                          className="w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 hover:bg-indigo-100 transition-colors duration-200"
+                          onClick={() => handlePassengerChange("infants", "increment")}
+                          className="w-7 h-7 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 hover:bg-indigo-100 transition-colors duration-200"
                         >
                           +
                         </button>
@@ -292,29 +272,11 @@ export default function FlightBooking() {
                 )}
               </motion.div>
             </div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-            >
-              <Link
-                href={{
-                  pathname: "/",
-                  query: {
-                    departure: getCityFromCode(departure) || "",
-                    arrival: getCityFromCode(arrival) || "",
-                    date: date || "",
-                    passengers: totalPassengers,
-                  },
-                }}
-              >
-                <Button className="w-full bg-gradient-to-r from-orange-600 to-yellow-600 text-white py-4 text-lg font-semibold rounded-lg flex items-center justify-center gap-3 hover:from-orange-700 hover:to-red-700 transition-all duration-300 shadow-md hover:shadow-lg">
-                  <FaPlaneDeparture className="text-xl" /> CHARDHAM YATRA
-                </Button>
-              </Link>
-            </motion.div>
 
-            {/* Search Button */}
+            {/* CHARDHAM YATRA Button */}
+           
+
+            {/* Search Flights Button */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -336,6 +298,27 @@ export default function FlightBooking() {
                 </Button>
               </Link>
             </motion.div>
+
+
+
+
+            <motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.5 }}
+>
+  <Button
+    disabled
+    className="w-full bg-gradient-to-r from-orange-600 to-yellow-600 text-white py-4 text-xs md:text-lg font-semibold rounded-lg flex items-center justify-center gap-3 hover:from-orange-700 hover:to-red-700 transition-all duration-300 shadow-md hover:shadow-lg"
+  >
+    <FaPlaneDeparture className="md:text-xl " /> CHARDHAM YATRA  (COMING SOON)
+  </Button>
+</motion.div>
+
+
+
+
+
           </CardContent>
         </Card>
       </motion.div>

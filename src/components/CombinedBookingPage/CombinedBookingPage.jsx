@@ -18,7 +18,7 @@ const EMPTY_TRAVELLER = {
 
 const CombinedBookingPage = () => {
   const [step, setStep] = useState(1);
-  const [travelerDetails, setTravelerDetails] = useState([]); //  ← array now
+  const [travelerDetails, setTravelerDetails] = useState([]);
   const [bookingData, setBookingData] = useState(null);
 
   /* ──────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ const CombinedBookingPage = () => {
 
   if (!bookingData)
     return (
-      <div className="flex flex-col items-center py-8 px-4 mt-40">
+      <div className="flex flex-col items-center py-8 px-4 mt-20 md:mt-40">
         <p className="text-red-600">
           No booking data available. Please select a flight first.
         </p>
@@ -70,7 +70,7 @@ const CombinedBookingPage = () => {
     );
 
   return (
-    <div className="flex flex-col items-center py-8 px-4 mt-40">
+    <div className="container mx-auto py-8 px-4 md:px-8 mt-20 md:mt-40">
       {step === 1 && (
         <TourReviewStep
           bookingData={bookingData}

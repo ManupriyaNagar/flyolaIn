@@ -14,10 +14,8 @@ import {
   TicketIcon,
   UsersIcon,
   CreditCardIcon,
-  PlayIcon, // Updated from PlaneIcon
+  PlayIcon,
 } from "@heroicons/react/24/outline";
-
-
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -222,7 +220,7 @@ export default function DashboardPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <ToastContainer position="top-right" autoClose={3000} />
-      <h1 className="text-3xl font-bold mb-4 text-gray-900">Admin Dashboard   Testing Mode</h1>
+      <h1 className="text-3xl font-bold mb-4 text-gray-900">Admin Dashboard - Testing Mode</h1>
       <p className="text-gray-600 mb-8">
         Monitor flights, schedules, bookings, and more in one place.
       </p>

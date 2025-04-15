@@ -11,7 +11,10 @@ import {
   FaBook,
   FaUsers,
   FaTimes,
+  FaBell,
+  FaCog,
 } from "react-icons/fa";
+import { Home } from "lucide-react";
 
 // Function to remove trailing slashes
 const normalizePath = (path) => path.replace(/\/+$/, "");
@@ -19,16 +22,14 @@ const normalizePath = (path) => path.replace(/\/+$/, "");
 export default function AdminDashboardLayout({ children }) {
   const pathname = usePathname();
   const normalizedPathname = normalizePath(pathname);
-  const [isSidebarVisible, setSidebarVisible] = useState(true);
+  const [isSidebarVisible, setSidebarVisible] = useState(false);
 
-  // Updated helper function using normalized paths.
+  // Helper function to check active links using normalized paths.
   const isActive = (href) => {
     const normalizedHref = normalizePath(href);
-    // For the Home link, ensure an exact match.
     if (normalizedHref === "/admin-dashboard") {
       return normalizedPathname === normalizedHref;
     }
-    // For other links, check if the current path starts with the normalized href.
     return normalizedPathname.startsWith(normalizedHref);
   };
 
@@ -38,17 +39,18 @@ export default function AdminDashboardLayout({ children }) {
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-indigo-100">
       {/* Sidebar */}
       <aside
-        className={`${
+        className={`fixed top-0 left-0 h-full z-20 w-72 p-6 flex flex-col overflow-y-auto transition-transform duration-300 ${
           isSidebarVisible ? "translate-x-0" : "-translate-x-full"
-        } w-72 bg-gradient-to-b from-indigo-900 to-indigo-800 text-white shadow-2xl p-6 flex flex-col fixed top-0 left-0 h-full overflow-y-auto z-20 transition-transform duration-300 md:translate-x-0 mt-14`}
+        } md:translate-x-0 bg-gradient-to-b from-indigo-900 to-indigo-800 text-white shadow-2xl`}
       >
-        <div className="flex items-center justify-between mb-8 mt-6">
+        <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-300">
             Admin Dashboard
           </h1>
           <button
             onClick={() => setSidebarVisible(false)}
             className="md:hidden text-white hover:text-gray-300"
+            aria-label="Close sidebar"
           >
             <FaTimes size={24} />
           </button>
@@ -125,7 +127,6 @@ export default function AdminDashboardLayout({ children }) {
             Manage Users
           </a>
 
-
           <a
             href="/admin-dashboard/booking-data"
             className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
@@ -133,31 +134,60 @@ export default function AdminDashboardLayout({ children }) {
             }`}
           >
             <FaClock className="text-indigo-300" />
-          Booking data
+            Booking Data
           </a>
         </nav>
       </aside>
 
-      {/* Button to toggle Sidebar */}
-      <button
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarVisible && (
+        <div
+          onClick={() => setSidebarVisible(false)}
+          className="fixed inset-0 bg-black opacity-50 z-10 md:hidden"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Toggle Sidebar Button (mobile only) */}
+     
+
+      {/* Main Content Area with Fixed Header */}
+      <main className="flex-1 relative md:ml-72">
+        {/* Fixed Header */}
+        <header className="fixed top-0 left-0 right-0 md:left-72 bg-white shadow-md p-4 flex items-center justify-between z-10">
+          <div>
+            <h2 className="md:text-4xl text-sm font-bold text-gray-800">
+              Welcome Back, Admin!
+            </h2>
+            {/* <p className="text-gray-500 mt-1">Overview of your dashboard</p> */}
+          </div>
+          <nav className="flex items-center space-x-4">
+
+          <a href="/" className="text-gray-600 hover:text-indigo-600">
+              <Home size={20} />
+            </a>
+            <a href="/notifications" className="text-gray-600 hover:text-indigo-600">
+              <FaBell size={20} />
+            </a>
+            <a href="/settings" className="text-gray-600 hover:text-indigo-600">
+              <FaCog size={20} />
+            </a>
+            <button
         onClick={() => setSidebarVisible(!isSidebarVisible)}
-        className="fixed top-5 left-5 z-30 md:hidden bg-indigo-800 text-white p-3 rounded-full shadow-lg hover:bg-indigo-700 transition-colors"
+        className=" md:hidden  text-black rounded-full "
+        aria-label="Toggle sidebar"
       >
         <FaBars size={20} />
       </button>
-
-      {/* Main Content */}
-      <main className="flex-1 mt-14 ml-72 p-10 overflow-y-auto">
-        <header className="mb-8">
-          <h2 className="text-4xl font-bold text-gray-800 bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-indigo-600">
-            Welcome Back!
-          </h2>
-          <p className="text-gray-500 mt-2">Here’s what’s happening today.</p>
+          </nav>
         </header>
 
-        <section className="bg-white p-8 rounded-2xl shadow-xl border border-gray-200 transform transition-all hover:shadow-2xl">
-          {children}
-        </section>
+        {/* Content Below the Fixed Header */}
+        <div className="pt-20 p-10 overflow-y-auto h-screen">
+          <section className="bg-white p-8 rounded-2xl shadow-xl mt-12 border border-gray-200 transform transition-all hover:shadow-2xl">
+            {children}
+          </section>
+        </div>
       </main>
     </div>
   );
