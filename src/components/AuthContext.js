@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect } from "react";
+import {jwtDecode} from "jwt-decode"; // Use default import for jwt-decode
 
 const AuthContext = createContext();
 
@@ -11,48 +12,37 @@ export function AuthProvider({ children }) {
     user: null,
   });
 
-  // Helper to get the token from localStorage or cookie.
-  const getToken = () => {
-    let token = localStorage.getItem("token");
-    if (!token) {
-      const match = document.cookie.match(/(?:^|; )token=([^;]*)/);
-      token = match ? match[1] : null;
-    }
-    return token;
-  };
-
-  // Asynchronously check auth and decode the token.
-  const checkAuth = async () => {
-    const token = getToken();
-    if (token) {
-      try {
-        // Dynamically import jwt-decode at runtime.
-        const jwtDecodeModule = await import("jwt-decode");
-        // Use the default export if it exists, otherwise assume the module itself is callable.
-        const decodeFn = jwtDecodeModule.default || jwtDecodeModule;
-        const decoded = decodeFn(token);
-        setAuthState({
-          isLoggedIn: true,
-          userRole: decoded.role,
-          user: decoded.user || null,
-        });
-      } catch (error) {
-        console.error("Token decoding error:", error);
-        clearAuth();
-      }
-    } else {
-      setAuthState({ isLoggedIn: false, userRole: null, user: null });
-    }
-  };
-
-  // Clear authentication info.
   const clearAuth = () => {
+    localStorage.removeItem("authState");
     localStorage.removeItem("token");
     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     setAuthState({ isLoggedIn: false, userRole: null, user: null });
   };
 
   useEffect(() => {
+    const checkAuth = () => {
+      // Retrieve token from cookies and localStorage
+      const cookieToken = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("token="))
+        ?.split("=")[1];
+      const token = cookieToken || localStorage.getItem("token");
+
+      if (token) {
+        try {
+          const decoded = jwtDecode(token);
+          setAuthState({
+            isLoggedIn: true,
+            userRole: decoded.role,
+            user: decoded.user || null,
+          });
+        } catch (error) {
+          console.error("Token decoding error:", error);
+          clearAuth();
+        }
+      }
+    };
+
     checkAuth();
     window.addEventListener("storage", checkAuth);
     return () => window.removeEventListener("storage", checkAuth);
@@ -60,7 +50,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     clearAuth();
-    window.location.href = "/sign-in";
+    window.location.href = "/sign-in"; // Force page reload
   };
 
   return (

@@ -26,7 +26,7 @@ const SignInPage = () => {
       if (authState.userRole === 1) {
         router.push("/admin-dashboard");
       } else if (authState.userRole === 3) {
-        router.push("/scheduled-flight");
+        router.push("/user-dashboard");
       }
     }
   }, [authState]);
