@@ -356,7 +356,7 @@ const FlightSchedulePage = () => {
             <table className="w-full border-collapse min-w-[800px]">
               <thead>
                 <tr className="bg-gray-50">
-                  {['S#', 'Flight', 'Airports', 'Time', 'Price', 'Stops', 'Status', 'Action'].map((header) => (
+                  {['S#', 'Flight', 'Airports', 'Time', 'Price', 'Status', 'Action'].map((header) => (
                     <th key={header} className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
                       {header}
                     </th>
@@ -408,9 +408,7 @@ const FlightSchedulePage = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">INR {schedule.price}</td>
-                      <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis max-w-3xl">
-                        <span title={schedule.stops}>{schedule.stops}</span>
-                      </td>
+                      
                       <td className="px-6 py-4 whitespace-nowrap">
                         <input
                           type="checkbox"
