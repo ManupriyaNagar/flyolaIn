@@ -29,6 +29,7 @@ const FlightSchedulePage = () => {
     arrival_time: '',
     price: '',
     status: 1,
+    via_stop_id: '[]', // Initialize as JSON string for stops
   });
 
   // Fetch data with validation
@@ -60,17 +61,14 @@ const FlightSchedulePage = () => {
         if (!airportIds.has(schedule.arrival_airport_id)) {
           console.warn(`Invalid arrival_airport_id ${schedule.arrival_airport_id} in schedule ${schedule.id}`);
         }
-        const flight = flightsData.find((f) => f.id === schedule.flight_id);
-        if (flight?.airport_stop_ids) {
-          try {
-            JSON.parse(flight.airport_stop_ids || '[]').forEach((id) => {
-              if (!airportIds.has(id)) {
-                console.warn(`Invalid stop_airport_id ${id} in flight ${flight.id}`);
-              }
-            });
-          } catch (error) {
-            console.error(`Invalid airport_stop_ids in flight ${flight.id}:`, flight.airport_stop_ids);
-          }
+        try {
+          JSON.parse(schedule.via_stop_id || '[]').forEach((id) => {
+            if (!airportIds.has(id)) {
+              console.warn(`Invalid stop_airport_id ${id} in schedule ${schedule.id}`);
+            }
+          });
+        } catch (error) {
+          console.error(`Invalid via_stop_id in schedule ${schedule.id}:`, schedule.via_stop_id);
         }
       });
 
@@ -79,9 +77,9 @@ const FlightSchedulePage = () => {
       setSchedules(
         schedulesData.map((schedule) => {
           const flight = flightsData.find((f) => f.id === schedule.flight_id) || {};
-          const stops = flight.airport_stop_ids
-            ? JSON.parse(flight.airport_stop_ids || '[]').length > 0
-              ? JSON.parse(flight.airport_stop_ids)
+          const stops = schedule.via_stop_id
+            ? JSON.parse(schedule.via_stop_id || '[]').length > 0
+              ? JSON.parse(schedule.via_stop_id)
                   .map((id) => airportsData.find((a) => a.id === id)?.airport_name || `Invalid ID: ${id}`)
                   .join(', ')
               : 'Direct'
@@ -139,7 +137,10 @@ const FlightSchedulePage = () => {
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          via_stop_id: JSON.parse(formData.via_stop_id || '[]'), // Parse to array for backend
+        }),
       });
       if (!response.ok) throw new Error('Error saving schedule');
       setShowModal(false);
@@ -151,10 +152,11 @@ const FlightSchedulePage = () => {
         arrival_time: '',
         price: '',
         status: 1,
+        via_stop_id: '[]',
       });
       setIsEdit(false);
       toast.success(isEdit ? 'Schedule updated!' : 'Schedule added!');
-      await fetchData(); // Refetch data after submission
+      await fetchData();
     } catch (err) {
       console.error('Error:', err);
       toast.error('Failed to save schedule.');
@@ -175,6 +177,7 @@ const FlightSchedulePage = () => {
       arrival_time: schedule.arrival_time,
       price: schedule.price,
       status: schedule.status === 'Active' ? 1 : 0,
+      via_stop_id: schedule.via_stop_id || '[]', // Load via_stop_id
     });
     setShowModal(true);
   };
@@ -188,7 +191,7 @@ const FlightSchedulePage = () => {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Error deleting schedule');
-      await fetchData(); // Refetch data after deletion
+      await fetchData();
       toast.success('Schedule deleted!');
     } catch (err) {
       console.error('Error:', err);
@@ -214,10 +217,11 @@ const FlightSchedulePage = () => {
           arrival_time: schedule.arrival_time,
           price: schedule.price,
           status: newStatus,
+          via_stop_id: JSON.parse(schedule.via_stop_id || '[]'), // Include via_stop_id
         }),
       });
       if (!response.ok) throw new Error('Error updating status');
-      await fetchData(); // Refetch data after status update
+      await fetchData();
       toast.success(`Schedule ${newStatus === 1 ? 'activated' : 'deactivated'}!`);
     } catch (err) {
       console.error('Error:', err);
@@ -235,7 +239,8 @@ const FlightSchedulePage = () => {
       const matchesSearch =
         schedule.flight_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
         schedule.startAirport.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        schedule.endAirport.toLowerCase().includes(searchTerm.toLowerCase());
+        schedule.endAirport.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        schedule.stops.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesDay && matchesStatus && matchesSearch;
     });
   }, [schedules, filterDay, filterStatus, searchTerm]);
@@ -310,6 +315,7 @@ const FlightSchedulePage = () => {
               arrival_time: '',
               price: '',
               status: 1,
+              via_stop_id: '[]',
             });
             setShowModal(true);
           }}
@@ -356,7 +362,7 @@ const FlightSchedulePage = () => {
             <table className="w-full border-collapse min-w-[800px]">
               <thead>
                 <tr className="bg-gray-50">
-                  {['S#', 'Flight', 'Airports', 'Time', 'Price', 'Status', 'Action'].map((header) => (
+                  {['S#', 'Flight', 'Airports', 'Time', 'Price', 'Stops', 'Status', 'Action'].map((header) => (
                     <th key={header} className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
                       {header}
                     </th>
@@ -408,7 +414,9 @@ const FlightSchedulePage = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">INR {schedule.price}</td>
-                      
+                      <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis max-w-3xl">
+                        <span title={schedule.stops}>{schedule.stops}</span>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <input
                           type="checkbox"
@@ -556,6 +564,47 @@ const FlightSchedulePage = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Stop Airports</label>
+                <div className="max-h-40 overflow-y-auto border rounded-lg px-4 py-2 bg-gray-50">
+                  {airports.length > 0 ? (
+                    airports.map((airport) => (
+                      <div key={airport.id} className="flex items-center py-1">
+                        <input
+                          type="checkbox"
+                          id={`stop-airport-${airport.id}`}
+                          value={airport.id}
+                          checked={JSON.parse(formData.via_stop_id || '[]').includes(airport.id)}
+                          onChange={(e) => {
+                            const { value, checked } = e.target;
+                            const currentStops = JSON.parse(formData.via_stop_id || '[]');
+                            let updatedStops;
+                            if (checked) {
+                              updatedStops = [...currentStops, Number(value)];
+                            } else {
+                              updatedStops = currentStops.filter((id) => id !== Number(value));
+                            }
+                            setFormData({
+                              ...formData,
+                              via_stop_id: JSON.stringify(updatedStops),
+                            });
+                          }}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                          disabled={loading}
+                        />
+                        <label
+                          htmlFor={`stop-airport-${airport.id}`}
+                          className="ml-2 text-sm text-gray-700 cursor-pointer"
+                        >
+                          {airport.airport_name}
+                        </label>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500">No airports available</p>
+                  )}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Departure Time</label>
