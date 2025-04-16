@@ -38,7 +38,7 @@ const FlightSchedulePage = () => {
       const [flightsRes, schedulesRes, airportsRes] = await Promise.all([
         fetch(`${BASE_URL}/flights`),
         fetch(`${BASE_URL}/flight-schedules`),
-        fetch('http://localhost:4000/airport'),
+        fetch(`${BASE_URL}/airport`),
       ]);
       if (!flightsRes.ok || !schedulesRes.ok || !airportsRes.ok) throw new Error('Failed to fetch data');
       const [flightsData, schedulesData, airportsData] = await Promise.all([
