@@ -1,161 +1,176 @@
 'use client';
 
 import BASE_URL from '@/baseUrl/baseUrl';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { PlusIcon, TrashIcon, PencilIcon, XMarkIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { debounce } from 'lodash';
 
-// Helper components for modals can be extracted out later for reusability.
-const Modal = ({ title, children, onClose }) => (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-    <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">{title}</h2>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close modal">×</button>
-      </div>
-      {children}
-    </div>
-  </div>
-);
+const ENTRIES_PER_PAGE = [10, 25, 50, 100];
 
 const FlightSchedulePage = () => {
-  // State declarations
   const [schedules, setSchedules] = useState([]);
   const [flights, setFlights] = useState([]);
+  const [airports, setAirports] = useState([]);
   const [filterDay, setFilterDay] = useState('All Days');
-  const [filterStatus, setFilterStatus] = useState('Active');
+  const [filterStatus, setFilterStatus] = useState('All');
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // Modal state for add/edit schedule
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
-  const [currentSchedule, setCurrentSchedule] = useState(null);
   const [formData, setFormData] = useState({
     flight_id: '',
+    departure_airport_id: '',
+    arrival_airport_id: '',
     departure_time: '',
     arrival_time: '',
     price: '',
     status: 1,
   });
 
-  // Modal state for bulk editing schedules
-  const [showBulkEditModal, setShowBulkEditModal] = useState(false);
-  const [bulkPrice, setBulkPrice] = useState('');
-
-  // Fetch flights and schedules on first render
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // Function to fetch both flights and flight schedules from the API
-  const fetchData = async () => {
+  // Fetch data with validation
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
-      // Fetch flights and schedules concurrently
-      const [flightsRes, schedulesRes] = await Promise.all([
+      const [flightsRes, schedulesRes, airportsRes] = await Promise.all([
         fetch(`${BASE_URL}/flights`),
         fetch(`${BASE_URL}/flight-schedules`),
+        fetch('http://localhost:4000/airport'),
+      ]);
+      if (!flightsRes.ok || !schedulesRes.ok || !airportsRes.ok) throw new Error('Failed to fetch data');
+      const [flightsData, schedulesData, airportsData] = await Promise.all([
+        flightsRes.json(),
+        schedulesRes.json(),
+        airportsRes.json(),
       ]);
 
-      if (!flightsRes.ok || !schedulesRes.ok) {
-        throw new Error('Failed to fetch data from one or more endpoints');
-      }
-
-      const flightsData = await flightsRes.json();
-      const schedulesData = await schedulesRes.json();
-
-      // Save flights to state for use in add/edit dropdown
-      setFlights(flightsData);
-
-      // Combine schedule data with flight information
-      const combinedData = schedulesData.map(schedule => {
-        // Find the flight details using flight_id from schedule
-        const flight = flightsData.find(f => f.id === schedule.flight_id) || {};
-
-        // Determine the stops information; adjust your logic if needed
-        const stops = flight.airport_stop_ids && flight.airport_stop_ids.length > 2 
-          ? 'REW, JABALPUR' 
-          : 'Direct';
-
-        return {
-          ...schedule,
-          flight_number: flight.flight_number || 'N/A',
-          departure_day: flight.departure_day || 'N/A',
-          startAirport: flight.start_airport_id ? `Airport ${flight.start_airport_id}` : 'N/A',
-          endAirport: flight.end_airport_id ? `Airport ${flight.end_airport_id}` : 'N/A',
-          price: schedule.price || 'N/A',
-          stops: stops,
-          status: schedule.status === 1 ? 'Active' : 'Inactive',
-          date: schedule.updated_at ? new Date(schedule.updated_at).toLocaleDateString('en-GB') : 'N/A',
-          departure_time: schedule.departure_time || 'N/A',
-          arrival_time: schedule.arrival_time || 'N/A',
-        };
+      // Validate data
+      const flightIds = new Set(flightsData.map((f) => f.id));
+      const airportIds = new Set(airportsData.map((a) => a.id));
+      schedulesData.forEach((schedule) => {
+        if (!flightIds.has(schedule.flight_id)) {
+          console.warn(`Invalid flight_id ${schedule.flight_id} in schedule ${schedule.id}`);
+        }
+        if (!airportIds.has(schedule.departure_airport_id)) {
+          console.warn(`Invalid departure_airport_id ${schedule.departure_airport_id} in schedule ${schedule.id}`);
+        }
+        if (!airportIds.has(schedule.arrival_airport_id)) {
+          console.warn(`Invalid arrival_airport_id ${schedule.arrival_airport_id} in schedule ${schedule.id}`);
+        }
+        const flight = flightsData.find((f) => f.id === schedule.flight_id);
+        if (flight?.airport_stop_ids) {
+          try {
+            JSON.parse(flight.airport_stop_ids || '[]').forEach((id) => {
+              if (!airportIds.has(id)) {
+                console.warn(`Invalid stop_airport_id ${id} in flight ${flight.id}`);
+              }
+            });
+          } catch (error) {
+            console.error(`Invalid airport_stop_ids in flight ${flight.id}:`, flight.airport_stop_ids);
+          }
+        }
       });
 
-      setSchedules(combinedData);
+      setFlights(flightsData);
+      setAirports(airportsData);
+      setSchedules(
+        schedulesData.map((schedule) => {
+          const flight = flightsData.find((f) => f.id === schedule.flight_id) || {};
+          const stops = flight.airport_stop_ids
+            ? JSON.parse(flight.airport_stop_ids || '[]').length > 0
+              ? JSON.parse(flight.airport_stop_ids)
+                  .map((id) => airportsData.find((a) => a.id === id)?.airport_name || `Invalid ID: ${id}`)
+                  .join(', ')
+              : 'Direct'
+            : 'Direct';
+          return {
+            ...schedule,
+            flight_number: flight.flight_number || 'N/A',
+            departure_day: flight.departure_day || 'N/A',
+            startAirport: airportsData.find((a) => a.id === schedule.departure_airport_id)?.airport_name || `Invalid ID: ${schedule.departure_airport_id}`,
+            endAirport: airportsData.find((a) => a.id === schedule.arrival_airport_id)?.airport_name || `Invalid ID: ${schedule.arrival_airport_id}`,
+            stops,
+            status: schedule.status === 1 ? 'Active' : 'Inactive',
+            date: schedule.updated_at ? new Date(schedule.updated_at).toLocaleDateString('en-GB') : 'N/A',
+          };
+        })
+      );
     } catch (err) {
-      console.error('Error fetching data:', err.message);
-      setError('Failed to load data. Please check the server or try again later.');
+      console.error('Error fetching data:', err);
+      toast.error('Failed to load data.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Handle input changes for add/edit modal
+  // Initial data fetch
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Debounced search
+  const debouncedSearch = useCallback(
+    debounce((value) => {
+      setSearchTerm(value);
+      setCurrentPage(1);
+    }, 300),
+    []
+  );
+
+  // Handle input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    // If numeric fields, convert the value to a number
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: name === 'price' || name === 'status' ? Number(value) : value,
+      [name]: name === 'price' || name === 'status' || name.includes('airport_id') ? Number(value) : value,
     }));
   };
 
-  // Handle form submission for adding or editing a schedule
+  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     const method = isEdit ? 'PUT' : 'POST';
-    const url = isEdit 
-      ? `${BASE_URL}/flight-schedules/${currentSchedule.id}` 
-      : `${BASE_URL}/flight-schedules`;
-
+    const url = isEdit ? `${BASE_URL}/flight-schedules/${formData.id}` : `${BASE_URL}/flight-schedules`;
     try {
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-
       if (!response.ok) throw new Error('Error saving schedule');
-      // Refresh the schedules list
-      await fetchData();
       setShowModal(false);
-      setIsEdit(false);
       setFormData({
         flight_id: '',
+        departure_airport_id: '',
+        arrival_airport_id: '',
         departure_time: '',
         arrival_time: '',
         price: '',
         status: 1,
       });
+      setIsEdit(false);
+      toast.success(isEdit ? 'Schedule updated!' : 'Schedule added!');
+      await fetchData(); // Refetch data after submission
     } catch (err) {
-      console.error('Error:', err.message);
-      alert('Failed to save schedule. Please try again.');
+      console.error('Error:', err);
+      toast.error('Failed to save schedule.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Prepare to edit a specific schedule
+  // Handle edit
   const handleEdit = (schedule) => {
     setIsEdit(true);
-    setCurrentSchedule(schedule);
     setFormData({
+      id: schedule.id,
       flight_id: schedule.flight_id,
+      departure_airport_id: schedule.departure_airport_id,
+      arrival_airport_id: schedule.arrival_airport_id,
       departure_time: schedule.departure_time,
       arrival_time: schedule.arrival_time,
       price: schedule.price,
@@ -164,376 +179,468 @@ const FlightSchedulePage = () => {
     setShowModal(true);
   };
 
-  // Bulk actions
-  const activateAllSchedules = async () => {
-    if (!window.confirm('Are you sure you want to activate all schedules?')) return;
+  // Handle delete
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this schedule?')) return;
     setLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/flight-schedules/activate-all`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (!response.ok) throw new Error('Bulk activation failed');
-      await fetchData();
-    } catch (err) {
-      console.error('Error activating all schedules:', err.message);
-      alert('Error activating all schedules.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Bulk edit: update price for all schedules
-  const editAllSchedules = async () => {
-    // Open bulk edit modal which asks for a new price value
-    setShowBulkEditModal(true);
-  };
-
-  const handleBulkEditSubmit = async (e) => {
-    e.preventDefault();
-    if (!bulkPrice || isNaN(bulkPrice)) {
-      alert('Please enter a valid numeric price.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const response = await fetch(`${BASE_URL}/flight-schedules/edit-all`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ price: parseFloat(bulkPrice) }),
-      });
-      if (!response.ok) throw new Error('Bulk edit failed');
-      await fetchData();
-      setShowBulkEditModal(false);
-      setBulkPrice('');
-    } catch (err) {
-      console.error('Error editing all schedules:', err.message);
-      alert('Error editing all schedules.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Bulk deletion of schedules
-  const deleteAllSchedules = async () => {
-    if (!window.confirm('Are you sure you want to delete all schedules?')) return;
-    setLoading(true);
-    try {
-      const response = await fetch(`${BASE_URL}/flight-schedules/delete-all`, {
+      const response = await fetch(`${BASE_URL}/flight-schedules/${id}`, {
         method: 'DELETE',
       });
-      if (!response.ok) throw new Error('Bulk delete failed');
-      await fetchData();
+      if (!response.ok) throw new Error('Error deleting schedule');
+      await fetchData(); // Refetch data after deletion
+      toast.success('Schedule deleted!');
     } catch (err) {
-      console.error('Error deleting all schedules:', err.message);
-      alert('Error deleting all schedules.');
+      console.error('Error:', err);
+      toast.error('Failed to delete schedule.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Filter schedules based on day, status and search term using useMemo for performance
+  // Handle status toggle
+  const handleStatusToggle = async (schedule) => {
+    setLoading(true);
+    const newStatus = schedule.status === 'Active' ? 0 : 1;
+    try {
+      const response = await fetch(`${BASE_URL}/flight-schedules/${schedule.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flight_id: schedule.flight_id,
+          departure_airport_id: schedule.departure_airport_id,
+          arrival_airport_id: schedule.arrival_airport_id,
+          departure_time: schedule.departure_time,
+          arrival_time: schedule.arrival_time,
+          price: schedule.price,
+          status: newStatus,
+        }),
+      });
+      if (!response.ok) throw new Error('Error updating status');
+      await fetchData(); // Refetch data after status update
+      toast.success(`Schedule ${newStatus === 1 ? 'activated' : 'deactivated'}!`);
+    } catch (err) {
+      console.error('Error:', err);
+      toast.error('Failed to update status.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter schedules
   const filteredSchedules = useMemo(() => {
-    return schedules.filter(schedule => {
+    return schedules.filter((schedule) => {
       const matchesDay = filterDay === 'All Days' || schedule.departure_day === filterDay;
-      const matchesStatus = filterStatus === 'All' ||
-        (filterStatus === 'Active' && schedule.status === 'Active') ||
-        (filterStatus === 'Inactive' && schedule.status === 'Inactive');
-      const matchesSearch = schedule.flight_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      const matchesStatus = filterStatus === 'All' || filterStatus === schedule.status;
+      const matchesSearch =
+        schedule.flight_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
         schedule.startAirport.toLowerCase().includes(searchTerm.toLowerCase()) ||
         schedule.endAirport.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesDay && matchesStatus && matchesSearch;
     });
   }, [schedules, filterDay, filterStatus, searchTerm]);
 
-  // Calculate total pages for pagination
-  const totalPages = Math.ceil(filteredSchedules.length / entriesPerPage);
+  // Pagination
+  const totalPages = Math.ceil(filteredSchedules.length / entriesPerPage) || 1;
+  const paginatedSchedules = useMemo(() => {
+    const start = (currentPage - 1) * entriesPerPage;
+    return filteredSchedules.slice(start, start + entriesPerPage);
+  }, [filteredSchedules, currentPage, entriesPerPage]);
 
-  // Slice the filtered schedules based on the current page (zero-index math)
-  const paginatedSchedules = filteredSchedules.slice(
-    (currentPage - 1) * entriesPerPage,
-    currentPage * entriesPerPage
-  );
-
-  // --- Render ---
-
-  // Show loading or error before rendering the main content
-  if (loading) return <div className="text-center py-10">Loading...</div>;
-  if (error) return <div className="text-center py-10 text-red-500">{error}</div>;
+  // Pagination items
+  const getPaginationItems = () => {
+    const items = [];
+    const maxButtons = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+    if (endPage - startPage + 1 < maxButtons) startPage = Math.max(1, endPage - maxButtons + 1);
+    if (startPage > 1) items.push(1);
+    if (startPage > 2) items.push('...');
+    for (let i = startPage; i <= endPage; i++) items.push(i);
+    if (endPage < totalPages - 1) items.push('...');
+    if (endPage < totalPages) items.push(totalPages);
+    return items;
+  };
 
   return (
-    <div className="container mx-auto px-4 py-6 bg-gray-50 min-h-screen">
-      {/* Header with Filters & Bulk Action Buttons */}
-      <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow">
-        <div className="flex space-x-4">
+    <div className="container mx-auto px-4 py-6 max-w-7xl">
+      <ToastContainer position="top-right" autoClose={3000} />
+      <h2 className="text-3xl font-bold mb-6 text-gray-900">Flight Schedule Management</h2>
+
+      {/* Filters and Actions */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <select
-            className="border rounded p-2"
             value={filterDay}
             onChange={(e) => {
               setFilterDay(e.target.value);
               setCurrentPage(1);
             }}
+            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+            aria-label="Filter by day"
           >
             <option>All Days</option>
-            <option>Monday</option>
-            <option>Tuesday</option>
-            <option>Wednesday</option>
-            <option>Thursday</option>
-            <option>Friday</option>
-            <option>Saturday</option>
-            <option>Sunday</option>
+            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
+              <option key={day}>{day}</option>
+            ))}
           </select>
           <select
-            className="border rounded p-2"
             value={filterStatus}
             onChange={(e) => {
               setFilterStatus(e.target.value);
               setCurrentPage(1);
             }}
+            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+            aria-label="Filter by status"
           >
+            <option>All</option>
             <option>Active</option>
             <option>Inactive</option>
-            <option>All</option>
           </select>
         </div>
-        <div className="flex space-x-2">
-          <button className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600" onClick={activateAllSchedules}>
-            Activate All
-          </button>
-          <button className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600" onClick={editAllSchedules}>
-            Edit All
-          </button>
-          <button className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600" onClick={deleteAllSchedules}>
-            Delete All
-          </button>
+        <button
+          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors shadow-sm"
+          onClick={() => {
+            setIsEdit(false);
+            setFormData({
+              flight_id: '',
+              departure_airport_id: '',
+              arrival_airport_id: '',
+              departure_time: '',
+              arrival_time: '',
+              price: '',
+              status: 1,
+            });
+            setShowModal(true);
+          }}
+          disabled={loading}
+        >
+          <PlusIcon className="w-5 h-5" />
+          Add Schedule
+        </button>
+      </div>
+
+      {/* Table Controls */}
+      <div className="bg-white rounded-xl shadow-lg mb-6">
+        <div className="p-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600">Show</span>
+              <select
+                value={entriesPerPage}
+                onChange={(e) => {
+                  setEntriesPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+              >
+                {ENTRIES_PER_PAGE.map((num) => (
+                  <option key={num}>{num}</option>
+                ))}
+              </select>
+              <span className="text-gray-600">entries</span>
+            </div>
+            <div className="relative w-full sm:w-64">
+              <input
+                type="text"
+                onChange={(e) => debouncedSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+                placeholder="Search schedules..."
+              />
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[800px]">
+              <thead>
+                <tr className="bg-gray-50">
+                  {['S#', 'Flight', 'Airports', 'Time', 'Price', 'Stops', 'Status', 'Action'].map((header) => (
+                    <th key={header} className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                      Loading...
+                    </td>
+                  </tr>
+                ) : paginatedSchedules.length ? (
+                  paginatedSchedules.map((schedule, index) => (
+                    <tr key={schedule.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {(currentPage - 1) * entriesPerPage + index + 1}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">{schedule.flight_number}</td>
+                      <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">
+                        <span title={`${schedule.startAirport} - ${schedule.endAirport}`}>
+                          {schedule.startAirport} - {schedule.endAirport}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          title={`${
+                            new Date(`1970-01-01T${schedule.departure_time}`).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          } - ${
+                            new Date(`1970-01-01T${schedule.arrival_time}`).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          }`}
+                        >
+                          {new Date(`1970-01-01T${schedule.departure_time}`).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}{' '}
+                          -{' '}
+                          {new Date(`1970-01-01T${schedule.arrival_time}`).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">INR {schedule.price}</td>
+                      <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis max-w-3xl">
+                        <span title={schedule.stops}>{schedule.stops}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={schedule.status === 'Active'}
+                          onChange={() => handleStatusToggle(schedule)}
+                          disabled={loading}
+                          className="form-checkbox h-5 w-5 text-blue-600"
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap flex gap-2">
+                        <button
+                          className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                          onClick={() => handleEdit(schedule)}
+                          disabled={loading}
+                        >
+                          <PencilIcon className="w-4 h-4" />
+                        </button>
+                        <button
+                          className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                          onClick={() => handleDelete(schedule.id)}
+                          disabled={loading}
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                      No schedules available.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-6">
           <button
-            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-            onClick={() => {
-              // Prepare for adding a new schedule
-              setIsEdit(false);
-              setFormData({
-                flight_id: '',
-                departure_time: '',
-                arrival_time: '',
-                price: '',
-                status: 1,
-              });
-              setShowModal(true);
-            }}
-          >
-            + Add Schedule
-          </button>
-        </div>
-      </div>
-
-      {/* Controls for Pagination & Search */}
-      <div className="flex justify-between items-center mb-4 bg-white p-4 rounded-lg shadow">
-        <div className="flex items-center space-x-2">
-          <span>Show</span>
-          <select
-            className="border rounded p-2"
-            value={entriesPerPage}
-            onChange={(e) => {
-              setEntriesPerPage(Number(e.target.value));
-              setCurrentPage(1);
-            }}
-          >
-            <option>10</option>
-            <option>25</option>
-            <option>50</option>
-            <option>100</option>
-          </select>
-          <span>entries</span>
-        </div>
-        <div>
-          <span>Search: </span>
-          <input
-            type="text"
-            className="border rounded p-2 ml-2"
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Flight Schedules Table */}
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-2 border-b">S#</th>
-              <th className="p-2 border-b">Flight</th>
-              <th className="p-2 border-b">Airport</th>
-              <th className="p-2 border-b">Time</th>
-              <th className="p-2 border-b">Price</th>
-              <th className="p-2 border-b">Stops</th>
-              <th className="p-2 border-b">Status</th>
-              <th className="p-2 border-b">Date</th>
-              <th className="p-2 border-b">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedSchedules.map((schedule, index) => (
-              <tr key={schedule.id} className="hover:bg-gray-50">
-                <td className="p-2 border-b">{(currentPage - 1) * entriesPerPage + index + 1}</td>
-                <td className="p-2 border-b">{schedule.flight_number}</td>
-                <td className="p-2 border-b">
-                  {schedule.startAirport} - {schedule.endAirport}
-                </td>
-                <td className="p-2 border-b">
-                  {new Date(`1970-01-01T${schedule.departure_time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-                  {new Date(`1970-01-01T${schedule.arrival_time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </td>
-                <td className="p-2 border-b">INR {schedule.price}</td>
-                <td className="p-2 border-b">{schedule.stops}</td>
-                <td className="p-2 border-b">
-                  <input type="checkbox" checked={schedule.status === 'Active'} readOnly className="form-checkbox h-5 w-5 text-blue-600" />
-                </td>
-                <td className="p-2 border-b">{schedule.date}</td>
-                <td className="p-2 border-b">
-                  <button
-                    className="bg-blue-500 text-white px-2 py-1 rounded mr-2 hover:bg-blue-600"
-                    onClick={() => handleEdit(schedule)}
-                  >
-                    ✏️
-                  </button>
-                  <button className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">
-                    🗑️
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination Controls */}
-      <div className="flex justify-between items-center mt-4">
-        <span>
-          Showing {(currentPage - 1) * entriesPerPage + 1} to {Math.min(currentPage * entriesPerPage, filteredSchedules.length)} of {filteredSchedules.length} entries
-        </span>
-        <div className="flex space-x-2">
-          <button
-            className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1 || loading}
+            className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 transition-colors shadow-sm"
           >
             Previous
           </button>
-          <span>Page {currentPage} of {totalPages}</span>
+          {getPaginationItems().map((item, index) => (
+            <React.Fragment key={`page-${item}-${index}`}>
+              {item === '...' ? (
+                <span className="px-4 py-2 text-gray-500">...</span>
+              ) : (
+                <button
+                  onClick={() => setCurrentPage(item)}
+                  disabled={loading}
+                  className={`px-4 py-2 rounded-lg ${
+                    currentPage === item
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  } disabled:opacity-50 transition-colors shadow-sm`}
+                >
+                  {item}
+                </button>
+              )}
+            </React.Fragment>
+          ))}
           <button
-            className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages || loading}
+            className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 transition-colors shadow-sm"
           >
             Next
           </button>
         </div>
-      </div>
-
-      {/* Modal for Add/Edit Schedule */}
-      {showModal && (
-        <Modal title={isEdit ? 'Edit Schedule' : 'Add New Schedule'} onClose={() => setShowModal(false)}>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="flight_id" className="block text-sm font-medium mb-1">Flight</label>
-              <select
-                id="flight_id"
-                name="flight_id"
-                value={formData.flight_id}
-                onChange={handleInputChange}
-                className="w-full border rounded px-3 py-2"
-                required
-              >
-                <option value="">Select a flight</option>
-                {flights.map(flight => (
-                  <option key={flight.id} value={flight.id}>{flight.flight_number}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="departure_time" className="block text-sm font-medium mb-1">Departure Time</label>
-              <input
-                type="time"
-                id="departure_time"
-                name="departure_time"
-                value={formData.departure_time}
-                onChange={handleInputChange}
-                className="w-full border rounded px-3 py-2"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="arrival_time" className="block text-sm font-medium mb-1">Arrival Time</label>
-              <input
-                type="time"
-                id="arrival_time"
-                name="arrival_time"
-                value={formData.arrival_time}
-                onChange={handleInputChange}
-                className="w-full border rounded px-3 py-2"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="price" className="block text-sm font-medium mb-1">Price (INR)</label>
-              <input
-                type="number"
-                id="price"
-                name="price"
-                value={formData.price}
-                onChange={handleInputChange}
-                className="w-full border rounded px-3 py-2"
-                required
-                min="0"
-                step="0.01"
-              />
-            </div>
-            <div>
-              <label htmlFor="status" className="block text-sm font-medium mb-1">Status</label>
-              <select
-                id="status"
-                name="status"
-                value={formData.status}
-                onChange={handleInputChange}
-                className="w-full border rounded px-3 py-2"
-              >
-                <option value={1}>Active</option>
-                <option value={0}>Inactive</option>
-              </select>
-            </div>
-            <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">
-              {isEdit ? 'Update Schedule' : 'Add Schedule'}
-            </button>
-          </form>
-        </Modal>
       )}
 
-      {/* Modal for Bulk Editing (Price Update) */}
-      {showBulkEditModal && (
-        <Modal title="Edit All Schedules" onClose={() => setShowBulkEditModal(false)}>
-          <form onSubmit={handleBulkEditSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="bulkPrice" className="block text-sm font-medium mb-1">New Price for All Schedules (INR)</label>
-              <input
-                type="number"
-                id="bulkPrice"
-                value={bulkPrice}
-                onChange={(e) => setBulkPrice(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-                required
-                min="0"
-                step="0.01"
-              />
+      {/* Add/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-6">
+              <h5 className="text-xl font-semibold">{isEdit ? 'Edit Schedule' : 'Add Schedule'}</h5>
+              <button
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                onClick={() => setShowModal(false)}
+                disabled={loading}
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
             </div>
-            <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">
-              Update Prices
-            </button>
-          </form>
-        </Modal>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Flight</label>
+                <select
+                  name="flight_id"
+                  value={formData.flight_id}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
+                  required
+                  disabled={loading}
+                >
+                  <option value="">Select a flight</option>
+                  {flights.map((flight) => (
+                    <option key={flight.id} value={flight.id}>
+                      {flight.flight_number}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Departure Airport</label>
+                <select
+                  name="departure_airport_id"
+                  value={formData.departure_airport_id}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
+                  required
+                  disabled={loading}
+                >
+                  <option value="">Select Airport</option>
+                  {airports.map((airport) => (
+                    <option key={airport.id} value={airport.id}>
+                      {airport.airport_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Arrival Airport</label>
+                <select
+                  name="arrival_airport_id"
+                  value={formData.arrival_airport_id}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
+                  required
+                  disabled={loading}
+                >
+                  <option value="">Select Airport</option>
+                  {airports.map((airport) => (
+                    <option key={airport.id} value={airport.id}>
+                      {airport.airport_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Departure Time</label>
+                <input
+                  type="time"
+                  name="departure_time"
+                  value={formData.departure_time}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
+                  required
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Arrival Time</label>
+                <input
+                  type="time"
+                  name="arrival_time"
+                  value={formData.arrival_time}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
+                  required
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Price (INR)</label>
+                <input
+                  type="number"
+                  name="price"
+                  value={formData.price}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
+                  required
+                  min="0"
+                  step="0.01"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Status</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
+                  disabled={loading}
+                >
+                  <option value={1}>Active</option>
+                  <option value={0}>Inactive</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+                disabled={loading}
+              >
+                {loading ? (
+                  <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
+                    />
+                  </svg>
+                ) : (
+                  <>
+                    <PlusIcon className="w-5 h-5" />
+                    {isEdit ? 'Update Schedule' : 'Add Schedule'}
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

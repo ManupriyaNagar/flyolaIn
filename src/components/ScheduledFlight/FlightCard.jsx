@@ -6,47 +6,11 @@ import BookingPopup from "./BookingPopup";
 import { motion } from "framer-motion";
 import BASE_URL from "@/baseUrl/baseUrl";
 
-function getNextWeekday(weekday) {
-  const weekdayMap = {
-    Sunday: 0,
-    Monday: 1,
-    Tuesday: 2,
-    Wednesday: 3,
-    Thursday: 4,
-    Friday: 5,
-    Saturday: 6,
-  };
-
-  const now = new Date();
-  const istOffset = 5.5 * 60 * 60 * 1000;
-  const istNow = new Date(now.getTime() + istOffset);
-  const currentDay = istNow.getDay();
-  const targetDay = weekdayMap[weekday];
-
-  let daysToAdd = targetDay - currentDay;
-  if (daysToAdd < 0) {
-    daysToAdd += 7;
-  }
-
-  const nextDate = new Date(istNow);
-  nextDate.setDate(istNow.getDate() + daysToAdd);
-  return nextDate;
-}
-
-function convertUTCToIST(timeStr) {
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  let totalMinutes = hours * 60 + minutes + 330; // 5h30m = 330 minutes
-  const istHours = Math.floor(totalMinutes / 60) % 24;
-  const istMinutes = totalMinutes % 60;
-  return `${istHours.toString().padStart(2, '0')}:${istMinutes.toString().padStart(2, '0')}`;
-}
-
 const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selectedDate, passengers }) => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [isCardActive, setIsCardActive] = useState(false);
   const [availableSeats, setAvailableSeats] = useState(flightSchedule.availableSeats ?? 0);
 
-  // Fetch latest seat availability
   useEffect(() => {
     const fetchSeats = async () => {
       try {
@@ -150,7 +114,7 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
         <div className="flex-1 text-center space-y-3">
           <p className="text-base font-semibold text-gray-800 flex items-center justify-center gap-2 bg-white/90 p-2 rounded-lg shadow-inner">
             <FaClock className="text-gray-600" />
-            {convertUTCToIST(flightSchedule.departure_time)} - {convertUTCToIST(flightSchedule.arrival_time)}
+            {flightSchedule.departure_time_formatted} - {flightSchedule.arrival_time_formatted}
             <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full ml-2">
               Scheduled
             </span>
