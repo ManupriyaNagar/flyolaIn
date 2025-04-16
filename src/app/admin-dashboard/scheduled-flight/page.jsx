@@ -29,7 +29,6 @@ const FlightSchedulePage = () => {
     arrival_time: '',
     price: '',
     status: 1,
-    via_stop_id: '[]', // Initialize as JSON string for stops
   });
 
   // Fetch data with validation
@@ -47,7 +46,7 @@ const FlightSchedulePage = () => {
         schedulesRes.json(),
         airportsRes.json(),
       ]);
-
+  
       // Validate data
       const flightIds = new Set(flightsData.map((f) => f.id));
       const airportIds = new Set(airportsData.map((a) => a.id));
@@ -62,16 +61,17 @@ const FlightSchedulePage = () => {
           console.warn(`Invalid arrival_airport_id ${schedule.arrival_airport_id} in schedule ${schedule.id}`);
         }
         try {
-          JSON.parse(schedule.via_stop_id || '[]').forEach((id) => {
+          const viaStopIds = schedule.via_stop_id ? JSON.parse(schedule.via_stop_id || '[]') : [];
+          viaStopIds.forEach((id) => {
             if (!airportIds.has(id)) {
-              console.warn(`Invalid stop_airport_id ${id} in schedule ${schedule.id}`);
+              console.warn(`Invalid via_stop_id ${id} in schedule ${schedule.id}`);
             }
           });
         } catch (error) {
           console.error(`Invalid via_stop_id in schedule ${schedule.id}:`, schedule.via_stop_id);
         }
       });
-
+  
       setFlights(flightsData);
       setAirports(airportsData);
       setSchedules(
@@ -103,7 +103,6 @@ const FlightSchedulePage = () => {
       setLoading(false);
     }
   }, []);
-
   // Initial data fetch
   useEffect(() => {
     fetchData();
@@ -127,7 +126,6 @@ const FlightSchedulePage = () => {
     }));
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -139,7 +137,7 @@ const FlightSchedulePage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          via_stop_id: JSON.parse(formData.via_stop_id || '[]'), // Parse to array for backend
+          via_stop_id: formData.via_stop_id, // Include via_stop_id
         }),
       });
       if (!response.ok) throw new Error('Error saving schedule');
@@ -156,7 +154,7 @@ const FlightSchedulePage = () => {
       });
       setIsEdit(false);
       toast.success(isEdit ? 'Schedule updated!' : 'Schedule added!');
-      await fetchData();
+      await fetchData(); // Refetch data after submission
     } catch (err) {
       console.error('Error:', err);
       toast.error('Failed to save schedule.');
@@ -177,11 +175,10 @@ const FlightSchedulePage = () => {
       arrival_time: schedule.arrival_time,
       price: schedule.price,
       status: schedule.status === 'Active' ? 1 : 0,
-      via_stop_id: schedule.via_stop_id || '[]', // Load via_stop_id
+      via_stop_id: schedule.via_stop_id || '[]',
     });
     setShowModal(true);
   };
-
   // Handle delete
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this schedule?')) return;
@@ -191,7 +188,7 @@ const FlightSchedulePage = () => {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Error deleting schedule');
-      await fetchData();
+      await fetchData(); // Refetch data after deletion
       toast.success('Schedule deleted!');
     } catch (err) {
       console.error('Error:', err);
@@ -217,11 +214,10 @@ const FlightSchedulePage = () => {
           arrival_time: schedule.arrival_time,
           price: schedule.price,
           status: newStatus,
-          via_stop_id: JSON.parse(schedule.via_stop_id || '[]'), // Include via_stop_id
         }),
       });
       if (!response.ok) throw new Error('Error updating status');
-      await fetchData();
+      await fetchData(); // Refetch data after status update
       toast.success(`Schedule ${newStatus === 1 ? 'activated' : 'deactivated'}!`);
     } catch (err) {
       console.error('Error:', err);
@@ -239,8 +235,7 @@ const FlightSchedulePage = () => {
       const matchesSearch =
         schedule.flight_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
         schedule.startAirport.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        schedule.endAirport.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        schedule.stops.toLowerCase().includes(searchTerm.toLowerCase());
+        schedule.endAirport.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesDay && matchesStatus && matchesSearch;
     });
   }, [schedules, filterDay, filterStatus, searchTerm]);
@@ -315,7 +310,6 @@ const FlightSchedulePage = () => {
               arrival_time: '',
               price: '',
               status: 1,
-              via_stop_id: '[]',
             });
             setShowModal(true);
           }}
@@ -498,199 +492,200 @@ const FlightSchedulePage = () => {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
-            <div className="flex justify-between items-center mb-6">
-              <h5 className="text-xl font-semibold">{isEdit ? 'Edit Schedule' : 'Add Schedule'}</h5>
-              <button
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-                onClick={() => setShowModal(false)}
-                disabled={loading}
-              >
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Flight</label>
-                <select
-                  name="flight_id"
-                  value={formData.flight_id}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
-                  required
-                  disabled={loading}
-                >
-                  <option value="">Select a flight</option>
-                  {flights.map((flight) => (
-                    <option key={flight.id} value={flight.id}>
-                      {flight.flight_number}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Departure Airport</label>
-                <select
-                  name="departure_airport_id"
-                  value={formData.departure_airport_id}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
-                  required
-                  disabled={loading}
-                >
-                  <option value="">Select Airport</option>
-                  {airports.map((airport) => (
-                    <option key={airport.id} value={airport.id}>
-                      {airport.airport_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Arrival Airport</label>
-                <select
-                  name="arrival_airport_id"
-                  value={formData.arrival_airport_id}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
-                  required
-                  disabled={loading}
-                >
-                  <option value="">Select Airport</option>
-                  {airports.map((airport) => (
-                    <option key={airport.id} value={airport.id}>
-                      {airport.airport_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Stop Airports</label>
-                <div className="max-h-40 overflow-y-auto border rounded-lg px-4 py-2 bg-gray-50">
-                  {airports.length > 0 ? (
-                    airports.map((airport) => (
-                      <div key={airport.id} className="flex items-center py-1">
-                        <input
-                          type="checkbox"
-                          id={`stop-airport-${airport.id}`}
-                          value={airport.id}
-                          checked={JSON.parse(formData.via_stop_id || '[]').includes(airport.id)}
-                          onChange={(e) => {
-                            const { value, checked } = e.target;
-                            const currentStops = JSON.parse(formData.via_stop_id || '[]');
-                            let updatedStops;
-                            if (checked) {
-                              updatedStops = [...currentStops, Number(value)];
-                            } else {
-                              updatedStops = currentStops.filter((id) => id !== Number(value));
-                            }
-                            setFormData({
-                              ...formData,
-                              via_stop_id: JSON.stringify(updatedStops),
-                            });
-                          }}
-                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
-                          disabled={loading}
-                        />
-                        <label
-                          htmlFor={`stop-airport-${airport.id}`}
-                          className="ml-2 text-sm text-gray-700 cursor-pointer"
-                        >
-                          {airport.airport_name}
-                        </label>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-500">No airports available</p>
-                  )}
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+    <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+      <div className="flex justify-between items-center mb-6">
+        <h5 className="text-xl font-semibold">{isEdit ? 'Edit Schedule' : 'Add Schedule'}</h5>
+        <button
+          className="text-gray-400 hover:text-gray-600 transition-colors"
+          onClick={() => setShowModal(false)}
+          disabled={loading}
+        >
+          <XMarkIcon className="w-6 h-6" />
+        </button>
+      </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Flight</label>
+          <select
+            name="flight_id"
+            value={formData.flight_id}
+            onChange={handleInputChange}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
+            required
+            disabled={loading}
+          >
+            <option value="">Select a flight</option>
+            {flights.map((flight) => (
+              <option key={flight.id} value={flight.id}>
+                {flight.flight_number}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Departure Airport</label>
+          <select
+            name="departure_airport_id"
+            value={formData.departure_airport_id}
+            onChange={handleInputChange}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
+            required
+            disabled={loading}
+          >
+            <option value="">Select Airport</option>
+            {airports.map((airport) => (
+              <option key={airport.id} value={airport.id}>
+                {airport.airport_name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Arrival Airport</label>
+          <select
+            name="arrival_airport_id"
+            value={formData.arrival_airport_id}
+            onChange={handleInputChange}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
+            required
+            disabled={loading}
+          >
+            <option value="">Select Airport</option>
+            {airports.map((airport) => (
+              <option key={airport.id} value={airport.id}>
+                {airport.airport_name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Stop Airports</label>
+          <div className="max-h-40 overflow-y-auto border rounded-lg px-4 py-2 bg-gray-50">
+            {airports.length > 0 ? (
+              airports.map((airport) => (
+                <div key={airport.id} className="flex items-center py-1">
+                  <input
+                    type="checkbox"
+                    id={`stop-airport-${airport.id}`}
+                    value={airport.id}
+                    checked={JSON.parse(formData.via_stop_id || '[]').includes(airport.id)}
+                    onChange={(e) => {
+                      const { value, checked } = e.target;
+                      const currentStops = JSON.parse(formData.via_stop_id || '[]');
+                      let updatedStops;
+                      if (checked) {
+                        updatedStops = [...currentStops, Number(value)];
+                      } else {
+                        updatedStops = currentStops.filter((id) => id !== Number(value));
+                      }
+                      setFormData({
+                        ...formData,
+                        via_stop_id: JSON.stringify(updatedStops),
+                      });
+                    }}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                    disabled={loading}
+                  />
+                  <label
+                    htmlFor={`stop-airport-${airport.id}`}
+                    className="ml-2 text-sm text-gray-700 cursor-pointer"
+                  >
+                    {airport.airport_name}
+                  </label>
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Departure Time</label>
-                <input
-                  type="time"
-                  name="departure_time"
-                  value={formData.departure_time}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
-                  required
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Arrival Time</label>
-                <input
-                  type="time"
-                  name="arrival_time"
-                  value={formData.arrival_time}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
-                  required
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Price (INR)</label>
-                <input
-                  type="number"
-                  name="price"
-                  value={formData.price}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
-                  required
-                  min="0"
-                  step="0.01"
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Status</label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
-                  disabled={loading}
-                >
-                  <option value={1}>Active</option>
-                  <option value={0}>Inactive</option>
-                </select>
-              </div>
-              <button
-                type="submit"
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
-                disabled={loading}
-              >
-                {loading ? (
-                  <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
-                    />
-                  </svg>
-                ) : (
-                  <>
-                    <PlusIcon className="w-5 h-5" />
-                    {isEdit ? 'Update Schedule' : 'Add Schedule'}
-                  </>
-                )}
-              </button>
-            </form>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500">No airports available</p>
+            )}
           </div>
         </div>
-      )}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Departure Time</label>
+          <input
+            type="time"
+            name="departure_time"
+            value={formData.departure_time}
+            onChange={handleInputChange}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
+            required
+            disabled={loading}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Arrival Time</label>
+          <input
+            type="time"
+            name="arrival_time"
+            value={formData.arrival_time}
+            onChange={handleInputChange}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
+            required
+            disabled={loading}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Price (INR)</label>
+          <input
+            type="number"
+            name="price"
+            value={formData.price}
+            onChange={handleInputChange}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
+            required
+            min="0"
+            step="0.01"
+            disabled={loading}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Status</label>
+          <select
+            name="status"
+            value={formData.status}
+            onChange={handleInputChange}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
+            disabled={loading}
+          >
+            <option value={1}>Active</option>
+            <option value={0}>Inactive</option>
+          </select>
+        </div>
+        <button
+          type="submit"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+          disabled={loading}
+        >
+          {loading ? (
+            <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
+              />
+            </svg>
+          ) : (
+            <>
+              <PlusIcon className="w-5 h-5" />
+              {isEdit ? 'Update Schedule' : 'Add Schedule'}
+            </>
+          )}
+        </button>
+      </form>
+    </div>
+  </div>
+)}
     </div>
   );
 };
 
 export default FlightSchedulePage;
+
