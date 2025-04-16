@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect } from "react";
-import {jwtDecode} from "jwt-decode"; // Use default import for jwt-decode
+import { createContext, useContext, useState, useEffect, useRef } from "react";
+import { jwtDecode } from "jwt-decode";
 
 const AuthContext = createContext();
 
@@ -11,8 +11,13 @@ export function AuthProvider({ children }) {
     userRole: null,
     user: null,
   });
+  const timeoutRef = useRef(null);
 
   const clearAuth = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     localStorage.removeItem("authState");
     localStorage.removeItem("token");
     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
@@ -21,7 +26,6 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const checkAuth = () => {
-      // Retrieve token from cookies and localStorage
       const cookieToken = document.cookie
         .split("; ")
         .find((row) => row.startsWith("token="))
@@ -31,6 +35,21 @@ export function AuthProvider({ children }) {
       if (token) {
         try {
           const decoded = jwtDecode(token);
+          const nowInSeconds = Math.floor(Date.now() / 1000);
+
+          if (decoded.exp < nowInSeconds) {
+            clearAuth();
+            return;
+          }
+
+          const expiresInMs = (decoded.exp - nowInSeconds) * 1000;
+
+          if (timeoutRef.current) clearTimeout(timeoutRef.current);
+          timeoutRef.current = setTimeout(() => {
+            clearAuth();
+            window.location.href = "/sign-in";
+          }, expiresInMs);
+
           setAuthState({
             isLoggedIn: true,
             userRole: decoded.role,
@@ -40,17 +59,23 @@ export function AuthProvider({ children }) {
           console.error("Token decoding error:", error);
           clearAuth();
         }
+      } else {
+        clearAuth();
       }
     };
 
     checkAuth();
     window.addEventListener("storage", checkAuth);
-    return () => window.removeEventListener("storage", checkAuth);
+
+    return () => {
+      window.removeEventListener("storage", checkAuth);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
   }, []);
 
   const logout = () => {
     clearAuth();
-    window.location.href = "/sign-in"; // Force page reload
+    window.location.href = "/sign-in";
   };
 
   return (
@@ -60,4 +85,10 @@ export function AuthProvider({ children }) {
   );
 }
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};
