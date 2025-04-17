@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -51,7 +52,14 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
   };
 
   const calculateFlightDate = () => {
-    const selectedDateObj = new Date(flightSchedule.departure_date || selectedDate);
+    const dateToUse = flightSchedule.departure_date || selectedDate;
+    console.log("FlightCard - dateToUse:", dateToUse);
+
+    const selectedDateObj = new Date(dateToUse);
+    if (isNaN(selectedDateObj.getTime())) {
+      console.error("Invalid date in calculateFlightDate:", dateToUse);
+      return "Invalid Date";
+    }
     return selectedDateObj.toLocaleDateString("en-US", {
       weekday: "long",
       month: "numeric",
