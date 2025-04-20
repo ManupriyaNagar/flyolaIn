@@ -1,4 +1,3 @@
-
 "use client";
 
 import BASE_URL from "@/baseUrl/baseUrl";
@@ -38,8 +37,8 @@ export default function PaymentStep({
     });
   };
 
-  // Handle Razorpay payment
-  const handlePayment = async () => {
+  // Handle Razorpay payment and booking confirmation
+  const handleConfirmBooking = async () => {
     setIsProcessing(true);
     try {
       // Validate seat availability
@@ -47,7 +46,9 @@ export default function PaymentStep({
         `${BASE_URL}/flight-schedules?user=true&date=${bookingData.selectedDate}`
       );
       if (!seatCheckResponse.ok) {
-        throw new Error("Failed to fetch flight schedules");
+        const errorText = await seatCheckResponse.text();
+        console.error("Seat check failed:", seatCheckResponse.status, errorText);
+        throw new Error(`Failed to fetch flight schedules: ${errorText}`);
       }
       const schedules = await seatCheckResponse.json();
       const flightSchedule = schedules.find(
@@ -75,9 +76,16 @@ export default function PaymentStep({
 
       if (!orderResponse.ok) {
         const errorData = await orderResponse.json();
+        console.error("Order creation failed:", orderResponse.status, errorData);
         throw new Error(errorData.details || errorData.error || "Failed to create order");
       }
       const { order_id } = await orderResponse.json();
+
+      // Assign passenger types
+      const passengerTypes = [];
+      for (let i = 0; i < bookingData.passengers.adults; i++) passengerTypes.push("Adult");
+      for (let i = 0; i < bookingData.passengers.children; i++) passengerTypes.push("Child");
+      for (let i = 0; i < bookingData.passengers.infants; i++) passengerTypes.push("Infant");
 
       // Razorpay options
       const options = {
@@ -107,6 +115,8 @@ export default function PaymentStep({
               schedule_id: bookingData.id,
               totalFare: parseFloat(bookingData.totalPrice),
               bookedUserId: 1,
+              paymentStatus: "SUCCESS",
+              bookingStatus: "CONFIRMED",
             },
             billing: {
               billing_name: `${travelerDetails[0].title} ${travelerDetails[0].fullName}`,
@@ -124,20 +134,22 @@ export default function PaymentStep({
               payment_id: razorpay_payment_id,
               order_id: razorpay_order_id,
               razorpay_signature: razorpay_signature,
-              payment_status: "PAYMENT_SUCCESS",
+              payment_status: "SUCCESS",
               payment_mode: "RAZORPAY",
               payment_amount: parseFloat(bookingData.totalPrice),
               message: "Payment successful via Razorpay",
               user_id: 1,
             },
             passengers: travelerDetails.map((t, index) => ({
-              fullName: t.fullName || `Adult ${index + 1}`,
+              fullName: t.fullName || `Passenger ${index + 1}`,
               dateOfBirth: t.dateOfBirth || null,
               title: t.title,
-              type: "Adult",
+              type: passengerTypes[index] || "Adult",
               age: t.dateOfBirth ? calculateAge(t.dateOfBirth) : 30,
             })),
           };
+
+          console.log("Sending booking payload:", bookingPayload); // Debug
 
           // Complete booking
           const bookingResponse = await fetch(`${BASE_URL}/bookings/complete-booking`, {
@@ -148,10 +160,12 @@ export default function PaymentStep({
 
           if (!bookingResponse.ok) {
             const errorData = await bookingResponse.json();
+            console.error("Booking API failed:", bookingResponse.status, errorData);
             throw new Error(errorData.error || "Failed to complete booking");
           }
 
           const data = await bookingResponse.json();
+          console.log("Booking response:", data); // Debug
 
           // Broadcast updated seat count
           window.dispatchEvent(
@@ -159,13 +173,13 @@ export default function PaymentStep({
               detail: {
                 schedule_id: data.schedule_id,
                 bookDate: data.bookDate,
-                seatsLeft: data.updatedAvailableSeats,
+                seatsLeft: data.updatedSeatCounts[0]?.seatsLeft || 0,
               },
             })
           );
 
-          alert("Payment successful! Booking confirmed.");
-          onConfirm();
+          alert("Payment and booking confirmed successfully!");
+          onConfirm(data);
         },
         prefill: {
           name: `${travelerDetails[0].title} ${travelerDetails[0].fullName}`,
@@ -190,54 +204,52 @@ export default function PaymentStep({
 
   return (
     <div className="w-full max-w-3xl mx-4 bg-white p-6 rounded-lg shadow-lg">
-      <h2 className="text-2xl font-semibold text-indigo-700 mb-4">
-        Make Payment
-      </h2>
-      <div className="bg-gray-50 p-4 rounded-lg space-y-2 mb-6">
-        <h3 className="text-xl font-medium">Flight Summary</h3>
-        <p className="text-sm flex items-center gap-2">
-          <FaPlane /> {bookingData.departure} → {bookingData.arrival}
-        </p>
-        <p className="text-sm flex items-center gap-2">
-          <FaClock /> {bookingData.selectedDate}
-        </p>
-        <p className="text-sm flex items-center gap-2">
-          <FaClock /> {bookingData.departureTime} - {bookingData.arrivalTime}
-        </p>
-        <p className="text-sm flex items-center gap-2">
-          <FaUserFriends /> Passengers: {totalPassengers}
-        </p>
-      </div>
-      <div className="bg-gray-100 p-4 rounded-lg mb-6">
-        <p className="text-xl">
-          Total:{" "}
-          <span className="font-bold text-green-700">
-            ₹ {bookingData.totalPrice}
-          </span>
-        </p>
-      </div>
-      <div className="flex flex-col sm:flex-row gap-2">
-        <button
-          onClick={handlePreviousStep}
-          className="px-6 py-2 bg-gray-600 text-white rounded-lg"
-          disabled={isProcessing}
-        >
-          Previous
-        </button>
-        <button
-          onClick={handlePayment}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg"
-          disabled={isProcessing}
-        >
-          {isProcessing ? "Processing…" : `Pay Now ₹${bookingData.totalPrice}`}
-        </button>
-      </div>
+    <h2 className="text-2xl font-semibold text-indigo-700 mb-4">
+      Make Payment
+    </h2>
+  
+    <div className="bg-gray-50 p-4 rounded-lg space-y-2 mb-6">
+      <h3 className="text-xl font-medium">Flight Summary</h3>
+      <p className="text-sm flex items-center gap-2">
+        <FaPlane /> {bookingData.departure} → {bookingData.arrival}
+      </p>
+      <p className="text-sm flex items-center gap-2">
+        <FaClock /> {bookingData.selectedDate}
+      </p>
+      <p className="text-sm flex items-center gap-2">
+        <FaClock /> {bookingData.departureTime} - {bookingData.arrivalTime}
+      </p>
+      <p className="text-sm flex items-center gap-2">
+        <FaUserFriends /> Passengers: {totalPassengers}
+      </p>
     </div>
+  
+    <div className="bg-gray-100 p-4 rounded-lg mb-6">
+      <p className="text-xl">
+        Total:{" "}
+        <span className="font-bold text-green-600">
+          ₹ {bookingData.totalPrice}
+        </span>
+      </p>
+    </div>
+  
+    <div className="flex flex-col sm:flex-row gap-2">
+      <button
+        onClick={handlePreviousStep}
+        className="px-6 py-2 bg-gray-600 text-white rounded-lg"
+        disabled={isProcessing}
+      >
+        Previous
+      </button>
+      <button
+        onClick={handleConfirmBooking}
+        className="px-6 py-2 bg-blue-600 text-white rounded-lg"
+        disabled={isProcessing}
+      >
+        {isProcessing ? "Processing…" : `Pay Now ₹${bookingData.totalPrice}`}
+      </button>
+    </div>
+  </div>
+  
   );
 }
-
-
-
-
-
-

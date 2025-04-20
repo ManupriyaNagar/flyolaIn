@@ -164,7 +164,7 @@ const FlightsPage = () => {
 
   // Confirm delete action
  // Handle delete confirmation
-const confirmDelete = async () => {
+ const confirmDelete = async () => {
   if (!showDeleteConfirm) return;
   setIsLoading(true);
   try {
@@ -172,19 +172,11 @@ const confirmDelete = async () => {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        // Add authentication header if needed, e.g.:
-        // 'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      if (response.status === 400 && errorData.error.includes('foreign key')) {
-        throw new Error('Cannot delete flight because it has associated bookings or dependencies.');
-      }
-      if (response.status === 404) {
-        throw new Error('Flight not found.');
-      }
       throw new Error(errorData.error || `Failed to delete flight (Status: ${response.status})`);
     }
 
@@ -195,10 +187,9 @@ const confirmDelete = async () => {
     toast.error(error.message || 'Failed to delete flight.');
   } finally {
     setIsLoading(false);
-    setShowDeleteConfirm(null); // Close modal
+    setShowDeleteConfirm(null);
   }
 };
-
   // Handle edit
   const handleEdit = (flight) => {
     setIsEdit(true);

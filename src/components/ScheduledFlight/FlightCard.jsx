@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -10,7 +9,7 @@ import BASE_URL from "@/baseUrl/baseUrl";
 const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selectedDate, passengers }) => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [isCardActive, setIsCardActive] = useState(false);
-  const [availableSeats, setAvailableSeats] = useState(flightSchedule.availableSeats ?? 0);
+  const [availableSeats, setAvailableSeats] = useState(flightSchedule.availableSeats ?? 6);
 
   useEffect(() => {
     const fetchSeats = async () => {
@@ -18,27 +17,75 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
         const response = await fetch(
           `${BASE_URL}/flight-schedules?user=true&date=${selectedDate}`
         );
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: Failed to fetch flight schedules`);
+        }
         const schedules = await response.json();
         const updatedSchedule = schedules.find((fs) => fs.id === flightSchedule.id);
         if (updatedSchedule) {
-          setAvailableSeats(updatedSchedule.availableSeats ?? 0);
+          const seats = updatedSchedule.availableSeats !== undefined ? updatedSchedule.availableSeats : 6;
+          console.log(
+            `FlightCard ${flightSchedule.id} - Fetched seats: availableSeats=${seats}, date=${selectedDate}`
+          );
+          if (seats === 0) {
+            console.warn(
+              `FlightCard ${flightSchedule.id} - Zero seats fetched for date=${selectedDate}. ` +
+              `Verify sumSeats, booked_seats, and flight airport_stop_ids.`
+            );
+          }
+          setAvailableSeats(seats);
+        } else {
+          console.warn(
+            `FlightCard ${flightSchedule.id} - Schedule not found for date=${selectedDate}. Using fallback seats=6`
+          );
+          setAvailableSeats(6);
         }
       } catch (err) {
-        console.error("Error fetching seat availability:", err);
+        console.error(`FlightCard ${flightSchedule.id} - Error fetching seats:`, err.message);
+        setAvailableSeats(6);
       }
     };
     fetchSeats();
   }, [flightSchedule.id, selectedDate]);
 
+  useEffect(() => {
+    const handleSeatUpdate = (e) => {
+      const { schedule_id, bookDate, seatsLeft } = e.detail;
+      if (schedule_id === flightSchedule.id && bookDate === selectedDate) {
+        const seats = seatsLeft >= 0 ? seatsLeft : 6;
+        console.log(
+          `FlightCard ${flightSchedule.id} - seats-updated: bookDate=${bookDate}, seatsLeft=${seats}`
+        );
+        if (seats === 0) {
+          console.warn(
+            `FlightCard ${flightSchedule.id} - seats-updated with seatsLeft=0 for bookDate=${bookDate}. ` +
+            `Check sumSeats, booked_seats, and flight airport_stop_ids.`
+          );
+        }
+        setAvailableSeats(seats);
+      } else {
+        console.log(
+          `FlightCard ${flightSchedule.id} - Ignored seats-updated: schedule_id=${schedule_id}, ` +
+          `bookDate=${bookDate}, expected=${selectedDate}`
+        );
+      }
+    };
+    window.addEventListener("seats-updated", handleSeatUpdate);
+    return () => window.removeEventListener("seats-updated", handleSeatUpdate);
+  }, [flightSchedule.id, selectedDate]);
+
   const flight = flights.find((f) => f.id === flightSchedule.flight_id) || {
     id: flightSchedule.flight_id,
     flight_number: "Unknown",
-    seat_limit: 0,
+    seat_limit: 6,
     status: flightSchedule.status || 0,
     stops: [],
   };
 
   if (flight.status !== 1 || flightSchedule.status !== 1) {
+    console.log(
+      `FlightCard ${flightSchedule.id} - Not rendered: flight.status=${flight.status}, schedule.status=${flightSchedule.status}`
+    );
     return null;
   }
 
@@ -53,11 +100,10 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
 
   const calculateFlightDate = () => {
     const dateToUse = flightSchedule.departure_date || selectedDate;
-    console.log("FlightCard - dateToUse:", dateToUse);
-
+    console.log(`FlightCard ${flightSchedule.id} - calculateFlightDate: dateToUse=${dateToUse}`);
     const selectedDateObj = new Date(dateToUse);
     if (isNaN(selectedDateObj.getTime())) {
-      console.error("Invalid date in calculateFlightDate:", dateToUse);
+      console.error(`FlightCard ${flightSchedule.id} - Invalid date: ${dateToUse}`);
       return "Invalid Date";
     }
     return selectedDateObj.toLocaleDateString("en-US", {
@@ -74,11 +120,11 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
 
   const handleBookNowClick = () => {
     if (!authState.isLoggedIn) {
-      alert("Please log in to book a flight. Only logged-in users can book.");
+      alert("Please log in to book a flight.");
       return;
     }
     if (availableSeats < passengers) {
-      alert(`Only ${availableSeats} seat(s) left. Please reduce the number of passengers.`);
+      alert(`Only ${availableSeats} seat(s) left. Please reduce passengers.`);
       return;
     }
     setIsCardActive(true);
@@ -89,6 +135,11 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
     setIsCardActive(false);
     setIsPopupOpen(false);
   };
+
+  console.log(
+    `FlightCard ${flightSchedule.id} - Rendering: availableSeats=${availableSeats}, ` +
+    `passengers=${passengers}, selectedDate=${selectedDate}`
+  );
 
   return (
     <motion.div

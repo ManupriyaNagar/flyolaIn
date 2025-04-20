@@ -188,7 +188,7 @@ const FlightSchedulePage = () => {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Error deleting schedule');
-      await fetchData(); // Refetch data after deletion
+      await fetchData();
       toast.success('Schedule deleted!');
     } catch (err) {
       console.error('Error:', err);
@@ -197,7 +197,6 @@ const FlightSchedulePage = () => {
       setLoading(false);
     }
   };
-
   // Handle status toggle
   const handleStatusToggle = async (schedule) => {
     setLoading(true);

@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import TourReviewStep from "./TourReviewStep";
 import TravelerInfoStep from "./TravelerInfoStep";
 import PaymentStep from "./PaymentStep";
-import TicketComponent from "./TicketComponent";
 
 const EMPTY_TRAVELLER = {
   title: "",
@@ -20,10 +20,9 @@ const CombinedBookingPage = () => {
   const [step, setStep] = useState(1);
   const [travelerDetails, setTravelerDetails] = useState([]);
   const [bookingData, setBookingData] = useState(null);
+  const [availableSeats, setAvailableSeats] = useState({});
+  const router = useRouter();
 
-  /* ──────────────────────────────────────────────────────────────
-     Read the data stored by BookingPopup and pre‑build the array
-  ────────────────────────────────────────────────────────────── */
   useEffect(() => {
     const fetchBookingData = () => {
       try {
@@ -50,6 +49,10 @@ const CombinedBookingPage = () => {
         setTravelerDetails(
           Array.from({ length: total }, () => ({ ...EMPTY_TRAVELLER }))
         );
+
+        setAvailableSeats({
+          [`${data.flightSchedule.id}_${data.selectedDate}`]: data.flightSchedule.availableSeats,
+        });
       } catch (err) {
         console.error("Error parsing booking data:", err);
       }
@@ -57,10 +60,41 @@ const CombinedBookingPage = () => {
     fetchBookingData();
   }, []);
 
-  const handleNextStep = () => setStep((prev) => Math.min(prev + 1, 4));
+  useEffect(() => {
+    const handleSeatsUpdated = (event) => {
+      const { schedule_id, bookDate, seatsLeft } = event.detail;
+      setAvailableSeats((prev) => ({
+        ...prev,
+        [`${schedule_id}_${bookDate}`]: seatsLeft,
+      }));
+      console.log(`Seats updated: schedule_id=${schedule_id}, bookDate=${bookDate}, seatsLeft=${seatsLeft}`);
+    };
+
+    window.addEventListener("seats-updated", handleSeatsUpdated);
+    return () => window.removeEventListener("seats-updated", handleSeatsUpdated);
+  }, []);
+
+  const handleNextStep = () => setStep((prev) => Math.min(prev + 1, 3));
   const handlePreviousStep = () => setStep((prev) => Math.max(prev - 1, 1));
 
-  if (!bookingData)
+  const handleConfirm = (bookingResult) => {
+    const ticketData = {
+      bookingData,
+      travelerDetails,
+      bookingResult,
+    };
+    try {
+      console.log("Storing ticketData:", ticketData); // Debug
+      localStorage.setItem("ticketData", JSON.stringify(ticketData));
+      console.log("Navigating to /ticket-page");
+      router.push("/ticket-page");
+    } catch (err) {
+      console.error("Error storing ticketData:", err);
+      alert("Failed to save booking data. Please try again.");
+    }
+  };
+
+  if (!bookingData) {
     return (
       <div className="flex flex-col items-center py-8 px-4 mt-20 md:mt-40">
         <p className="text-red-600">
@@ -68,6 +102,7 @@ const CombinedBookingPage = () => {
         </p>
       </div>
     );
+  }
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-8 mt-20 md:mt-40">
@@ -75,11 +110,10 @@ const CombinedBookingPage = () => {
         <TourReviewStep
           bookingData={bookingData}
           handleNextStep={handleNextStep}
-          handlePreviousStep={handlePreviousStep}
+          handlePreviousStep={step === 1 ? null : handlePreviousStep}
           step={step}
         />
       )}
-
       {step === 2 && (
         <TravelerInfoStep
           travelerDetails={travelerDetails}
@@ -89,20 +123,12 @@ const CombinedBookingPage = () => {
           bookingData={bookingData}
         />
       )}
-
       {step === 3 && (
         <PaymentStep
           bookingData={bookingData}
           travelerDetails={travelerDetails}
           handlePreviousStep={handlePreviousStep}
-          onConfirm={() => setStep(4)}
-        />
-      )}
-
-      {step === 4 && (
-        <TicketComponent
-          bookingData={bookingData}
-          travelerDetails={travelerDetails}
+          onConfirm={handleConfirm}
         />
       )}
     </div>

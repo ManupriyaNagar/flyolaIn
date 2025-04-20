@@ -18,12 +18,15 @@
     "animate.css": "^4.1.1",
     "axios": "^1.8.4",
     "chart.js": "^4.4.8",
+    "chroma-js": "^3.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
+    "dom-to-image": "^2.6.0",
     "dotenv": "^16.4.7",
     "dotted-map": "^2.2.3",
+    "file-saver": "^2.0.5",
     "framer-motion": "^12.6.2",
     "html2canvas": "^1.4.1",
     "html2pdf.js": "^0.10.3",
@@ -55,6 +58,6 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/chart.js": "^2.9.41",
-    "tailwindcss": "^4"
+    "tailwindcss": "^4.1.4"
   }
 }

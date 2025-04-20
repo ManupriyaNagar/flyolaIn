@@ -71,7 +71,7 @@ export default function Booking() {
           return {
             ...b,
             FlightSchedule: matchSeat?.FlightSchedule ?? {},
-            booked_seat: matchSeat?.booked_seat ?? null,
+            booked_seat: matchSeat?.booked_seat ?? null, // Kept for potential future use
             passengers: pax,
             departureAirportName: map[depId] ?? depId ?? "N/A",
             arrivalAirportName: map[arrId] ?? arrId ?? "N/A",
@@ -139,7 +139,7 @@ export default function Booking() {
       ArrivalTime: b.FlightSchedule?.arrival_time ?? "N/A",
       DepartureAirport: b.departureAirportName,
       ArrivalAirport: b.arrivalAirportName,
-      BookedSeats: b.booked_seat ?? "N/A",
+      BookedSeats: b.noOfPassengers, // Changed from b.booked_seat to b.noOfPassengers
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -298,7 +298,7 @@ export default function Booking() {
                   <td className="px-6 py-4 whitespace-nowrap">{b.FlightSchedule?.arrival_time || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{b.departureAirportName}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{b.arrivalAirportName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{b.booked_seat || "N/A"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{b.noOfPassengers || "N/A"}</td> {/* Changed from b.booked_seat to b.noOfPassengers */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
                       className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
@@ -341,7 +341,7 @@ export default function Booking() {
             ) : (
               <button
                 key={item}
-                onClick={() => setCurrentPage(item )}
+                onClick={() => setCurrentPage(item)}
                 className={`px-4 py-2 rounded-lg transition-all duration-200 ${
                   currentPage === item ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
