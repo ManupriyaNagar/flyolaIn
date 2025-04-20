@@ -41,23 +41,23 @@ const WhyChooseFlyola = () => {
         reasons why choosing Flyola is the best decision for your next trip:
       </p>
 
-      <div className="flex flex-wrap justify-center items-center mt-10">
+      <div className="flex flex-col md:flex-row justify-center items-center mt-10">
         {/* Image Section */}
-        <div className="relative w-1/2 flex justify-center">
+        <div className="relative w-full md:w-1/2 flex justify-center mb-10 md:mb-0">
           <img
             src="/1.png"
             alt="Private Jet"
-            className="w-60 h-80 object-cover rounded-full border-4 border-white shadow-lg"
+            className="w-40 h-56 md:w-60 md:h-80 object-cover rounded-full border-4 border-white shadow-lg"
           />
           <img
             src="/2.png"
             alt="Helicopter"
-            className="w-48 h-48 object-cover rounded-full border-4 border-white shadow-lg absolute bottom-0 right-0"
+            className="w-32 h-32 md:w-48 md:h-48 object-cover rounded-full border-4 border-white shadow-lg absolute bottom-0 right-0"
           />
         </div>
 
         {/* Features Section */}
-        <div className="w-1/2 flex flex-col gap-6 pl-10">
+        <div className="w-full md:w-1/2 flex flex-col gap-6 px-4 md:pl-10">
           {features.map((feature) => (
             <div key={feature.id} className="flex items-start gap-4">
               <div
