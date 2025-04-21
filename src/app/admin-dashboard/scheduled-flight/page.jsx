@@ -503,7 +503,7 @@ const FlightSchedulePage = () => {
           <XMarkIcon className="w-6 h-6" />
         </button>
       </div>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 mt-20">
         <div>
           <label className="block text-sm font-medium text-gray-700">Flight</label>
           <select

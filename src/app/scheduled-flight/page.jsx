@@ -8,6 +8,22 @@ import Header2 from "@/components/ScheduledFlight/Header";
 import { useAuth } from "@/components/AuthContext";
 import BASE_URL from "@/baseUrl/baseUrl";
 
+// ───────────────────────── helpers ─────────────────────────
+const tz = "Asia/Kolkata";
+const fmtIso = (d) =>
+  d.toLocaleDateString("sv-SE", { timeZone: tz });          // YYYY-MM-DD
+
+const isValidISO = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+const normaliseStops = (raw) => {
+  try {
+    const arr = Array.isArray(raw) ? raw : JSON.parse(raw || '[]');
+    return [...new Set(arr.map(Number).filter(id => Number.isInteger(id) && id > 0))];
+  } catch (e) {
+    console.warn(`normaliseStops - Parsing failed for schedule with via_stop_id=${raw}: ${e.message}`);
+    return [];
+  }
+};
+
 const ScheduledFlightsPage = () => {
   const router = useRouter();
   const { authState, setAuthState } = useAuth();
@@ -35,13 +51,7 @@ const ScheduledFlightsPage = () => {
     setIsClient(true);
   }, []);
 
-  const isValidDate = (dateStr) => {
-    if (!dateStr) return false;
-    const regex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!regex.test(dateStr)) return false;
-    const date = new Date(dateStr);
-    return !isNaN(date.getTime());
-  };
+  const isValidDate = isValidISO;
 
   const fetchData = async (date) => {
     try {
@@ -55,10 +65,11 @@ const ScheduledFlightsPage = () => {
       const month = String(today.getMonth() + 1).padStart(2, "0");
 
       const [flightSchedulesResponse, flightsResponse, airportsResponse] = await Promise.all([
-        fetch(`${BASE_URL}/flight-schedules?user=true&month=${year}-${month}&date=${date}`).then((res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to fetch schedules`);
-          return res.json();
-        }),
+        fetch(`${BASE_URL}/flight-schedules?user=true&month=${year}-${month}`)
+          .then((res) => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to fetch schedules`);
+            return res.json();
+          }),
         fetch(`${BASE_URL}/flights?user=true`).then((res) => {
           if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to fetch flights`);
           return res.json();
@@ -107,12 +118,7 @@ const ScheduledFlightsPage = () => {
       const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
       const dates = [];
       for (let d = new Date(today); d <= lastDayOfMonth; d.setDate(d.getDate() + 1)) {
-        const formattedDate = d.toLocaleDateString("en-CA", {
-          timeZone: "Asia/Kolkata",
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).split("/").reverse().join("-");
+        const formattedDate = fmtIso(d);
         dates.push({
           date: formattedDate,
           day: d.toLocaleDateString("en-US", { weekday: "long", timeZone: "Asia/Kolkata" }),
@@ -124,7 +130,7 @@ const ScheduledFlightsPage = () => {
     const searchParams = new URLSearchParams(window.location.search);
     const departure = searchParams.get("departure") || "";
     const arrival = searchParams.get("arrival") || "";
-    const date = searchParams.get("date") || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const date = searchParams.get("date") || fmtIso(new Date());
     const passengers = parseInt(searchParams.get("passengers")) || 1;
 
     console.log(`ScheduledFlightsPage - Init: date=${date}, passengers=${passengers}`);
@@ -189,15 +195,15 @@ const ScheduledFlightsPage = () => {
       console.warn("getFilteredAndSortedFlightSchedules - Invalid data arrays");
       return [];
     }
-
+  
     const filteredSchedules = flightSchedules
       .map((flightSchedule) => {
         const flight = flights.find((f) => f.id === flightSchedule.flight_id) || {};
         const departureAirport = airports.find((a) => a.id === flightSchedule.departure_airport_id) || { city: "Unknown" };
         const arrivalAirport = airports.find((a) => a.id === flightSchedule.arrival_airport_id) || { city: "Unknown" };
-
+  
         const formattedDate = flightSchedule.departure_date;
-
+  
         const departureTimeIST = new Date(`1970-01-01T${flightSchedule.departure_time}`)
           .toLocaleTimeString("en-US", {
             hour: "2-digit",
@@ -210,13 +216,13 @@ const ScheduledFlightsPage = () => {
             minute: "2-digit",
             timeZone: "Asia/Kolkata",
           });
-
-        const stopIds = flightSchedule.via_stop_id ? JSON.parse(flightSchedule.via_stop_id) : [];
+  
+        const stopIds = normaliseStops(flightSchedule.via_stop_id);
         const routeCities = stopIds.map((id) => airports.find((a) => a.id === id)?.city || "Unknown");
-
+  
         const isMultiStop = stopIds.length > 0;
         const fullRoute = [departureAirport.city, ...routeCities, arrivalAirport.city];
-
+  
         return {
           ...flightSchedule,
           flight_number: flight.flight_number || "Unknown",
@@ -236,20 +242,21 @@ const ScheduledFlightsPage = () => {
       })
       .filter((flightSchedule) => {
         const { departureCity, arrivalCity, routeCities, status, availableSeats, isMultiStop, stops, departure_date } = flightSchedule;
-
+  
         const isValidDeparture = !filterDepartureCity || routeCities.includes(filterDepartureCity);
         const isValidArrival = !filterArrivalCity || routeCities.includes(filterArrivalCity) || arrivalCity === filterArrivalCity;
-
+  
         const matchesDepartureCity = !filterDepartureCity || departureCity === filterDepartureCity;
         const matchesArrivalCity = !filterArrivalCity || arrivalCity === filterArrivalCity;
         const matchesStatus = filterStatus === "All" || (filterStatus === "Scheduled" && status === 0) || (filterStatus === "Departed" && status === 1);
-        const matchesSeats = availableSeats >= 0; // Relaxed filter for debugging
+        // Allow availableSeats === 0 to pass if filterMinSeats === 0
+        const matchesSeats = filterMinSeats === 0 || availableSeats >= filterMinSeats;
         const matchesStops = filterStops === "All" || (filterStops !== "All" && stops.length === parseInt(filterStops));
         const matchesSearchCriteria =
           (!searchCriteria.departure || departureCity === searchCriteria.departure) &&
           (!searchCriteria.arrival || arrivalCity === searchCriteria.arrival) &&
           (!searchCriteria.date || departure_date === searchCriteria.date);
-
+  
         const passesFilter =
           (matchesDepartureCity || (isMultiStop && isValidDeparture)) &&
           (matchesArrivalCity || (isMultiStop && isValidArrival)) &&
@@ -257,26 +264,31 @@ const ScheduledFlightsPage = () => {
           matchesSeats &&
           matchesStops &&
           matchesSearchCriteria;
-
+  
         console.log(
           `Filtering schedule ${flightSchedule.id}: ` +
           `availableSeats=${availableSeats}, filterMinSeats=${filterMinSeats}, ` +
           `matchesSeats=${matchesSeats}, passesFilter=${passesFilter}, ` +
           `departure_date=${departure_date}, searchCriteria.date=${searchCriteria.date}`
         );
-
+  
         return passesFilter;
       })
       .sort((a, b) => {
         if (sortOption === "Price: Low to High") return parseFloat(a.price || 0) - parseFloat(b.price || 0);
         else if (sortOption === "Price: High to Low") return parseFloat(b.price || 0) - parseFloat(a.price || 0);
-        else if (sortOption === "Departure Time") return new Date(a.departure_time) - new Date(b.departure_time);
+        else if (sortOption === "Departure Time") {
+          const wrap = (t) => new Date(`1970-01-01T${t}:00Z`);
+          return wrap(a.departure_time) - wrap(b.departure_time);
+        }
         return 0;
       });
-
+  
     console.log("getFilteredAndSortedFlightSchedules - Result:", filteredSchedules);
     return filteredSchedules;
   };
+
+
 
   const filteredAndSortedFlightSchedules = getFilteredAndSortedFlightSchedules();
 

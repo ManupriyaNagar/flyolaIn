@@ -1,36 +1,68 @@
-'use client';
+"use client";
 
-import BASE_URL from '@/baseUrl/baseUrl';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import { PlusIcon, TrashIcon, PencilIcon, XMarkIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import { debounce } from 'lodash';
+import BASE_URL from "@/baseUrl/baseUrl";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { PlusIcon, TrashIcon, PencilIcon, XMarkIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { debounce } from "lodash";
+
+// ✱ helpers ----------------------------------------------------------- //
+const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+// Return a clean array of stop-ids (unique, numbers, no 0 / ‘’)
+function normaliseStops(raw) {
+  try {
+    // Handle string "[]" explicitly as an empty array
+    if (raw === '"[]"') return [];
+    const arr = Array.isArray(raw) ? raw : JSON.parse(raw || "[]");
+    return [...new Set(arr.map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+  } catch (e) {
+    console.warn(`Failed to parse airport_stop_ids: ${raw}`, e);
+    return [];
+  }
+}
+
+function validateFlightBody(fd) {
+  const errors = [];
+  if (!fd.flight_number.trim()) errors.push("Flight number is required");
+  if (!fd.start_airport_id || !fd.end_airport_id) errors.push("Start & End airport required");
+  if (fd.start_airport_id === fd.end_airport_id) errors.push("Start & End airport must differ");
+  if (!WEEK_DAYS.includes(fd.departure_day)) errors.push("Invalid departure day");
+  if (!Number.isInteger(fd.seat_limit) || fd.seat_limit < 1) errors.push("Seat-limit must be ≥1");
+
+  const stops = normaliseStops(fd.airport_stop_ids);
+  if (stops.includes(fd.start_airport_id) || stops.includes(fd.end_airport_id))
+    errors.push("Stops may not include start/end airports");
+
+  return { errors, clean: { ...fd, airport_stop_ids: stops } };
+}
 
 const ENTRIES_PER_PAGE = [10, 25, 50, 100];
 
 const FlightsPage = () => {
+
   const [flights, setFlights] = useState([]);
   const [airports, setAirports] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [currentFlight, setCurrentFlight] = useState(null);
   const [formData, setFormData] = useState({
-    flight_number: '',
-    departure_day: 'Monday',
-    start_airport_id: '',
-    end_airport_id: '',
-    airport_stop_ids: '[]',
+    flight_number: "",
+    departure_day: "Monday",
+    start_airport_id: "",
+    end_airport_id: "",
+    airport_stop_ids: "[]",
     seat_limit: 6,
     status: 1,
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [entries, setEntries] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
-  const [dayFilter, setDayFilter] = useState('ALL DAYS');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null); // Store flight ID for deletion
+  const [dayFilter, setDayFilter] = useState("ALL DAYS");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
 
   // Fetch flights and airports with validation
   useEffect(() => {
@@ -41,39 +73,37 @@ const FlightsPage = () => {
           fetch(`${BASE_URL}/flights`),
           fetch(`${BASE_URL}/airport`),
         ]);
-        if (!flightsRes.ok || !airportsRes.ok) throw new Error('Failed to fetch data');
+        if (!flightsRes.ok || !airportsRes.ok) throw new Error("Failed to fetch data");
         const [flightsData, airportsData] = await Promise.all([
           flightsRes.json(),
           airportsRes.json(),
         ]);
 
-        // Validate airport IDs
+        // Validate airport IDs and normalize stop IDs
         const airportIds = new Set(airportsData.map((a) => a.id));
-        flightsData.forEach((flight) => {
+        const normalizedFlights = flightsData.map((flight) => {
           if (!airportIds.has(flight.start_airport_id)) {
             console.warn(`Invalid start_airport_id ${flight.start_airport_id} in flight ${flight.id}`);
           }
           if (!airportIds.has(flight.end_airport_id)) {
             console.warn(`Invalid end_airport_id ${flight.end_airport_id} in flight ${flight.id}`);
           }
-          try {
-            JSON.parse(flight.airport_stop_ids || '[]').forEach((id) => {
-              if (!airportIds.has(id)) {
-                console.warn(`Invalid stop_airport_id ${id} in flight ${flight.id}`);
-              }
-            });
-          } catch (error) {
-            console.error(`Invalid airport_stop_ids in flight ${flight.id}:`, flight.airport_stop_ids);
-          }
+          const stops = normaliseStops(flight.airport_stop_ids);
+          stops.forEach((id) => {
+            if (!airportIds.has(id)) {
+              console.warn(`Invalid stop_airport_id ${id} in flight ${flight.id}`);
+            }
+          });
+          return { ...flight, airport_stop_ids: stops }; // Normalize stops in flight data
         });
 
-        console.log('Flights:', flightsData);
-        console.log('Airports:', airportsData);
-        setFlights(flightsData);
+        console.log("Flights:", normalizedFlights);
+        console.log("Airports:", airportsData);
+        setFlights(normalizedFlights);
         setAirports(airportsData);
       } catch (error) {
-        console.error('Error fetching data:', error);
-        toast.error('Failed to load data.');
+        console.error("Error fetching data:", error);
+        toast.error("Failed to load data.");
       } finally {
         setIsLoading(false);
       }
@@ -95,14 +125,14 @@ const FlightsPage = () => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name]: name === 'seat_limit' || name.includes('airport_id') ? Number(value) : value,
+      [name]: name === "seat_limit" || name.includes("airport_id") ? Number(value) : value,
     });
   };
 
   // Handle airport stops change (for multi-select)
   const handleStopsChange = (e) => {
     const { value, checked } = e.target;
-    const currentStops = JSON.parse(formData.airport_stop_ids || '[]');
+    const currentStops = normaliseStops(formData.airport_stop_ids);
     let updatedStops;
     if (checked) {
       updatedStops = [...currentStops, Number(value)];
@@ -114,82 +144,104 @@ const FlightsPage = () => {
       airport_stop_ids: JSON.stringify(updatedStops),
     });
   };
-  
 
   // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    const method = isEdit ? 'PUT' : 'POST';
-    const url = isEdit ? `${BASE_URL}/flights/${currentFlight.id}` : `${BASE_URL}/flights`;
+
+    // 🛂 validate body first
+    const { errors, clean } = validateFlightBody(formData);
+    if (errors.length) {
+      toast.error(errors[0]); // show first error
+      setIsLoading(false);
+      return;
+    }
+
+    const method = isEdit ? "PUT" : "POST";
+    const url = isEdit ? `${BASE_URL}/flights/${currentFlight.id}` : `${BASE_URL}/flights`; // Assuming flights endpoint for schedules
     try {
+      // Normalize airport_stop_ids to ensure it's an array
+      const payload = {
+        ...clean,
+        airport_stop_ids: normaliseStops(clean.airport_stop_ids), // Convert to array
+      };
+
+      console.log("Sending payload:", payload); // Debug the payload
+
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          airport_stop_ids: JSON.parse(formData.airport_stop_ids || '[]'),
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
       if (response.ok) {
         setShowModal(false);
         setFormData({
-          flight_number: '',
-          departure_day: 'Monday',
-          start_airport_id: '',
-          end_airport_id: '',
-          airport_stop_ids: '[]',
+          flight_number: "",
+          departure_day: "Monday",
+          start_airport_id: "",
+          end_airport_id: "",
+          airport_stop_ids: "[]",
           seat_limit: 6,
           status: 1,
         });
         setIsEdit(false);
-        toast.success(isEdit ? 'Flight updated!' : 'Flight added!');
+        toast.success(isEdit ? "Flight updated!" : "Flight added!");
         const flightsRes = await fetch(`${BASE_URL}/flights`);
         setFlights(await flightsRes.json());
       } else {
-        throw new Error('Error saving flight');
+        const errorText = await response.text(); // Capture error details
+        console.error("Server error:", response.status, errorText);
+        throw new Error(`Error saving ${isEdit ? "flight" : "schedule"}: ${errorText}`);
       }
     } catch (error) {
-      console.error('Error:', error);
-      toast.error('Failed to save flight.');
+      console.error("Error:", error);
+      toast.error(`Failed to save ${isEdit ? "flight" : "schedule"}: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
   };
+
+
+
+
+
+
+
 
   // Handle delete initiation
   const handleDelete = (id) => {
     setShowDeleteConfirm(id); // Show confirmation modal
   };
 
-  // Confirm delete action
- // Handle delete confirmation
- const confirmDelete = async () => {
-  if (!showDeleteConfirm) return;
-  setIsLoading(true);
-  try {
-    const response = await fetch(`${BASE_URL}/flights/${showDeleteConfirm}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+  // Handle delete confirmation
+  const confirmDelete = async () => {
+    if (!showDeleteConfirm) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${BASE_URL}/flights/${showDeleteConfirm}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Failed to delete flight (Status: ${response.status})`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to delete flight (Status: ${response.status})`);
+      }
+
+      setFlights(flights.filter((f) => f.id !== showDeleteConfirm));
+      toast.success("Flight deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting flight:", error);
+      toast.error(error.message || "Failed to delete flight.");
+    } finally {
+      setIsLoading(false);
+      setShowDeleteConfirm(null);
     }
+  };
 
-    setFlights(flights.filter((f) => f.id !== showDeleteConfirm));
-    toast.success('Flight deleted successfully!');
-  } catch (error) {
-    console.error('Error deleting flight:', error);
-    toast.error(error.message || 'Failed to delete flight.');
-  } finally {
-    setIsLoading(false);
-    setShowDeleteConfirm(null);
-  }
-};
   // Handle edit
   const handleEdit = (flight) => {
     setIsEdit(true);
@@ -199,7 +251,7 @@ const FlightsPage = () => {
       departure_day: flight.departure_day,
       start_airport_id: flight.start_airport_id,
       end_airport_id: flight.end_airport_id,
-      airport_stop_ids: flight.airport_stop_ids || '[]',
+      airport_stop_ids: JSON.stringify(normaliseStops(flight.airport_stop_ids)),
       seat_limit: flight.seat_limit,
       status: flight.status,
     });
@@ -212,19 +264,19 @@ const FlightsPage = () => {
     const updatedFlight = { ...flight, status: flight.status === 1 ? 0 : 1 };
     try {
       const response = await fetch(`${BASE_URL}/flights/${flight.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedFlight),
       });
       if (response.ok) {
         setFlights(flights.map((f) => (f.id === flight.id ? updatedFlight : f)));
-        toast.success(`Flight ${updatedFlight.status === 1 ? 'activated' : 'deactivated'}!`);
+        toast.success(`Flight ${updatedFlight.status === 1 ? "activated" : "deactivated"}!`);
       } else {
-        throw new Error('Error updating status');
+        throw new Error("Error updating status");
       }
     } catch (error) {
-      console.error('Error:', error);
-      toast.error('Failed to update status.');
+      console.error("Error:", error);
+      toast.error("Failed to update status.");
     } finally {
       setIsLoading(false);
     }
@@ -243,12 +295,17 @@ const FlightsPage = () => {
   // Filtered and paginated flights
   const filteredFlights = useMemo(() => {
     return flights.filter((flight) => {
-      const matchesSearch = flight.flight_number.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesDay = dayFilter === 'ALL DAYS' || flight.departure_day === dayFilter;
+      const lower = searchTerm.toLowerCase();
+      const matchesSearch =
+        flight.flight_number.toLowerCase().includes(lower) ||
+        getAirportName(flight.start_airport_id).toLowerCase().includes(lower) ||
+        getAirportName(flight.end_airport_id).toLowerCase().includes(lower) ||
+        normaliseStops(flight.airport_stop_ids).some((id) => getAirportName(id).toLowerCase().includes(lower));
+      const matchesDay = dayFilter === "ALL DAYS" || flight.departure_day === dayFilter;
       const matchesStatus =
-        statusFilter === 'All' ||
-        (statusFilter === 'Active' && flight.status === 1) ||
-        (statusFilter === 'Inactive' && flight.status === 0);
+        statusFilter === "All" ||
+        (statusFilter === "Active" && flight.status === 1) ||
+        (statusFilter === "Inactive" && flight.status === 0);
       return matchesSearch && matchesDay && matchesStatus;
     });
   }, [flights, searchTerm, dayFilter, statusFilter]);
@@ -268,11 +325,11 @@ const FlightsPage = () => {
     if (endPage - startPage + 1 < maxButtons) startPage = Math.max(1, endPage - maxButtons + 1);
     if (startPage > 1) {
       items.push(1);
-      if (startPage > 2) items.push('...');
+      if (startPage > 2) items.push("...");
     }
     for (let i = startPage; i <= endPage; i++) items.push(i);
     if (endPage < totalPages) {
-      if (endPage < totalPages - 1) items.push('...');
+      if (endPage < totalPages - 1) items.push("...");
       items.push(totalPages);
     }
     return items;
@@ -296,7 +353,7 @@ const FlightsPage = () => {
             aria-label="Filter by day"
           >
             <option>ALL DAYS</option>
-            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
+            {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => (
               <option key={day}>{day}</option>
             ))}
           </select>
@@ -319,11 +376,11 @@ const FlightsPage = () => {
           onClick={() => {
             setIsEdit(false);
             setFormData({
-              flight_number: '',
-              departure_day: 'Monday',
-              start_airport_id: '',
-              end_airport_id: '',
-              airport_stop_ids: '[]',
+              flight_number: "",
+              departure_day: "Monday",
+              start_airport_id: "",
+              end_airport_id: "",
+              airport_stop_ids: "[]",
               seat_limit: 6,
               status: 1,
             });
@@ -376,15 +433,15 @@ const FlightsPage = () => {
               <thead>
                 <tr className="bg-gray-50">
                   {[
-                    'S#',
-                    'Number',
-                    'Day',
-                    'Start Airport',
-                    'End Airport',
-                    'Stops',
-                    'Seats',
-                    'Status',
-                    'Action',
+                    "S#",
+                    "Number",
+                    "Day",
+                    "Start Airport",
+                    "End Airport",
+                    "Stops",
+                    "Seats",
+                    "Status",
+                    "Action",
                   ].map((header) => (
                     <th
                       key={header}
@@ -409,10 +466,10 @@ const FlightsPage = () => {
                         {(currentPage - 1) * entries + index + 1}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {flight.flight_number || 'N/A'}
+                        {flight.flight_number || "N/A"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {flight.departure_day || 'Unknown'}
+                        {flight.departure_day || "Unknown"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">
                         <span title={getAirportName(flight.start_airport_id)}>
@@ -427,20 +484,14 @@ const FlightsPage = () => {
                       <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">
                         <span
                           title={
-                            JSON.parse(flight.airport_stop_ids || '[]')
+                            normaliseStops(flight.airport_stop_ids)
                               .map((id) => getAirportName(id))
-                              .join(', ') || 'No stops'
+                              .join(", ") || "No stops"
                           }
                         >
-                          {(() => {
-                            try {
-                              const stops = JSON.parse(flight.airport_stop_ids || '[]');
-                              return stops.map((id) => getAirportName(id)).join(', ') || 'No stops';
-                            } catch (error) {
-                              console.error('Invalid airport_stop_ids:', flight.airport_stop_ids);
-                              return 'Invalid stops';
-                            }
-                          })()}
+                          {normaliseStops(flight.airport_stop_ids)
+                            .map((id) => getAirportName(id))
+                            .join(", ") || "No stops"}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">{flight.seat_limit}</td>
@@ -540,9 +591,9 @@ const FlightsPage = () => {
                     />
                   </svg>
                 ) : (
-                  'Delete'
+                  "Delete"
                 )}
-                {isLoading ? 'Deleting...' : 'Delete'}
+                {isLoading ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>
@@ -560,7 +611,7 @@ const FlightsPage = () => {
             Previous
           </button>
           {getPaginationItems().map((item, index) =>
-            item === '...' ? (
+            item === "..." ? (
               <span key={`ellipsis-${index}`} className="px-4 py-2 text-gray-500">
                 ...
               </span>
@@ -571,8 +622,8 @@ const FlightsPage = () => {
                 disabled={isLoading}
                 className={`px-4 py-2 rounded-lg ${
                   currentPage === item
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 } disabled:opacity-50`}
               >
                 {item}
@@ -591,178 +642,178 @@ const FlightsPage = () => {
 
       {/* Add/Edit Modal */}
       {showModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-    <div className="bg-white rounded-xl p-6 w-full max-w-md">
-      <div className="flex justify-between items-center mb-6">
-        <h5 className="text-xl font-semibold">{isEdit ? 'Edit Flight' : 'Add Flight'}</h5>
-        <button
-          className="text-gray-400 hover:text-gray-600"
-          onClick={() => setShowModal(false)}
-          disabled={isLoading}
-          aria-label="Close modal"
-        >
-          <XMarkIcon className="w-6 h-6" />
-        </button>
-      </div>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Flight Number</label>
-          <input
-            type="text"
-            name="flight_number"
-            value={formData.flight_number}
-            onChange={handleInputChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            required
-            disabled={isLoading}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Departure Day</label>
-          <select
-            name="departure_day"
-            value={formData.departure_day}
-            onChange={handleInputChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            required
-            disabled={isLoading}
-          >
-            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(
-              (day) => (
-                <option key={day} value={day}>
-                  {day}
-                </option>
-              )
-            )}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Start Airport</label>
-          <select
-            name="start_airport_id"
-            value={formData.start_airport_id}
-            onChange={handleInputChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            required
-            disabled={isLoading}
-          >
-            <option value="">Select Airport</option>
-            {airports.map((airport) => (
-              <option key={airport.id} value={airport.id}>
-                {airport.airport_name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">End Airport</label>
-          <select
-            name="end_airport_id"
-            value={formData.end_airport_id}
-            onChange={handleInputChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            required
-            disabled={isLoading}
-          >
-            <option value="">Select Airport</option>
-            {airports.map((airport) => (
-              <option key={airport.id} value={airport.id}>
-                {airport.airport_name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Stop Airports</label>
-          <div className="max-h-40 overflow-y-auto border rounded-lg px-4 py-2 bg-gray-50">
-            {airports.length > 0 ? (
-              airports.map((airport) => (
-                <div key={airport.id} className="flex items-center py-1">
-                  <input
-                    type="checkbox"
-                    id={`stop-airport-${airport.id}`}
-                    value={airport.id}
-                    checked={JSON.parse(formData.airport_stop_ids || '[]').includes(airport.id)}
-                    onChange={handleStopsChange}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
-                    disabled={isLoading}
-                  />
-                  <label
-                    htmlFor={`stop-airport-${airport.id}`}
-                    className="ml-2 text-sm text-gray-700 cursor-pointer"
-                  >
-                    {airport.airport_name}
-                  </label>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <h5 className="text-xl font-semibold">{isEdit ? "Edit Flight" : "Add Flight"}</h5>
+              <button
+                className="text-gray-400 hover:text-gray-600"
+                onClick={() => setShowModal(false)}
+                disabled={isLoading}
+                aria-label="Close modal"
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Flight Number</label>
+                <input
+                  type="text"
+                  name="flight_number"
+                  value={formData.flight_number}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Departure Day</label>
+                <select
+                  name="departure_day"
+                  value={formData.departure_day}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  required
+                  disabled={isLoading}
+                >
+                  {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(
+                    (day) => (
+                      <option key={day} value={day}>
+                        {day}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Start Airport</label>
+                <select
+                  name="start_airport_id"
+                  value={formData.start_airport_id}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  required
+                  disabled={isLoading}
+                >
+                  <option value="">Select Airport</option>
+                  {airports.map((airport) => (
+                    <option key={airport.id} value={airport.id}>
+                      {airport.airport_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">End Airport</label>
+                <select
+                  name="end_airport_id"
+                  value={formData.end_airport_id}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  required
+                  disabled={isLoading}
+                >
+                  <option value="">Select Airport</option>
+                  {airports.map((airport) => (
+                    <option key={airport.id} value={airport.id}>
+                      {airport.airport_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Stop Airports</label>
+                <div className="max-h-40 overflow-y-auto border rounded-lg px-4 py-2 bg-gray-50">
+                  {airports.length > 0 ? (
+                    airports.map((airport) => (
+                      <div key={airport.id} className="flex items-center py-1">
+                        <input
+                          type="checkbox"
+                          id={`stop-airport-${airport.id}`}
+                          value={airport.id}
+                          checked={normaliseStops(formData.airport_stop_ids).includes(airport.id)}
+                          onChange={handleStopsChange}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                          disabled={isLoading || airport.id === formData.start_airport_id || airport.id === formData.end_airport_id}
+                        />
+                        <label
+                          htmlFor={`stop-airport-${airport.id}`}
+                          className={`ml-2 text-sm text-gray-700 cursor-pointer ${isLoading || airport.id === formData.start_airport_id || airport.id === formData.end_airport_id ? "text-gray-400" : ""}`}
+                        >
+                          {airport.airport_name}
+                        </label>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500">No airports available</p>
+                  )}
                 </div>
-              ))
-            ) : (
-              <p className="text-sm text-gray-500">No airports available</p>
-            )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Seat Limit</label>
+                <input
+                  type="number"
+                  name="seat_limit"
+                  value={formData.seat_limit}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  required
+                  min="1"
+                  disabled={isLoading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Status</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  disabled={isLoading}
+                >
+                  <option value={1}>Active</option>
+                  <option value={0}>Inactive</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
+                    />
+                  </svg>
+                ) : (
+                  <>
+                    <PlusIcon className="w-5 h-5" />
+                    {isEdit ? "Update Flight" : "Add Flight"}
+                  </>
+                )}
+              </button>
+            </form>
           </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Seat Limit</label>
-          <input
-            type="number"
-            name="seat_limit"
-            value={formData.seat_limit}
-            onChange={handleInputChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            required
-            min="1"
-            disabled={isLoading}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Status</label>
-          <select
-            name="status"
-            value={formData.status}
-            onChange={handleInputChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            disabled={isLoading}
-          >
-            <option value={1}>Active</option>
-            <option value={0}>Inactive</option>
-          </select>
-        </div>
-        <button
-          type="submit"
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
-              />
-            </svg>
-          ) : (
-            <>
-              <PlusIcon className="w-5 h-5" />
-              {isEdit ? 'Update Flight' : 'Add Flight'}
-            </>
-          )}
-        </button>
-      </form>
-    </div>
-  </div>
-)}
-
-
-
+      )}
     </div>
   );
 };
+
+// helper so other components (Schedule page) can reuse
+export { normaliseStops };
 
 export default FlightsPage;
