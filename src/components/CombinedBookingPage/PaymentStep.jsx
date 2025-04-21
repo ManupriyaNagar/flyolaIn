@@ -1,8 +1,14 @@
+
+
 "use client";
 
 import BASE_URL from "@/baseUrl/baseUrl";
 import React, { useState } from "react";
 import { FaPlane, FaClock, FaUserFriends } from "react-icons/fa";
+
+// ───────────────── helpers ──────────────────
+const toPaise = (rs) => Math.round(parseFloat(rs) * 100);
+const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function PaymentStep({
   bookingData,
@@ -77,7 +83,7 @@ export default function PaymentStep({
       if (!orderResponse.ok) {
         const errorData = await orderResponse.json();
         console.error("Order creation failed:", orderResponse.status, errorData);
-        throw new Error(errorData.details || errorData.error || "Failed to create order");
+        throw new Error(errorData.error || "Failed to create order");
       }
       const { order_id } = await orderResponse.json();
 
@@ -89,8 +95,8 @@ export default function PaymentStep({
 
       // Razorpay options
       const options = {
-        key: "rzp_live_ZkjTCpioNNhl3g", // Replace with your Razorpay key_id
-        amount: parseFloat(bookingData.totalPrice) * 100, // Convert to paise
+        key: "rzp_live_ZkjTCpioNNhl3g", 
+        amount: toPaise(bookingData.totalPrice),
         currency: "INR",
         order_id: order_id,
         name: "Flyola Aviation",
@@ -141,15 +147,15 @@ export default function PaymentStep({
               user_id: 1,
             },
             passengers: travelerDetails.map((t, index) => ({
-              fullName: t.fullName || `Passenger ${index + 1}`,
-              dateOfBirth: t.dateOfBirth || null,
+              name: t.fullName || `Passenger ${index + 1}`,
+              dob: t.dateOfBirth || todayISO(),
               title: t.title,
               type: passengerTypes[index] || "Adult",
               age: t.dateOfBirth ? calculateAge(t.dateOfBirth) : 30,
             })),
           };
 
-          console.log("Sending booking payload:", bookingPayload); // Debug
+          console.log("Sending booking payload:", bookingPayload);
 
           // Complete booking
           const bookingResponse = await fetch(`${BASE_URL}/bookings/complete-booking`, {
@@ -165,17 +171,19 @@ export default function PaymentStep({
           }
 
           const data = await bookingResponse.json();
-          console.log("Booking response:", data); // Debug
+          console.log("Booking response:", data);
 
-          // Broadcast updated seat count
-          window.dispatchEvent(
-            new CustomEvent("seats-updated", {
-              detail: {
-                schedule_id: data.schedule_id,
-                bookDate: data.bookDate,
-                seatsLeft: data.updatedSeatCounts[0]?.seatsLeft || 0,
-              },
-            })
+          // Broadcast seat updates
+          data.updatedSeatCounts.forEach((u) =>
+            window.dispatchEvent(
+              new CustomEvent("seats-updated", {
+                detail: {
+                  schedule_id: u.schedule_id,
+                  bookDate: u.bookDate,
+                  seatsLeft: u.seatsLeft,
+                },
+              })
+            )
           );
 
           alert("Payment and booking confirmed successfully!");
@@ -204,52 +212,52 @@ export default function PaymentStep({
 
   return (
     <div className="w-full max-w-3xl mx-4 bg-white p-6 rounded-lg shadow-lg">
-    <h2 className="text-2xl font-semibold text-indigo-700 mb-4">
-      Make Payment
-    </h2>
-  
-    <div className="bg-gray-50 p-4 rounded-lg space-y-2 mb-6">
-      <h3 className="text-xl font-medium">Flight Summary</h3>
-      <p className="text-sm flex items-center gap-2">
-        <FaPlane /> {bookingData.departure} → {bookingData.arrival}
-      </p>
-      <p className="text-sm flex items-center gap-2">
-        <FaClock /> {bookingData.selectedDate}
-      </p>
-      <p className="text-sm flex items-center gap-2">
-        <FaClock /> {bookingData.departureTime} - {bookingData.arrivalTime}
-      </p>
-      <p className="text-sm flex items-center gap-2">
-        <FaUserFriends /> Passengers: {totalPassengers}
-      </p>
+      <h2 className="text-2xl font-semibold text-indigo-700 mb-4">Make Payment</h2>
+      <div className="bg-gray-50 p-4 rounded-lg space-y-2 mb-6">
+        <h3 className="text-xl font-medium">Flight Summary</h3>
+        <p className="text-sm flex items-center gap-2">
+          <FaPlane /> {bookingData.departure} → {bookingData.arrival}
+        </p>
+        <p className="text-sm flex items-center gap-2">
+          <FaClock /> {bookingData.selectedDate}
+        </p>
+        <p className="text-sm flex items-center gap-2">
+          <FaClock /> {bookingData.departureTime} - {bookingData.arrivalTime}
+        </p>
+        <p className="text-sm flex items-center gap-2">
+          <FaUserFriends /> Passengers: {totalPassengers}
+        </p>
+      </div>
+      <div className="bg-gray-100 p-4 rounded-lg mb-6">
+        <p className="text-xl">
+          Total:{" "}
+          <span className="font-bold text-green-600">
+            ₹ {bookingData.totalPrice}
+          </span>
+        </p>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <button
+          onClick={handlePreviousStep}
+          className="px-6 py-2 bg-gray-600 text-white rounded-lg"
+          disabled={isProcessing}
+        >
+          Previous
+        </button>
+        <button
+          onClick={handleConfirmBooking}
+          className="px-6 py-2 bg-blue-600 text-white rounded-lg"
+          disabled={isProcessing}
+        >
+          {isProcessing ? "Processing…" : `Pay ₹${bookingData.totalPrice}`}
+        </button>
+      </div>
     </div>
-  
-    <div className="bg-gray-100 p-4 rounded-lg mb-6">
-      <p className="text-xl">
-        Total:{" "}
-        <span className="font-bold text-green-600">
-          ₹ {bookingData.totalPrice}
-        </span>
-      </p>
-    </div>
-  
-    <div className="flex flex-col sm:flex-row gap-2">
-      <button
-        onClick={handlePreviousStep}
-        className="px-6 py-2 bg-gray-600 text-white rounded-lg"
-        disabled={isProcessing}
-      >
-        Previous
-      </button>
-      <button
-        onClick={handleConfirmBooking}
-        className="px-6 py-2 bg-blue-600 text-white rounded-lg"
-        disabled={isProcessing}
-      >
-        {isProcessing ? "Processing…" : `Pay Now ₹${bookingData.totalPrice}`}
-      </button>
-    </div>
-  </div>
-  
   );
 }
+
+
+
+
+
+

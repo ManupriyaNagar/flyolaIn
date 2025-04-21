@@ -61,17 +61,18 @@ const CombinedBookingPage = () => {
   }, []);
 
   useEffect(() => {
-    const handleSeatsUpdated = (event) => {
-      const { schedule_id, bookDate, seatsLeft } = event.detail;
+    function handleSeatUpdate(e) {
+      const { schedule_id, bookDate, seatsLeft } = e.detail;
       setAvailableSeats((prev) => ({
         ...prev,
-        [`${schedule_id}_${bookDate}`]: seatsLeft,
+        [`${schedule_id}_${bookDate}`]:
+          typeof seatsLeft === "number" && seatsLeft >= 0
+            ? seatsLeft
+            : prev[`${schedule_id}_${bookDate}`] ?? 0,
       }));
-      console.log(`Seats updated: schedule_id=${schedule_id}, bookDate=${bookDate}, seatsLeft=${seatsLeft}`);
-    };
-
-    window.addEventListener("seats-updated", handleSeatsUpdated);
-    return () => window.removeEventListener("seats-updated", handleSeatsUpdated);
+    }
+    window.addEventListener("seats-updated", handleSeatUpdate);
+    return () => window.removeEventListener("seats-updated", handleSeatUpdate);
   }, []);
 
   const handleNextStep = () => setStep((prev) => Math.min(prev + 1, 3));
@@ -79,12 +80,18 @@ const CombinedBookingPage = () => {
 
   const handleConfirm = (bookingResult) => {
     const ticketData = {
-      bookingData,
+      bookingData: {
+        ...bookingData,
+        bookingNo: bookingResult.bookingNo || `BOOK${Date.now()}`,
+        bookingStatus: "CONFIRMED",
+        paymentStatus: "SUCCESS",
+        noOfPassengers: travelerDetails.length,
+      },
       travelerDetails,
       bookingResult,
     };
     try {
-      console.log("Storing ticketData:", ticketData); // Debug
+      console.log("Storing ticketData:", ticketData);
       localStorage.setItem("ticketData", JSON.stringify(ticketData));
       console.log("Navigating to /ticket-page");
       router.push("/ticket-page");
