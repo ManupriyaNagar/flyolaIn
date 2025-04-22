@@ -307,12 +307,13 @@ export default function FlightBooking() {
   animate={{ opacity: 1, y: 0 }}
   transition={{ delay: 0.5 }}
 >
-  <Button
-    disabled
-    className="w-full bg-gradient-to-r from-orange-600 to-yellow-600 text-white py-4 text-xs md:text-lg font-semibold rounded-lg flex items-center justify-center gap-3 hover:from-orange-700 hover:to-red-700 transition-all duration-300 shadow-md hover:shadow-lg"
-  >
-    <FaPlaneDeparture className="md:text-xl " /> CHARDHAM YATRA  (COMING SOON)
-  </Button>
+<button
+  onClick={() => window.open("https://flyola.in/chardham/", "_blank")}
+  className="w-full bg-gradient-to-r from-orange-500 to-yellow-600 text-white py-2 text-xs md:text-sm font-semibold rounded-lg flex items-center justify-center gap-3 hover:from-orange-400 hover:to-red-400 transition-all duration-300 shadow-md hover:shadow-lg"
+>
+  <FaPlaneDeparture className="md:text-xl" /> CHARDHAM YATRA 
+</button>
+
 </motion.div>
 
 

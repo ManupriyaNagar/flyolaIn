@@ -1,14 +1,9 @@
-
-
 "use client";
 
-import BASE_URL from "@/baseUrl/baseUrl";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import BASE_URL from "@/baseUrl/baseUrl";
 import { FaPlane, FaClock, FaUserFriends } from "react-icons/fa";
-
-// ───────────────── helpers ──────────────────
-const toPaise = (rs) => Math.round(parseFloat(rs) * 100);
-const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function PaymentStep({
   bookingData,
@@ -16,219 +11,196 @@ export default function PaymentStep({
   handlePreviousStep,
   onConfirm,
 }) {
+  const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
   const totalPassengers = travelerDetails.length;
 
-  // Calculate age from date of birth
-  const calculateAge = (dob) => {
-    if (!dob) return null;
-    const today = new Date();
-    const birthDate = new Date(dob);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age >= 0 ? age : null;
-  };
+  const toPaise = (rs) => Math.round(parseFloat(rs) * 100);
 
-  // Load Razorpay script dynamically
-  const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
+  // Dynamically load Razorpay SDK
+  const loadRazorpay = () =>
+    new Promise((resolve) => {
       const script = document.createElement("script");
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
       script.onload = () => resolve(true);
       script.onerror = () => resolve(false);
       document.body.appendChild(script);
     });
-  };
 
-  // Handle Razorpay payment and booking confirmation
   const handleConfirmBooking = async () => {
     setIsProcessing(true);
+
     try {
-      // Validate seat availability
-      const seatCheckResponse = await fetch(
+      // 1️⃣ Check seat availability
+      const seatResp = await fetch(
         `${BASE_URL}/flight-schedules?user=true&date=${bookingData.selectedDate}`
       );
-      if (!seatCheckResponse.ok) {
-        const errorText = await seatCheckResponse.text();
-        console.error("Seat check failed:", seatCheckResponse.status, errorText);
-        throw new Error(`Failed to fetch flight schedules: ${errorText}`);
+      if (!seatResp.ok) {
+        throw new Error("Failed to verify seats");
       }
-      const schedules = await seatCheckResponse.json();
-      const flightSchedule = schedules.find(
-        (fs) => fs.id === parseInt(bookingData.id)
-      );
-
-      if (!flightSchedule || flightSchedule.availableSeats < totalPassengers) {
-        throw new Error(
-          `Only ${flightSchedule?.availableSeats || 0} seat(s) left on ${bookingData.selectedDate}. Please reduce passengers or select a different flight.`
-        );
+      const schedules = await seatResp.json();
+      const fs = schedules.find((f) => f.id === +bookingData.id);
+      if (!fs || fs.availableSeats < totalPassengers) {
+        throw new Error(`Only ${fs?.availableSeats || 0} seats left.`);
       }
 
-      // Load Razorpay SDK
-      const scriptLoaded = await loadRazorpayScript();
-      if (!scriptLoaded) {
-        throw new Error("Failed to load Razorpay SDK");
+      // 2️⃣ Load Razorpay SDK
+      const razorpayLoaded = await loadRazorpay();
+      if (!razorpayLoaded) {
+        throw new Error("Unable to load payment gateway");
       }
 
-      // Create Razorpay order
-      const orderResponse = await fetch(`${BASE_URL}/payments/create-order`, {
+      // 3️⃣ Create order on your server
+      const orderResp = await fetch(`${BASE_URL}/payments/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: parseFloat(bookingData.totalPrice) }),
       });
-
-      if (!orderResponse.ok) {
-        const errorData = await orderResponse.json();
-        console.error("Order creation failed:", orderResponse.status, errorData);
-        throw new Error(errorData.error || "Failed to create order");
+      if (!orderResp.ok) {
+        const { error } = await orderResp.json();
+        throw new Error(error || "Order creation failed");
       }
-      const { order_id } = await orderResponse.json();
+      const { order_id } = await orderResp.json();
 
-      // Assign passenger types
-      const passengerTypes = [];
-      for (let i = 0; i < bookingData.passengers.adults; i++) passengerTypes.push("Adult");
-      for (let i = 0; i < bookingData.passengers.children; i++) passengerTypes.push("Child");
-      for (let i = 0; i < bookingData.passengers.infants; i++) passengerTypes.push("Infant");
+      // 4️⃣ Configure Razorpay options
+      const passengerTypes = [
+        ...Array(bookingData.passengers.adults).fill("Adult"),
+        ...Array(bookingData.passengers.children).fill("Child"),
+        ...Array(bookingData.passengers.infants).fill("Infant"),
+      ];
 
-      // Razorpay options
       const options = {
-        key: "rzp_live_ZkjTCpioNNhl3g", 
+        key: "rzp_live_ZkjTCpioNNhl3g",
         amount: toPaise(bookingData.totalPrice),
         currency: "INR",
-        order_id: order_id,
+        order_id,
         name: "Flyola Aviation",
-        description: `Flight Booking from ${bookingData.departure} to ${bookingData.arrival}`,
-        handler: async function (response) {
-          const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = response;
-
-          // Prepare booking payload
-          const bookingPayload = {
-            bookedSeat: {
-              bookDate: bookingData.selectedDate,
-              schedule_id: bookingData.id,
-              booked_seat: totalPassengers,
-            },
-            booking: {
-              pnr: Math.random().toString(36).slice(2, 8).toUpperCase(),
-              bookingNo: `BOOK${Date.now()}`,
-              contact_no: travelerDetails[0].phone,
-              email_id: travelerDetails[0].email,
-              noOfPassengers: totalPassengers,
-              bookDate: bookingData.selectedDate,
-              schedule_id: bookingData.id,
-              totalFare: parseFloat(bookingData.totalPrice),
-              bookedUserId: 1,
-              paymentStatus: "SUCCESS",
-              bookingStatus: "CONFIRMED",
-            },
-            billing: {
-              billing_name: `${travelerDetails[0].title} ${travelerDetails[0].fullName}`,
-              billing_email: travelerDetails[0].email,
-              billing_number: travelerDetails[0].phone,
-              billing_address: travelerDetails[0].address || "Unknown",
-              billing_country: "India",
-              billing_state: "Unknown",
-              billing_pin_code: "000000",
-              GST_Number: travelerDetails[0].gstNumber || null,
-              user_id: 1,
-            },
-            payment: {
-              transaction_id: `TXN${Date.now()}`,
-              payment_id: razorpay_payment_id,
-              order_id: razorpay_order_id,
-              razorpay_signature: razorpay_signature,
-              payment_status: "SUCCESS",
-              payment_mode: "RAZORPAY",
-              payment_amount: parseFloat(bookingData.totalPrice),
-              message: "Payment successful via Razorpay",
-              user_id: 1,
-            },
-            passengers: travelerDetails.map((t, index) => ({
-              name: t.fullName || `Passenger ${index + 1}`,
-              dob: t.dateOfBirth || todayISO(),
-              title: t.title,
-              type: passengerTypes[index] || "Adult",
-              age: t.dateOfBirth ? calculateAge(t.dateOfBirth) : 30,
-            })),
-          };
-
-          console.log("Sending booking payload:", bookingPayload);
-
-          // Complete booking
-          const bookingResponse = await fetch(`${BASE_URL}/bookings/complete-booking`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(bookingPayload),
-          });
-
-          if (!bookingResponse.ok) {
-            const errorData = await bookingResponse.json();
-            console.error("Booking API failed:", bookingResponse.status, errorData);
-            throw new Error(errorData.error || "Failed to complete booking");
-          }
-
-          const data = await bookingResponse.json();
-          console.log("Booking response:", data);
-
-          // Broadcast seat updates
-          data.updatedSeatCounts.forEach((u) =>
-            window.dispatchEvent(
-              new CustomEvent("seats-updated", {
-                detail: {
-                  schedule_id: u.schedule_id,
-                  bookDate: u.bookDate,
-                  seatsLeft: u.seatsLeft,
-                },
-              })
-            )
-          );
-
-          alert("Payment and booking confirmed successfully!");
-          onConfirm(data);
-        },
+        description: `${bookingData.departure} → ${bookingData.arrival}`,
         prefill: {
           name: `${travelerDetails[0].title} ${travelerDetails[0].fullName}`,
           email: travelerDetails[0].email,
           contact: travelerDetails[0].phone,
         },
         theme: { color: "#4F46E5" },
+        handler: async (resp) => {
+          try {
+            // 5️⃣ Complete booking on your server
+            const payload = {
+              bookedSeat: {
+                bookDate: bookingData.selectedDate,
+                schedule_id: +bookingData.id,
+                booked_seat: totalPassengers,
+              },
+              booking: {
+                pnr: Math.random().toString(36).slice(2, 8).toUpperCase(),
+                bookingNo: `BOOK${Date.now()}`,
+                contact_no: travelerDetails[0].phone,
+                email_id: travelerDetails[0].email,
+                noOfPassengers: totalPassengers,
+                bookDate: bookingData.selectedDate,
+                schedule_id: +bookingData.id,
+                totalFare: parseFloat(bookingData.totalPrice),
+                bookedUserId: 1,
+                paymentStatus: "SUCCESS",
+                bookingStatus: "CONFIRMED",
+              },
+              billing: {
+                billing_name: `${travelerDetails[0].title} ${travelerDetails[0].fullName}`,
+                billing_email: travelerDetails[0].email,
+                billing_number: travelerDetails[0].phone,
+                billing_address: travelerDetails[0].address || "N/A",
+                billing_country: "India",
+                billing_state: "N/A",
+                billing_pin_code: "000000",
+                GST_Number: travelerDetails[0].gstNumber || null,
+                user_id: 1,
+              },
+              payment: {
+                transaction_id: `TXN${Date.now()}`,
+                payment_id: resp.razorpay_payment_id,
+                order_id: resp.razorpay_order_id,
+                razorpay_signature: resp.razorpay_signature,
+                payment_status: "SUCCESS",
+                payment_mode: "RAZORPAY",
+                payment_amount: parseFloat(bookingData.totalPrice),
+                message: "Payment successful",
+                user_id: 1,
+              },
+              passengers: travelerDetails.map((t, i) => ({
+                title: t.title,
+                name: t.fullName,
+                type: passengerTypes[i],
+                dob: t.dateOfBirth || new Date().toISOString().slice(0, 10),
+                age: (() => {
+                  const birth = new Date(t.dateOfBirth || "");
+                  const diff = Date.now() - birth.getTime();
+                  return birth.getTime() ? Math.floor(diff / 31557600000) : 0;
+                })(),
+              })),
+            };
+
+            const bookResp = await fetch(
+              `${BASE_URL}/bookings/complete-booking`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              }
+            );
+            if (!bookResp.ok) {
+              const { error } = await bookResp.json();
+              throw new Error(error || "Booking failed");
+            }
+            const result = await bookResp.json();
+
+            // 6️⃣ Fire your parent callback and navigate
+            onConfirm(result);
+            router.push("/ticket-page");
+          } catch (innerErr) {
+            alert(innerErr.message);
+            setIsProcessing(false);
+          }
+        },
+        modal: {
+          ondismiss: () => setIsProcessing(false),
+        },
       };
 
-      const razorpay = new window.Razorpay(options);
-      razorpay.open();
-      razorpay.on("payment.failed", function (response) {
-        alert(`Payment failed: ${response.error.description}. Please try again.`);
+      // 7️⃣ Open the Razorpay modal
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+      rzp.on("payment.failed", (err) => {
+        alert(`Payment failed: ${err.error.description}`);
+        setIsProcessing(false);
       });
-    } catch (error) {
-      console.error("Payment error:", error);
-      alert(`Error: ${error.message}. Please try again or contact support.`);
-    } finally {
+    } catch (err) {
+      alert(err.message);
       setIsProcessing(false);
     }
   };
 
   return (
-    <div className="w-full max-w-3xl mx-4 bg-white p-6 rounded-lg shadow-lg">
-      <h2 className="text-2xl font-semibold text-indigo-700 mb-4">Make Payment</h2>
-      <div className="bg-gray-50 p-4 rounded-lg space-y-2 mb-6">
-        <h3 className="text-xl font-medium">Flight Summary</h3>
-        <p className="text-sm flex items-center gap-2">
+    <div className="max-w-3xl mx-auto bg-white p-6 rounded shadow">
+      <h2 className="text-2xl font-semibold text-indigo-700 mb-4">
+        Make Payment
+      </h2>
+
+      <div className="bg-gray-50 p-4 rounded mb-6 space-y-2">
+        <p className="flex items-center gap-2">
           <FaPlane /> {bookingData.departure} → {bookingData.arrival}
         </p>
-        <p className="text-sm flex items-center gap-2">
+        <p className="flex items-center gap-2">
           <FaClock /> {bookingData.selectedDate}
         </p>
-        <p className="text-sm flex items-center gap-2">
-          <FaClock /> {bookingData.departureTime} - {bookingData.arrivalTime}
+        <p className="flex items-center gap-2">
+          <FaClock /> {bookingData.departureTime} – {bookingData.arrivalTime}
         </p>
-        <p className="text-sm flex items-center gap-2">
+        <p className="flex items-center gap-2">
           <FaUserFriends /> Passengers: {totalPassengers}
         </p>
       </div>
-      <div className="bg-gray-100 p-4 rounded-lg mb-6">
+
+      <div className="bg-gray-100 p-4 rounded mb-6">
         <p className="text-xl">
           Total:{" "}
           <span className="font-bold text-green-600">
@@ -236,18 +208,19 @@ export default function PaymentStep({
           </span>
         </p>
       </div>
-      <div className="flex flex-col sm:flex-row gap-2">
+
+      <div className="flex gap-2">
         <button
           onClick={handlePreviousStep}
-          className="px-6 py-2 bg-gray-600 text-white rounded-lg"
           disabled={isProcessing}
+          className="px-6 py-2 bg-gray-600 text-white rounded"
         >
           Previous
         </button>
         <button
           onClick={handleConfirmBooking}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg"
           disabled={isProcessing}
+          className="px-6 py-2 bg-blue-600 text-white rounded"
         >
           {isProcessing ? "Processing…" : `Pay ₹${bookingData.totalPrice}`}
         </button>
@@ -255,9 +228,3 @@ export default function PaymentStep({
     </div>
   );
 }
-
-
-
-
-
-
