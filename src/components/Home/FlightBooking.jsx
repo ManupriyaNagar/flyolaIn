@@ -82,7 +82,7 @@ export default function FlightBooking() {
         <Card className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl border border-gray-200 m-6 md:m-40 py-8 md:py-14 px-6 md:px-14">
           <CardContent className="p-4 sm:p-8 flex flex-col gap-6">
             <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center text-gray-800">
-              Book Your Flight with Flyola
+              Book Your Flight with MP Connectivity
             </h1>
             <p className="text-center text-gray-600 text-sm sm:text-base">
               Find the best flights for your journey in just a few clicks
