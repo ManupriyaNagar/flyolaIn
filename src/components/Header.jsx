@@ -77,7 +77,7 @@ const Header = () => {
   return (
     <div className="relative">
       <header
-        className={`w-full max-w-11xl px-4 sm:px-6 lg:px-8 py-4 fixed top-0 left-0 right-0 z-50 backdrop-blur-lg transition-all duration-300 ${
+        className={`w-full max-w-11xl px-4 sm:px-6 lg:px-8  fixed top-0 left-0 right-0 z-50 backdrop-blur-lg transition-all duration-300 ${
           isScrolled ? "bg-white/90 shadow-md" : "bg-white/70"
         } rounded-b-3xl`}
       >
@@ -91,7 +91,7 @@ const Header = () => {
                 width={120}
                 height={60}
                 priority
-                className="hover:scale-105 transition-transform duration-200"
+                className="hover:scale-105 transition-transform duration-200 w-28"
               />
             </div>
           </Link>
