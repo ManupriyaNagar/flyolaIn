@@ -7,7 +7,7 @@ const FlightBooking = lazy(() => import("@/components/Home/FlightBooking").then(
 const FeatureCards = lazy(() => import("@/components/Home/FeatureCard").then(module => ({ default: module.default || module })));
 const PrivateJetRental = lazy(() => import("@/components/Home/Banner").then(module => ({ default: module.default || module })));
 const AviationHighlights = lazy(() => import("@/components/Home/Highlights").then(module => ({ default: module.default || module })));
-const FlightOffers = lazy(() => import("@/components/Home/FlightOffers").then(module => ({ default: module.default || module })));
+
 const Hero = lazy(() => import("@/components/Home/Hero").then(module => ({ default: module.default || module })));
 const WhyChooseFlyola = lazy(() => import("@/components/Home/WhyChoose").then(module => ({ default: module.default || module })));
 const CityCaurasol = lazy(() => import("@/components/Home/CityCaurasol").then(module => ({ default: module.default || module })));
@@ -33,7 +33,7 @@ export default function Home() {
         {/* Less critical components can load later */}
         <PrivateJetRental />
         <AviationHighlights />
-        <FlightOffers />
+
         <Hero />
         <WhyChooseFlyola />
         <CityCaurasol />
