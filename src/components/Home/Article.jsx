@@ -5,21 +5,21 @@ const ArticleSection = () => {
     {
       image: "/1.png",
       category: "Event",
-      title: "Seamless Travel Starts Here: Why Flyola Is Your Go-To Flight Booking Platform",
+      title: "Seamless Travel Starts Here: Why Jet Avation Is Your Go-To Flight Booking Platform",
       description: "Traveling can often be a stressful experience, from finding the right flight to managing reservations and navigating airport procedures...",
       link: "#"
     },
     {
       image: "/2.png",
       category: "Event",
-      title: "How Flyola Makes Last-Minute Travel Plans Easy and Affordable",
-      description: "Sometimes, travel plans change unexpectedly, and finding a last-minute flight can be challenging. At Flyola, we understand the urgency...",
+      title: "How Jet Avation Makes Last-Minute Travel Plans Easy and Affordable",
+      description: "Sometimes, travel plans change unexpectedly, and finding a last-minute flight can be challenging. At Jet Avation, we understand the urgency...",
       link: "#"
     },
     {
       image: "/3.png",
       category: "Event",
-      title: "The Flyola Advantage: Why Our Customers Love Us",
+      title: "The Jet Avation Advantage: Why Our Customers Love Us",
       description: "At Flyola, we believe that the best way to build lasting relationships with our customers is by delivering exceptional service...",
       link: "#"
     }

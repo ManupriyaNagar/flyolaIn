@@ -5,40 +5,40 @@ const features = [
     id: "01",
     title: "Exceptional Customer Service",
     description:
-      "Flyola prides itself on providing exceptional customer service from the moment you book your ticket until you reach your destination.",
+      "Jet Avation prides itself on providing exceptional customer service from the moment you book your ticket until you reach your destination.",
     color: "bg-green-500",
   },
   {
     id: "02",
     title: "Easy Booking Process",
     description:
-      "At Flyola, we understand that convenience is key. Our user-friendly website and mobile app make the booking process quick and straightforward.",
+      "At Jet Avation, we understand that convenience is key. Our user-friendly website and mobile app make the booking process quick and straightforward.",
     color: "bg-yellow-500",
   },
   {
     id: "03",
     title: "Competitive Pricing",
     description:
-      "Flyola offers competitive pricing without compromising on quality. We strive to provide the best value for your money, with regular promotions.",
+      "Jet Avation offers competitive pricing without compromising on quality. We strive to provide the best value for your money, with regular promotions.",
     color: "bg-purple-500",
   },
   {
     id: "04",
     title: "Comfort and Convenience",
     description:
-      "For those who value extra comfort, Flyola’s premium class offers additional perks such as priority boarding, extra baggage allowance, and access to exclusive lounges.",
+      "For those who value extra comfort, Jet Avation’s premium class offers additional perks such as priority boarding, extra baggage allowance, and access to exclusive lounges.",
     color: "bg-red-500",
   },
 ];
 
-const WhyChooseFlyola = () => {
+const WhyChooseFlyOla = () => {
   return (
     <div className="p-10 bg-white text-center">
-      <h2 className="text-3xl font-bold text-gray-900">Why Choose Flyola</h2>
+      <h2 className="text-3xl font-bold text-gray-900">Why Choose Jet Avation</h2>
       <p className="text-gray-600 mt-3 max-w-2xl mx-auto">
-        When it comes to air travel, Flyola stands out as a premier choice for travelers
+        When it comes to air travel, Jet Avation stands out as a premier choice for travelers
         seeking a seamless, comfortable, and enjoyable journey. Here are compelling
-        reasons why choosing Flyola is the best decision for your next trip:
+        reasons why choosing Jet Avation is the best decision for your next trip:
       </p>
 
       <div className="flex flex-col md:flex-row justify-center items-center mt-10">
@@ -77,4 +77,4 @@ const WhyChooseFlyola = () => {
   );
 };
 
-export default WhyChooseFlyola;
+export default WhyChooseFlyOla;

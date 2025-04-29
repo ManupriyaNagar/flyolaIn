@@ -9,7 +9,7 @@ const features = [
     icon: <FaMoneyBillWave className="text-red-500 text-4xl" />,
     title: "Easy Booking",
     description:
-      "Flylola offers easy booking with a user-friendly interface, seamless process, and quick confirmations, ensuring a hassle-free experience for travelers.",
+      "Jet Avation offers easy booking with a user-friendly interface, seamless process, and quick confirmations, ensuring a hassle-free experience for travelers.",
     bgColor: "bg-green-100",
     textColor: "text-green-700",
   },
@@ -25,7 +25,7 @@ const features = [
     icon: <FaSuitcaseRolling className="text-red-500 text-4xl" />,
     title: "Travel Guides",
     description:
-      "Discover the world effortlessly with Flylola’s comprehensive travel guides, offering expert tips, local insights, and must-visit destinations for your perfect journey.",
+      "Discover the world effortlessly with Jet Avation comprehensive travel guides, offering expert tips, local insights, and must-visit destinations for your perfect journey.",
     bgColor: "bg-red-100",
     textColor: "text-red-700",
   },
