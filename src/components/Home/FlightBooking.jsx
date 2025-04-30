@@ -28,8 +28,8 @@ export default function FlightBooking() {
         const response = await fetch(`${BASE_URL}/airport`);
         const data = await response.json();
         setAirports(data);
-      } catch (error) {
-        console.error("Error fetching airports:", error);
+      } catch {
+        // removed console.error
       }
     };
     fetchAirports();
@@ -273,9 +273,6 @@ export default function FlightBooking() {
               </motion.div>
             </div>
 
-            {/* CHARDHAM YATRA Button */}
-           
-
             {/* Search Flights Button */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -299,37 +296,19 @@ export default function FlightBooking() {
               </Link>
             </motion.div>
 
-
-
-
+            {/* CHARDHAM YATRA Button */}
             <motion.div
-  initial={{ opacity: 0, y: 20 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ delay: 0.5 }}
->
-
-
-
-<button
-  onClick={() => window.open("https://jetserveaviation.com/chardham/", "_blank")}
-  className="w-full bg-gradient-to-r from-orange-500 to-yellow-600 text-white py-2 text-xs md:text-sm font-semibold rounded-lg flex items-center justify-center gap-3"
->
-  <FaPlaneDeparture className="md:text-xl" /> CHARDHAM YATRA
-</button>
-
-
-
-
-
-
-
-
-</motion.div>
-
-
-
-
-
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
+              <button
+                onClick={() => window.open("https://jetserveaviation.com/chardham/", "_blank")}
+                className="w-full bg-gradient-to-r from-orange-500 to-yellow-600 text-white py-2 text-xs md:text-sm font-semibold rounded-lg flex items-center justify-center gap-3"
+              >
+                <FaPlaneDeparture className="md:text-xl" /> CHARDHAM YATRA
+              </button>
+            </motion.div>
           </CardContent>
         </Card>
       </motion.div>

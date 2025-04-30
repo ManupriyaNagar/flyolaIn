@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from "react";
@@ -50,7 +51,7 @@ export default function PaymentStep({
         throw new Error("Unable to load payment gateway");
       }
 
-      // 3️⃣ Create order on your server
+      // 3️⃣ Create order on server
       const orderResp = await fetch(`${BASE_URL}/payments/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -84,7 +85,7 @@ export default function PaymentStep({
         theme: { color: "#4F46E5" },
         handler: async (resp) => {
           try {
-            // 5️⃣ Complete booking on your server
+            // 5️⃣ Complete booking on server
             const payload = {
               bookedSeat: {
                 bookDate: bookingData.selectedDate,
@@ -153,11 +154,11 @@ export default function PaymentStep({
             }
             const result = await bookResp.json();
 
-            // 6️⃣ Fire your parent callback and navigate
+            // 6️⃣ Fire parent callback and navigate
             onConfirm(result);
             router.push("/ticket-page");
           } catch (innerErr) {
-            alert(innerErr.message);
+            alert(`Booking failed: ${innerErr.message}`);
             setIsProcessing(false);
           }
         },

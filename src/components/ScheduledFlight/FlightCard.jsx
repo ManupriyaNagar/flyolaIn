@@ -31,34 +31,19 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
   useEffect(() => {
     const fetchSeats = async () => {
       try {
-        const response = await fetch(`${BASE_URL}/flight-schedules?user=true&date=${selectedDate}`);
+        const response = await fetch(
+          `${BASE_URL}/flight-schedules?user=true&date=${selectedDate}`
+        );
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: Failed to fetch flight schedules`);
         }
         const schedules = await response.json();
-        const updatedSchedule = schedules.find((fs) => fs.id === flightSchedule.id);
-        if (updatedSchedule) {
-          const seats = updatedSchedule.availableSeats !== undefined
-                     ? Math.max(0, updatedSchedule.availableSeats)    // ← clamp
-                      : 6;
-          console.log(
-            `FlightCard ${flightSchedule.id} - Fetched seats: availableSeats=${seats}, date=${selectedDate}`
-          );
-          if (seats === 0) {
-            console.warn(
-              `FlightCard ${flightSchedule.id} - Zero seats fetched for date=${selectedDate}. ` +
-              `Verify sumSeats, booked_seats, and flight airport_stop_ids.`
-            );
-          }
-          setAvailableSeats(seats);
-        } else {
-          console.warn(
-            `FlightCard ${flightSchedule.id} - Schedule not found for date=${selectedDate}. Using fallback seats=6`
-          );
-          setAvailableSeats(6);
-        }
-      } catch (err) {
-        console.error(`FlightCard ${flightSchedule.id} - Error fetching seats:`, err.message);
+        const updated = schedules.find((fs) => fs.id === flightSchedule.id);
+        const seats = updated
+          ? Math.max(0, updated.availableSeats ?? 6)
+          : 6;
+        setAvailableSeats(seats);
+      } catch {
         setAvailableSeats(6);
       }
     };
@@ -69,55 +54,43 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
     const handleSeatUpdate = (e) => {
       const { schedule_id, bookDate, seatsLeft } = e.detail;
       if (schedule_id === flightSchedule.id && bookDate === selectedDate) {
-        const seatsAfterUpdate = Math.max(0, seatsLeft ?? availableSeats ?? 6);
-        console.log(
-          `FlightCard ${flightSchedule.id} - seats-updated: bookDate=${bookDate}, seatsLeft=${seatsAfterUpdate}`
-        );
-        if (seatsAfterUpdate === 0) {
-          console.warn(
-            `FlightCard ${flightSchedule.id} - seats-updated with seatsLeft=0 for bookDate=${bookDate}. ` +
-            `Card will remain visible with deactivated button.`
-          );
-        }
-        setAvailableSeats(seatsAfterUpdate);
-      } else {
-        console.log(
-          `FlightCard ${flightSchedule.id} - Ignored seats-updated: schedule_id=${schedule_id}, ` +
-          `bookDate=${bookDate}, expected=${selectedDate}`
-        );
+        const seatsAfter = Math.max(0, seatsLeft ?? availableSeats);
+        setAvailableSeats(seatsAfter);
       }
     };
     window.addEventListener("seats-updated", handleSeatUpdate);
     return () => window.removeEventListener("seats-updated", handleSeatUpdate);
   }, [flightSchedule.id, selectedDate, availableSeats]);
 
-  const flight = flights.find((f) => f.id === flightSchedule.flight_id) || {
-    id: flightSchedule.flight_id,
-    flight_number: "Unknown",
-    seat_limit: 6,
-    status: flightSchedule.status || 0,
-    stops: [],
-  };
+  const flight =
+    flights.find((f) => f.id === flightSchedule.flight_id) || {
+      id: flightSchedule.flight_id,
+      flight_number: "Unknown",
+      seat_limit: 6,
+      status: flightSchedule.status || 0,
+      stops: [],
+    };
 
   if (flight.status !== 1 || flightSchedule.status !== 1) {
-    console.log(
-      `FlightCard ${flightSchedule.id} - Not rendered: flight.status=${flight.status}, schedule.status=${flightSchedule.status}`
-    );
     return null;
   }
 
-  const departureAirport = airports.find((airport) => airport.id === flightSchedule.departure_airport_id) || {
-    city: "Unknown",
-    airport_code: "UNK",
-  };
-  const arrivalAirport = airports.find((airport) => airport.id === flightSchedule.arrival_airport_id) || {
-    city: "Unknown",
-    airport_code: "UNK",
-  };
+  const departureAirport =
+    airports.find((a) => a.id === flightSchedule.departure_airport_id) || {
+      city: "Unknown",
+      airport_code: "UNK",
+    };
+  const arrivalAirport =
+    airports.find((a) => a.id === flightSchedule.arrival_airport_id) || {
+      city: "Unknown",
+      airport_code: "UNK",
+    };
 
   const stopCount = flightSchedule.stops?.length ?? 0;
   const isNonStop = stopCount === 0;
-  const stopText = isNonStop ? "Non-Stop" : `${stopCount} Stop${stopCount > 1 ? "s" : ""}`;
+  const stopText = isNonStop
+    ? "Non-Stop"
+    : `${stopCount} Stop${stopCount > 1 ? "s" : ""}`;
   const isSoldOut = availableSeats === 0;
 
   const handleBookNowClick = () => {
@@ -142,16 +115,13 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
     setIsPopupOpen(false);
   };
 
-  console.log(
-    `FlightCard ${flightSchedule.id} - Rendering: availableSeats=${availableSeats}, ` +
-    `passengers=${passengers}, selectedDate=${selectedDate}, isSoldOut=${isSoldOut}`
-  );
-
   return (
     <motion.div
       className={`relative w-full md:max-w-full max-w-2xl mx-auto rounded-xl shadow-lg transition-all duration-300 border border-gray-100 
-        ${isSoldOut ? "bg-gray-100 opacity-80" : "bg-gradient-to-b from-purple-50 to-indigo-50 md:bg-gradient-to-br md:from-white md:to-gray-50"} 
-        p-6 transform ${isSoldOut ? "" : "hover:-translate-y-2"}`}
+        ${isSoldOut
+          ? "bg-gray-100 opacity-80"
+          : "bg-gradient-to-b from-purple-50 to-indigo-50 md:bg-gradient-to-br md:from-white md:to-gray-50"} 
+        p-6 transform ${!isSoldOut && "hover:-translate-y-2"}`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
@@ -220,7 +190,9 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
           <motion.button
             onClick={handleBookNowClick}
             className={`w-full md:w-auto px-4 py-3 text-white rounded-lg text-base font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 
-              ${isSoldOut ? "bg-gray-500 cursor-not-allowed opacity-90" : "bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700"}`}
+              ${isSoldOut
+                ? "bg-gray-500 cursor-not-allowed opacity-90"
+                : "bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700"}`}
             whileHover={{ scale: isSoldOut ? 1 : 1.05 }}
             whileTap={{ scale: isSoldOut ? 1 : 0.95 }}
             disabled={isSoldOut || availableSeats < passengers}
@@ -233,11 +205,7 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
         <div className="inset-0 relative flex justify-center items-center z-50">
           <BookingPopup
             closePopup={closePopup}
-            passengerData={{
-              adults: passengers,
-              children: 0,
-              infants: 0,
-            }}
+            passengerData={{ adults: passengers, children: 0, infants: 0 }}
             departure={departureAirport.city}
             arrival={arrivalAirport.city}
             selectedDate={flightSchedule.departure_date || selectedDate}

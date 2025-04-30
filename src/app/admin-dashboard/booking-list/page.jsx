@@ -149,6 +149,23 @@ export default function Booking() {
     toast.success("Excel file downloaded successfully!");
   }, [currentBookings]);
 
+
+    /** Total seats booked in the (filtered) list */
+    const totalSeatsBooked = useMemo(() => {
+      return filteredBookings.reduce((sum, b) => sum + (b.noOfPassengers || 0), 0);
+    }, [filteredBookings]);
+  
+
+
+
+
+
+
+
+
+
+
+
   /** Pagination with ellipsis */
   const getPaginationItems = () => {
     const items = [];
@@ -226,21 +243,28 @@ export default function Booking() {
       </div>
 
       {/* Export and Info */}
-      <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
+            {/* Export and Info */}
+            <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
         <button
           onClick={exportToExcel}
           className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 shadow-sm flex items-center gap-2"
           aria-label="Download current page as Excel"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H3a2 2 0 01-2-2V3a2 2 0 012-2h18a2 2 0 012 2v16a2 2 0 01-2 2z" />
-          </svg>
-          Download Excel
+          …Download Excel…
         </button>
-        <span className="text-sm text-gray-600">
-          Showing {(currentPage - 1) * BOOKINGS_PER_PAGE + 1}–{Math.min(currentPage * BOOKINGS_PER_PAGE, filteredBookings.length)} of {filteredBookings.length} bookings
-        </span>
+
+        <div className="flex flex-col sm:flex-row gap-4 items-center">
+          <span className="text-sm text-gray-600">
+            Showing {(currentPage - 1) * BOOKINGS_PER_PAGE + 1}–
+            {Math.min(currentPage * BOOKINGS_PER_PAGE, filteredBookings.length)}
+            {" of "}{filteredBookings.length} bookings
+          </span>
+          <span className="text-sm text-gray-600">
+            Total seats booked: <strong>{totalSeatsBooked}</strong>
+          </span>
+        </div>
       </div>
+
 
       {/* Table */}
       <div className="overflow-x-auto bg-white rounded-xl shadow-lg">
