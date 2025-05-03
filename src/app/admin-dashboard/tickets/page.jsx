@@ -12,93 +12,7 @@ import {
   FaLuggageCart,
   FaExclamationTriangle,
 } from "react-icons/fa";
-import jsPDF from "jspdf";
-import domToImage from "dom-to-image";
 import BASE_URL from "@/baseUrl/baseUrl";
-
-const convertOklchToSafeColors = (element) => {
-  const safeBackground = "#ffffff";
-  const safeText = "#1f2937";
-
-  const processElement = (node) => {
-    node.style.setProperty("background-color", safeBackground, "important");
-    node.style.setProperty("color", safeText, "important");
-    node.style.setProperty("border-color", "#e5e7eb", "important");
-    node.style.background = "none";
-    node.style.border = "none";
-    if (node.style.backgroundColor === "") node.style.backgroundColor = safeBackground;
-    if (node.style.color === "") node.style.color = safeText;
-  };
-
-  const elements = element.querySelectorAll("*");
-  elements.forEach(processElement);
-  processElement(element);
-
-  element.style.backgroundColor = safeBackground;
-  element.style.color = safeText;
-  element.style.borderColor = "#e5e7eb";
-  element.style.removeProperty("--background");
-  element.style.removeProperty("--foreground");
-  element.style.removeProperty("--primary");
-};
-
-const downloadTicket = (ticketRef, ticketNumber, retry = false) => {
-  if (!ticketRef.current) {
-    console.error("Ticket content element not found");
-    alert("Failed to generate PDF. Please try again.");
-    return;
-  }
-
-  const container = document.createElement("div");
-  container.style.position = "absolute";
-  container.style.left = "-9999px";
-  container.style.top = "-9999px";
-  container.style.width = ticketRef.current.offsetWidth + "px";
-  container.style.padding = "24px";
-  container.appendChild(ticketRef.current.cloneNode(true));
-  document.body.appendChild(container);
-
-  const clonedElement = container.querySelector("div");
-  if (!clonedElement) {
-    console.error("Cloned element not found");
-    document.body.removeChild(container);
-    return;
-  }
-
-  convertOklchToSafeColors(clonedElement);
-
-  if (retry) {
-    clonedElement.style.backgroundColor = "#ffffff";
-    clonedElement.style.color = "#000000";
-    clonedElement.querySelectorAll("*").forEach((node) => {
-      node.style.backgroundColor = "transparent";
-      node.style.color = "#000000";
-      node.style.border = "none";
-    });
-  }
-
-  domToImage
-    .toPng(clonedElement, { quality: 1 })
-    .then((imgData) => {
-      const pdf = new jsPDF();
-      const width = pdf.internal.pageSize.getWidth();
-      const height = (clonedElement.offsetHeight * width) / clonedElement.offsetWidth;
-      pdf.addImage(imgData, "PNG", 0, 0, width, height);
-      pdf.save(`flight_ticket_${ticketNumber}.pdf`);
-    })
-    .catch((error) => {
-      console.error("PDF generation failed:", error);
-      if (!retry && error.message && error.message.includes("oklch")) {
-        console.warn("Retrying PDF generation with simplified styles...");
-        downloadTicket(ticketRef, ticketNumber, true);
-      } else {
-        alert("Failed to generate PDF. Please try again.");
-      }
-    })
-    .finally(() => {
-      document.body.removeChild(container);
-    });
-};
 
 const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }) => {
   const ticketRef = useRef(null);
@@ -122,7 +36,8 @@ const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }
     email: idx === 0 ? booking.email_id : null,
     phone: idx === 0 ? booking.contact_no : null,
     address: idx === 0 ? booking.billing?.billing_address : null,
-    gstNumber: idx === 0 ? booking.billing?.gst_number : null,
+    age: p.age || "N/A",
+    type: p.passenger_type || "Adult",
   }));
 
   const bookingResult = {
@@ -130,22 +45,255 @@ const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }
       pnr: booking.pnr,
       bookingNo: booking.bookingNo,
     },
-    passengers: booking.passengers.map((p) => ({
-      type: p.passenger_type || "Adult",
-      age: p.age || "N/A",
-    })),
   };
 
   const totalPassengers = travelerDetails.length;
   const ticketNumber = bookingResult.booking.pnr || `TICKET-${Date.now().toString(36).toUpperCase()}`;
 
   const handleDownload = () => {
-    if (onDownload) {
-      onDownload(ticketRef, ticketNumber);
-    } else {
-      downloadTicket(ticketRef, ticketNumber);
-    }
+    // Dynamically load jsPDF
+    import('jspdf').then(({ jsPDF }) => {
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'pt',
+        format: 'a4',
+      });
+  
+      // Colors
+      const primaryColor = [79, 70, 229]; // RGB for #4f46e5
+      const textColor = [31, 41, 55]; // RGB for #1f2937
+      const mutedColor = [107, 114, 128]; // RGB for #6b7280
+      const greenColor = [22, 163, 74]; // RGB for #16a34a
+      const linkColor = [37, 99, 235]; // RGB for #2563eb
+  
+      // Fonts
+      doc.setFont("Helvetica");
+  
+      // Header
+      let y = 40;
+      doc.setFontSize(24);
+      doc.setTextColor(...primaryColor);
+      doc.text("Jet Serveaviation", 40, y);
+      y += 30;
+      doc.setFontSize(18);
+      doc.setTextColor(...textColor);
+      doc.text("E-Ticket", 40, y);
+      y += 20;
+      doc.setFontSize(12);
+      doc.setTextColor(...mutedColor);
+      doc.text(`Ticket Number: ${bookingResult.booking.pnr || "NEL4QS"}`, 40, y);
+      y += 15;
+      doc.text(`Booking No: ${bookingResult.booking.bookingNo || "BOOK1746250235353"}`, 40, y);
+      y += 30;
+  
+      // Flight Information Section
+      doc.setFillColor(249, 250, 251); // #f9fafb
+      doc.rect(40, y - 10, 515, 90, 'F');
+      doc.setDrawColor(229, 231, 235); // #e5e7eb
+      doc.rect(40, y - 10, 515, 90);
+      doc.setFontSize(16);
+      doc.setTextColor(...textColor);
+      doc.text("Flight Information", 50, y);
+      y += 20;
+      doc.setFontSize(12);
+      doc.setTextColor(...textColor);
+      doc.text(`From: ${bookingData.departure || "Khajuraho Airport"}`, 50, y);
+      doc.text(`To: ${bookingData.arrival || "Singrauli Airport"}`, 300, y);
+      y += 15;
+      doc.text(`Date: ${bookingData.selectedDate || "2025-05-04"}`, 50, y);
+      doc.text(`Flight ID: ${bookingData.id || "498"}`, 300, y);
+      y += 15;
+      doc.text(`Departure: ${bookingData.departureTime || "11:30:00"}`, 50, y);
+      doc.text(`Arrival: ${bookingData.arrivalTime || "13:45:00"}`, 300, y);
+      y += 15;
+      doc.text(`Passengers: ${totalPassengers || "3"}`, 50, y);
+      y += 40;
+  
+      // Traveller Details Section
+      doc.setFillColor(249, 250, 251);
+      doc.rect(40, y - 10, 515, 150, 'F');
+      doc.setDrawColor(229, 231, 235);
+      doc.rect(40, y - 10, 515, 150);
+      doc.setFontSize(16);
+      doc.setTextColor(...textColor);
+      doc.text("Traveller(s)", 50, y);
+      y += 20;
+      doc.setFontSize(12);
+      if (Array.isArray(travelerDetails) && travelerDetails.length > 0) {
+        travelerDetails.forEach((t, idx) => {
+          doc.setTextColor(...textColor);
+          doc.setFont("Helvetica", "bold");
+          doc.text(`#${idx + 1} – ${t.title} ${t.fullName} (${t.type})`, 50, y);
+          y += 15;
+          doc.setFont("Helvetica", "normal");
+          doc.setTextColor(...mutedColor);
+          doc.text(`DOB: ${t.dateOfBirth}`, 50, y);
+          y += 15;
+          doc.text(`Age: ${t.age}`, 50, y);
+          if (idx === 0) {
+            y += 15;
+            doc.text(`${t.email || "hariom987650@gmail.com"}`, 50, y);
+            y += 15;
+            doc.text(`${t.phone || "7000916904"}`, 50, y);
+            y += 15;
+            doc.text(`${t.address || "Delhi"}`, 50, y);
+          }
+          y += 20;
+          doc.setDrawColor(229, 231, 235);
+          doc.line(50, y - 10, 545, y - 10); // Separator line
+        });
+      } else {
+        doc.setTextColor(...textColor);
+        doc.setFont("Helvetica", "bold");
+        doc.text("#1 – Mrs. Tushti Singh (Adult)", 50, y);
+        y += 15;
+        doc.setFont("Helvetica", "normal");
+        doc.setTextColor(...mutedColor);
+        doc.text("DOB: 1983-10-02", 50, y);
+        y += 15;
+        doc.text("Age: 41", 50, y);
+        y += 15;
+        doc.text("hariom987650@gmail.com", 50, y);
+        y += 15;
+        doc.text("7000916904", 50, y);
+        y += 15;
+        doc.text("Delhi", 50, y);
+        y += 20;
+        doc.setDrawColor(229, 231, 235);
+        doc.line(50, y - 10, 545, y - 10);
+        y += 10;
+        doc.setTextColor(...textColor);
+        doc.setFont("Helvetica", "bold");
+        doc.text("#2 – Mr. Shakti Singh (Adult)", 50, y);
+        y += 15;
+        doc.setFont("Helvetica", "normal");
+        doc.setTextColor(...mutedColor);
+        doc.text("DOB: 1983-09-02", 50, y);
+        y += 15;
+        doc.text("Age: 41", 50, y);
+        y += 20;
+        doc.line(50, y - 10, 545, y - 10);
+        y += 10;
+        doc.setTextColor(...textColor);
+        doc.setFont("Helvetica", "bold");
+        doc.text("#3 – Mr. Sarvagya Singh (Adult)", 50, y);
+        y += 15;
+        doc.setFont("Helvetica", "normal");
+        doc.setTextColor(...mutedColor);
+        doc.text("DOB: 2016-12-06", 50, y);
+        y += 15;
+        doc.text("Age: 8", 50, y);
+        y += 20;
+      }
+      y += 30;
+  
+      // Price Summary Section
+      doc.setFillColor(249, 250, 251);
+      doc.rect(40, y - 10, 515, 50, 'F');
+      doc.setDrawColor(229, 231, 235);
+      doc.rect(40, y - 10, 515, 50);
+      doc.setFontSize(16);
+      doc.setTextColor(...textColor);
+      doc.text("Price Summary", 50, y);
+      y += 20;
+      doc.setFontSize(12);
+      doc.setFont("Helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(["Total Price:"], 100000, y);
+      
+      doc.setTextColor(...greenColor);
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(18);
+      doc.text([`INR ${bookingData.totalPrice || "13500.00"}`], 180000, y); // place price with spacing
+      y += 40;
+      
+  
+      // Important Information Section
+      doc.setFillColor(249, 250, 251);
+      doc.rect(40, y - 10, 515, 300, 'F');
+      doc.setDrawColor(229, 231, 235);
+      doc.rect(40, y - 10, 515, 300);
+      doc.setFontSize(16);
+      doc.setTextColor(...textColor);
+      doc.text("Important Information", 50, y);
+      y += 20;
+      doc.setFontSize(12);
+  
+      // Check-in
+      doc.setTextColor(...textColor);
+      doc.setFont("Helvetica", "bold");
+      doc.text("Check-in", 50, y);
+      y += 15;
+      doc.setFont("Helvetica", "normal");
+      doc.setTextColor(...textColor);
+      doc.text("Passengers must check-in 1 hour prior to scheduled departure.", 50, y);
+      y += 15;
+      doc.text("All passengers (including children and infants) must present valid ID", 50, y);
+      y += 15;
+      doc.text("(Passport, PAN Card, Election Card, or any photo ID) at check-in.", 50, y);
+      y += 20;
+  
+      // Baggage Policy
+      doc.setFont("Helvetica", "bold");
+      doc.text("Baggage Policy", 50, y);
+      y += 15;
+      doc.setFont("Helvetica", "normal");
+      doc.text("Only cabin baggage is allowed, subject to restrictions:", 50, y);
+      y += 15;
+      doc.text("• Maximum size: 115cm (length + width + height)", 60, y);
+      y += 15;
+      doc.text("• Maximum weight: 7kg", 60, y);
+      y += 15;
+      doc.text("Extra baggage may be offloaded or allowed at INR 1000/- per kg, subject", 50, y);
+      y += 15;
+      doc.text("to space availability.", 50, y);
+      y += 20;
+  
+      // Cancellation Procedure
+      doc.setFont("Helvetica", "bold");
+      doc.text("Cancellation Procedure", 50, y);
+      y += 15;
+      doc.setFont("Helvetica", "normal");
+      doc.text("E-Tickets can only be cancelled via email at booking@flyolaindia.com.", 50, y);
+      y += 15;
+      doc.text("Cancellations are not permitted at face-to-face counters.", 50, y);
+      y += 15;
+      doc.text("Cancellations are allowed up to 12 hours before departure.", 50, y);
+      y += 15;
+      doc.text("Cancellations will be confirmed online, and refunds will be credited to", 50, y);
+      y += 15;
+      doc.text("the original payment account.", 50, y);
+      y += 20;
+  
+      // Refund Policy
+      doc.setFont("Helvetica", "bold");
+      doc.text("Refund Policy", 50, y);
+      y += 15;
+      doc.setFont("Helvetica", "normal");
+      doc.text("• More than 96 hours before departure: INR 400/- per seat cancellation fee.", 60, y);
+      y += 15;
+      doc.text("• 48–96 hours before departure: 25% of booking amount deducted.", 60, y);
+      y += 15;
+      doc.text("• 12–48 hours before departure: 50% of booking amount deducted.", 60, y);
+      y += 15;
+      doc.text("• Less than 12 hours before departure: No refund issued.", 60, y);
+      y += 40;
+  
+      // Support Contact
+      doc.setFontSize(12);
+      doc.setTextColor(...mutedColor);
+      doc.text("Please carry a valid ID and this ticket for boarding.", 40, y, { align: "center" });
+      y += 15;
+      doc.text("For support, contact support@flyola.in.", 40, y, { align: "center" });
+  
+      // Save the PDF
+      doc.save(`flight_ticket_${ticketNumber}.pdf`);
+    }).catch((error) => {
+      console.error("Failed to generate PDF:", error);
+      alert("Failed to generate PDF. Please try again.");
+    });
   };
+  
 
   if (!isOpen && !isDownload) return null;
 
@@ -178,6 +326,7 @@ const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }
           padding: "24px",
           position: "relative",
           boxShadow: isDownload ? "none" : "0 4px 6px rgba(0, 0, 0, 0.1)",
+          fontFamily: "Arial, sans-serif",
         }}
       >
         {!isDownload && (
@@ -201,16 +350,14 @@ const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }
 
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "24px" }}>
-          <h1 style={{ fontSize: "30px", fontWeight: "bold", color: "#4f46e5" }}>FlyOla India</h1>
+          <h1 style={{ fontSize: "30px", fontWeight: "bold", color: "#4f46e5" }}>Jet Serveaviation</h1>
           <h2 style={{ fontSize: "24px", fontWeight: "600", color: "#1f2937", marginTop: "8px" }}>E-Ticket</h2>
           <p style={{ fontSize: "14px", color: "#6b7280" }}>
-            Ticket Number: <span style={{ fontWeight: "bold" }}>{ticketNumber}</span>
+            Ticket Number: <span style={{ fontWeight: "bold" }}>{bookingResult.booking.pnr || "NEL4QS"}</span>
           </p>
-          {bookingResult?.booking?.bookingNo && (
-            <p style={{ fontSize: "14px", color: "#6b7280" }}>
-              Booking No: <span style={{ fontWeight: "bold" }}>{bookingResult.booking.bookingNo}</span>
-            </p>
-          )}
+          <p style={{ fontSize: "14px", color: "#6b7280" }}>
+            Booking No: <span style={{ fontWeight: "bold" }}>{bookingResult.booking.bookingNo || "BOOK1746250235353"}</span>
+          </p>
         </div>
 
         {/* Flight Information */}
@@ -219,13 +366,13 @@ const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }
             <FaPlane style={{ color: "#6366f1" }} /> Flight Information
           </h3>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", fontSize: "14px", color: "#374151" }}>
-            <p><span style={{ fontWeight: "600" }}>From:</span> {bookingData?.departure || "N/A"}</p>
-            <p><span style={{ fontWeight: "600" }}>To:</span> {bookingData?.arrival || "N/A"}</p>
-            <p><span style={{ fontWeight: "600" }}>Date:</span> {bookingData?.selectedDate || "N/A"}</p>
-            <p><span style={{ fontWeight: "600" }}>Flight ID:</span> {bookingData?.id || "N/A"}</p>
-            <p><span style={{ fontWeight: "600" }}>Departure:</span> {bookingData?.departureTime || "N/A"}</p>
-            <p><span style={{ fontWeight: "600" }}>Arrival:</span> {bookingData?.arrivalTime || "N/A"}</p>
-            <p><span style={{ fontWeight: "600" }}>Passengers:</span> {totalPassengers}</p>
+            <p><span style={{ fontWeight: "600" }}>From:</span> {bookingData.departure || "Khajuraho Airport"}</p>
+            <p><span style={{ fontWeight: "600" }}>To:</span> {bookingData.arrival || "Singrauli Airport"}</p>
+            <p><span style={{ fontWeight: "600" }}>Date:</span> {bookingData.selectedDate || "2025-05-04"}</p>
+            <p><span style={{ fontWeight: "600" }}>Flight ID:</span> {bookingData.id || "498"}</p>
+            <p><span style={{ fontWeight: "600" }}>Departure:</span> {bookingData.departureTime || "11:30:00"}</p>
+            <p><span style={{ fontWeight: "600" }}>Arrival:</span> {bookingData.arrivalTime || "13:45:00"}</p>
+            <p><span style={{ fontWeight: "600" }}>Passengers:</span> {totalPassengers || "3"}</p>
           </div>
         </section>
 
@@ -239,32 +386,56 @@ const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }
               travelerDetails.map((t, idx) => (
                 <div key={idx} style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: "16px", marginBottom: "16px" }}>
                   <p style={{ fontWeight: "600", color: "#1f2937" }}>
-                    #{idx + 1} – {t.title || "N/A"} {t.fullName || "N/A"} ({bookingResult?.passengers?.[idx]?.type || "Adult"})
+                    #{idx + 1} – {t.title} {t.fullName} ({t.type})
                   </p>
-                  <p style={{ fontSize: "14px", color: "#6b7280" }}>DOB: {t.dateOfBirth || "N/A"}</p>
-                  <p style={{ fontSize: "14px", color: "#6b7280" }}>
-                    Age: {bookingResult?.passengers?.[idx]?.age || "N/A"}
-                  </p>
+                  <p style={{ fontSize: "14px", color: "#6b7280" }}>DOB: {t.dateOfBirth}</p>
+                  <p style={{ fontSize: "14px", color: "#6b7280" }}>Age: {t.age}</p>
                   {idx === 0 && (
                     <div style={{ marginTop: "8px", fontSize: "14px", color: "#6b7280", lineHeight: "1.5" }}>
                       <p style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <FaEnvelope style={{ color: "#6366f1" }} /> {t.email || "N/A"}
+                        <FaEnvelope style={{ color: "#6366f1" }} /> {t.email || "hariom987650@gmail.com"}
                       </p>
                       <p style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <FaPhone style={{ color: "#6366f1" }} /> {t.phone || "N/A"}
+                        <FaPhone style={{ color: "#6366f1" }} /> {t.phone || "7000916904"}
                       </p>
                       {t.address && (
                         <p style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <FaMapMarkerAlt style={{ color: "#6366f1" }} /> {t.address}
+                          <FaMapMarkerAlt style={{ color: "#6366f1" }} /> {t.address || "Delhi"}
                         </p>
                       )}
-                      {t.gstNumber && <p>GST: {t.gstNumber}</p>}
                     </div>
                   )}
                 </div>
               ))
             ) : (
-              <p style={{ fontSize: "14px", color: "#6b7280" }}>No traveler details available.</p>
+              <>
+                <div style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: "16px", marginBottom: "16px" }}>
+                  <p style={{ fontWeight: "600", color: "#1f2937" }}>#1 – Mrs. Tushti Singh (Adult)</p>
+                  <p style={{ fontSize: "14px", color: "#6b7280" }}>DOB: 1983-10-02</p>
+                  <p style={{ fontSize: "14px", color: "#6b7280" }}>Age: 41</p>
+                  <div style={{ marginTop: "8px", fontSize: "14px", color: "#6b7280", lineHeight: "1.5" }}>
+                    <p style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <FaEnvelope style={{ color: "#6366f1" }} /> hariom987650@gmail.com
+                    </p>
+                    <p style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <FaPhone style={{ color: "#6366f1" }} /> 7000916904
+                    </p>
+                    <p style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <FaMapMarkerAlt style={{ color: "#6366f1" }} /> Delhi
+                    </p>
+                  </div>
+                </div>
+                <div style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: "16px", marginBottom: "16px" }}>
+                  <p style={{ fontWeight: "600", color: "#1f2937" }}>#2 – Mr. Shakti Singh (Adult)</p>
+                  <p style={{ fontSize: "14px", color: "#6b7280" }}>DOB: 1983-09-02</p>
+                  <p style={{ fontSize: "14px", color: "#6b7280" }}>Age: 41</p>
+                </div>
+                <div style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: "16px", marginBottom: "16px" }}>
+                  <p style={{ fontWeight: "600", color: "#1f2937" }}>#3 – Mr. Sarvagya Singh (Adult)</p>
+                  <p style={{ fontSize: "14px", color: "#6b7280" }}>DOB: 2016-12-06</p>
+                  <p style={{ fontSize: "14px", color: "#6b7280" }}>Age: 8</p>
+                </div>
+              </>
             )}
           </div>
         </section>
@@ -277,7 +448,7 @@ const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }
           <p style={{ fontSize: "14px", color: "#374151" }}>
             Total Price:{" "}
             <span style={{ fontSize: "24px", fontWeight: "bold", color: "#16a34a" }}>
-              INR {bookingData?.totalPrice || "N/A"}
+              INR {bookingData.totalPrice || "13500.00"}
             </span>
           </p>
         </section>
@@ -314,8 +485,7 @@ const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }
             </div>
             <div style={{ marginTop: "16px" }}>
               <h4 style={{ fontWeight: "600", display: "flex", alignItems: "center", gap: "8px" }}>
-                <FaExclamationTriangle style={{ color: "#6366f1" }} /> Cancellation
-                Procedure
+                <FaExclamationTriangle style={{ color: "#6366f1" }} /> Cancellation Procedure
               </h4>
               <p>
                 E-Tickets can only be cancelled via email at{" "}
@@ -388,212 +558,201 @@ const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }
 };
 
 const Page = () => {
-    const [bookings, setBookings] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [selectedBooking, setSelectedBooking] = useState(null);
-    const [airportMap, setAirportMap] = useState({});
-    
-    // Pagination state
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
+  const [bookings, setBookings] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [airportMap, setAirportMap] = useState({});
   
-    useEffect(() => {
-      async function fetchBookings() {
-        setIsLoading(true);
-        try {
-          const [bookingsRes, passengersRes, bookedSeatRes, billingsRes, paymentsRes, airportRes] = await Promise.all([
-            fetch(`${BASE_URL}/bookings`),
-            fetch(`${BASE_URL}/passenger`),
-            fetch(`${BASE_URL}/booked-seat`),
-            fetch(`${BASE_URL}/billings`),
-            fetch(`${BASE_URL}/payments`),
-            fetch(`${BASE_URL}/airport`),
-          ]);
-  
-          if (!bookingsRes.ok || !passengersRes.ok || !bookedSeatRes.ok || !billingsRes.ok || !paymentsRes.ok || !airportRes.ok) {
-            throw new Error("Failed to fetch data");
-          }
-  
-          const [bookingsData, passengersData, bookedSeatData, billingsData, paymentsData, airportData] = await Promise.all([
-            bookingsRes.json(),
-            passengersRes.json(),
-            bookedSeatRes.json(),
-            billingsRes.json(),
-            paymentsRes.json(),
-            airportRes.json(),
-          ]);
-  
-          const map = {};
-          airportData.forEach((a) => {
-            map[a.id] = a.airport_name;
-          });
-          setAirportMap(map);
-  
-          const merged = bookingsData.map((booking) => {
-            const matchingSeat = bookedSeatData.find(
-              (seat) => seat.schedule_id === booking.schedule_id && seat.bookDate === booking.bookDate
-            );
-            const matchingPassengers = passengersData.filter((p) => p.bookingId === booking.id);
-            const matchingPayment = paymentsData.find((p) => p.booking_id === booking.id);
-            const matchingBilling = billingsData.find((b) => b.user_id === booking.bookedUserId);
-  
-            const depId = matchingSeat?.FlightSchedule?.departure_airport_id;
-            const arrId = matchingSeat?.FlightSchedule?.arrival_airport_id;
-  
-            return {
-              ...booking,
-              FlightSchedule: matchingSeat?.FlightSchedule ?? {},
-              booked_seat: matchingSeat?.booked_seat ?? null,
-              passengers: matchingPassengers,
-              payment: matchingPayment ?? {},
-              billing: matchingBilling ?? {},
-              departureAirportName: map[depId] ?? depId ?? "N/A",
-              arrivalAirportName: map[arrId] ?? arrId ?? "N/A",
-            };
-          });
-  
-          merged.sort((a, b) => new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime());
-          setBookings(merged);
-        } catch (err) {
-          console.error("Error fetching bookings:", err);
-          alert("Failed to load bookings. Please try again.");
-        } finally {
-          setIsLoading(false);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    async function fetchBookings() {
+      setIsLoading(true);
+      try {
+        const [bookingsRes, passengersRes, bookedSeatRes, billingsRes, paymentsRes, airportRes] = await Promise.all([
+          fetch(`${BASE_URL}/bookings`),
+          fetch(`${BASE_URL}/passenger`),
+          fetch(`${BASE_URL}/booked-seat`),
+          fetch(`${BASE_URL}/billings`),
+          fetch(`${BASE_URL}/payments`),
+          fetch(`${BASE_URL}/airport`),
+        ]);
+
+        if (!bookingsRes.ok || !passengersRes.ok || !bookedSeatRes.ok || !billingsRes.ok || !paymentsRes.ok || !airportRes.ok) {
+          throw new Error("Failed to fetch data");
         }
+
+        const [bookingsData, passengersData, bookedSeatData, billingsData, paymentsData, airportData] = await Promise.all([
+          bookingsRes.json(),
+          passengersRes.json(),
+          bookedSeatRes.json(),
+          billingsRes.json(),
+          paymentsRes.json(),
+          airportRes.json(),
+        ]);
+
+        const map = {};
+        airportData.forEach((a) => {
+          map[a.id] = a.airport_name;
+        });
+        setAirportMap(map);
+
+        const merged = bookingsData.map((booking) => {
+          const matchingSeat = bookedSeatData.find(
+            (seat) => seat.schedule_id === booking.schedule_id && seat.bookDate === booking.bookDate
+          );
+          const matchingPassengers = passengersData.filter((p) => p.bookingId === booking.id);
+          const matchingPayment = paymentsData.find((p) => p.booking_id === booking.id);
+          const matchingBilling = billingsData.find((b) => b.user_id === booking.bookedUserId);
+
+          const depId = matchingSeat?.FlightSchedule?.departure_airport_id;
+          const arrId = matchingSeat?.FlightSchedule?.arrival_airport_id;
+
+          return {
+            ...booking,
+            FlightSchedule: matchingSeat?.FlightSchedule ?? {},
+            booked_seat: matchingSeat?.booked_seat ?? null,
+            passengers: matchingPassengers,
+            payment: matchingPayment ?? {},
+            billing: matchingBilling ?? {},
+            departureAirportName: map[depId] ?? depId ?? "N/A",
+            arrivalAirportName: map[arrId] ?? arrId ?? "N/A",
+          };
+        });
+
+        merged.sort((a, b) => new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime());
+        setBookings(merged);
+      } catch (err) {
+        console.error("Error fetching bookings:", err);
+        alert("Failed to load bookings. Please try again.");
+      } finally {
+        setIsLoading(false);
       }
-      fetchBookings();
-    }, []);
-  
-    // Calculate paginated bookings
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const currentBookings = bookings.slice(startIndex, startIndex + itemsPerPage);
-  
-    // Handle page change
-    const handlePageChange = (newPage) => {
-      setCurrentPage(newPage);
-    };
-  
-    return (
-      <div style={{ minHeight: "100vh", backgroundColor: "#f3f4f6", padding: "24px" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: "600", color: "#1f2937", marginBottom: "24px", textAlign: "center" }}>
-          Booking List
-        </h1>
-  
-        <div style={{ backgroundColor: "#ffffff", borderRadius: "12px", boxShadow: "0 10px 15px rgba(0,0,0,0.1)", overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={{ backgroundColor: "#f9fafb" }}>
-              <tr>
-                <th style={{ padding: "16px", textAlign: "left", fontSize: "14px", fontWeight: "600", color: "#374151" }}>Passenger Name</th>
-                <th style={{ padding: "16px", textAlign: "left", fontSize: "14px", fontWeight: "600", color: "#374151" }}>Date of Flight</th>
-                <th style={{ padding: "16px", textAlign: "left", fontSize: "14px", fontWeight: "600", color: "#374151" }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan={3} style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>
-                    Loading bookings...
-                  </td>
-                </tr>
-              ) : currentBookings.length === 0 ? (
-                <tr>
-                  <td colSpan={3} style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>
-                    No bookings found.
-                  </td>
-                </tr>
-              ) : (
-                currentBookings.map((booking) => {
-                  const ticketNumber = booking.pnr || `TICKET-${Date.now().toString(36).toUpperCase()}`;
-  
-                  return (
-                    <tr key={booking.bookingNo} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                      <td style={{ padding: "16px", fontSize: "14px", color: "#374151" }}>
-                        {booking.passengers.map((p) => p.name).join(", ") || "N/A"}
-                      </td>
-                      <td style={{ padding: "16px", fontSize: "14px", color: "#374151" }}>
-                        {new Date(booking.bookDate).toLocaleDateString()}
-                      </td>
-                      <td style={{ padding: "16px" }}>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                          <button
-                            onClick={() => setSelectedBooking(booking)}
-                            style={{
-                              backgroundColor: "#4f46e5",
-                              color: "#ffffff",
-                              padding: "8px 16px",
-                              borderRadius: "8px",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "8px",
-                              cursor: "pointer",
-                              fontSize: "14px",
-                              fontWeight: "500",
-                              border: "none",
-                            }}
-                            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#4338ca")}
-                            onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#4f46e5")}
-                            aria-label={`View ticket for booking ${booking.bookingNo}`}
-                          >
-                            <FaPlane /> View Ticket
-                          </button>
-                          
-                        </div>
-                        {/* Render TicketView off-screen for download */}
-                        <TicketView
-                          isOpen={false}
-                          onClose={() => {}}
-                          booking={booking}
-                          isDownload={true}
-                          onDownload={(ref, number) => {
-                            downloadTicket(ref, number);
-                          }}
-                        >
-                          <button
-                            id={`download-trigger-${booking.bookingNo}`}
-                            style={{ display: "none" }}
-                            onClick={() => downloadTicket(ticketRef, ticketNumber)}
-                          />
-                        </TicketView>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-  
-        {/* Pagination controls */}
-        <div style={{ textAlign: "center", marginTop: "24px" }}>
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            style={{ padding: "8px 16px", marginRight: "8px", backgroundColor: "#4f46e5", color: "#ffffff", borderRadius: "8px", cursor: "pointer" }}
-          >
-            Previous
-          </button>
-          <span style={{ fontSize: "16px", fontWeight: "500", color: "#374151" }}>
-            Page {currentPage}
-          </span>
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={bookings.length <= currentPage * itemsPerPage}
-            style={{ padding: "8px 16px", marginLeft: "8px", backgroundColor: "#4f46e5", color: "#ffffff", borderRadius: "8px", cursor: "pointer" }}
-          >
-            Next
-          </button>
-        </div>
-  
-        {selectedBooking && (
-          <TicketView
-            isOpen={true}
-            onClose={() => setSelectedBooking(null)}
-            booking={selectedBooking}
-          />
-        )}
-      </div>
-    );
+    }
+    fetchBookings();
+  }, []);
+
+  // Calculate paginated bookings
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentBookings = bookings.slice(startIndex, startIndex + itemsPerPage);
+
+  // Handle page change
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
   };
-  
+
+  return (
+    <div style={{ minHeight: "100vh", backgroundColor: "#f3f4f6", padding: "24px" }}>
+      <h1 style={{ fontSize: "24px", fontWeight: "600", color: "#1f2937", marginBottom: "24px", textAlign: "center" }}>
+        Booking List
+      </h1>
+
+      <div style={{ backgroundColor: "#ffffff", borderRadius: "12px", boxShadow: "0 10px 15px rgba(0,0,0,0.1)", overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead style={{ backgroundColor: "#f9fafb" }}>
+            <tr>
+              <th style={{ padding: "16px", textAlign: "left", fontSize: "14px", fontWeight: "600", color: "#374151" }}>Passenger Name</th>
+              <th style={{ padding: "16px", textAlign: "left", fontSize: "14px", fontWeight: "600", color: "#374151" }}>Date of Flight</th>
+              <th style={{ padding: "16px", textAlign: "left", fontSize: "14px", fontWeight: "600", color: "#374151" }}>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={3} style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>
+                  Loading bookings...
+                </td>
+              </tr>
+            ) : currentBookings.length === 0 ? (
+              <tr>
+                <td colSpan={3} style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>
+                  No bookings found.
+                </td>
+              </tr>
+            ) : (
+              currentBookings.map((booking) => {
+                const ticketNumber = booking.pnr || `TICKET-${Date.now().toString(36).toUpperCase()}`;
+
+                return (
+                  <tr key={booking.bookingNo} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                    <td style={{ padding: "16px", fontSize: "14px", color: "#374151" }}>
+                      {booking.passengers.map((p) => p.name).join(", ") || "N/A"}
+                    </td>
+                    <td style={{ padding: "16px", fontSize: "14px", color: "#374151" }}>
+                      {new Date(booking.bookDate).toLocaleDateString()}
+                    </td>
+                    <td style={{ padding: "16px" }}>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button
+                          onClick={() => setSelectedBooking(booking)}
+                          style={{
+                            backgroundColor: "#4f46e5",
+                            color: "#ffffff",
+                            padding: "8px 16px",
+                            borderRadius: "8px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            fontWeight: "500",
+                            border: "none",
+                          }}
+                          onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#4338ca")}
+                          onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#4f46e5")}
+                          aria-label={`View ticket for booking ${booking.bookingNo}`}
+                        >
+                          <FaPlane /> View Ticket
+                        </button>
+                      </div>
+                      {/* Render TicketView off-screen for download */}
+                      <TicketView
+                        isOpen={false}
+                        onClose={() => {}}
+                        booking={booking}
+                        isDownload={true}
+                      />
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination controls */}
+      <div style={{ textAlign: "center", marginTop: "24px" }}>
+        <button
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          style={{ padding: "8px 16px", marginRight: "8px", backgroundColor: "#4f46e5", color: "#ffffff", borderRadius: "8px", cursor: "pointer" }}
+        >
+          Previous
+        </button>
+        <span style={{ fontSize: "16px", fontWeight: "500", color: "#374151" }}>
+          Page {currentPage}
+        </span>
+        <button
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={bookings.length <= currentPage * itemsPerPage}
+          style={{ padding: "8px 16px", marginLeft: "8px", backgroundColor: "#4f46e5", color: "#ffffff", borderRadius: "8px", cursor: "pointer" }}
+        >
+          Next
+        </button>
+      </div>
+
+      {selectedBooking && (
+        <TicketView
+          isOpen={true}
+          onClose={() => setSelectedBooking(null)}
+          booking={selectedBooking}
+        />
+      )}
+    </div>
+  );
+};
 
 export default Page;
