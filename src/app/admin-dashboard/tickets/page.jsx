@@ -199,12 +199,12 @@ const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }
       doc.setFontSize(12);
       doc.setFont("Helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      doc.text(["Total Price:"], 100000, y);
+      doc.text(["Total Price:"], 50, y);
       
       doc.setTextColor(...greenColor);
       doc.setFont("Helvetica", "bold");
-      doc.setFontSize(18);
-      doc.text([`INR ${bookingData.totalPrice || "13500.00"}`], 180000, y); // place price with spacing
+      doc.setFontSize(14);
+      doc.text([`INR ${bookingData.totalPrice || "13500.00"}`], 120, y); // place price with spacing
       y += 40;
       
   
