@@ -258,7 +258,7 @@ const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }
       y += 15;
       doc.text("Cancellations are not permitted at face-to-face counters.", 50, y);
       y += 15;
-      doc.text("Cancellations are allowed up to 12 hours before departure.", 50, y);
+      doc.text("Cancellations are allowed up to 24 hours before departure.", 50, y);
       y += 15;
       doc.text("Cancellations will be confirmed online, and refunds will be credited to", 50, y);
       y += 15;
@@ -494,7 +494,7 @@ const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }
                 </a>.
               </p>
               <p>Cancellations are not permitted at face-to-face counters.</p>
-              <p>Cancellations are allowed up to 12 hours before departure.</p>
+              <p>Cancellations are allowed up to 24 hours before departure.</p>
               <p>
                 Cancellations will be confirmed online, and refunds will be credited to
                 the original payment account.
