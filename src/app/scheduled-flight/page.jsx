@@ -188,6 +188,8 @@ const ScheduledFlightsPage = () => {
 
         return {
           ...fs,
+           departureCity: depAirport.city,
+           arrivalCity:   arrAirport.city,
           flight_number: flight.flight_number || "Unknown",
           seat_limit: flight.seat_limit ?? 0,
           availableSeats: fs.availableSeats ?? 0,
@@ -208,6 +210,7 @@ const ScheduledFlightsPage = () => {
           availableSeats,
           stops,
           departure_date,
+          isMultiStop,
         } = fs;
 
         const matchesStatus =

@@ -60,7 +60,7 @@ const TicketComponent = ({ bookingData, travelerDetails, bookingResult }) => {
     // Remove other CSS variables as needed
   };
 
-  /* Download Ticket as PDF using dom-to-image */
+
   const downloadTicket = (retry = false) => {
     if (!ticketRef.current) {
       console.error("Ticket content element not found");

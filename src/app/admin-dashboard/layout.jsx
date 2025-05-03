@@ -13,6 +13,7 @@ import {
   FaTimes,
   FaBell,
   FaCog,
+  FaTicketAlt,
 } from "react-icons/fa";
 import { Home } from "lucide-react";
 
@@ -135,6 +136,16 @@ export default function AdminDashboardLayout({ children }) {
           >
             <FaClock className="text-indigo-300" />
             Booking Data
+          </a>
+
+          <a
+            href="/admin-dashboard/tickets"
+            className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
+              isActive("/admin-dashboard/tickets") ? activeClass : "hover:bg-indigo-700 text-white"
+            }`}
+          >
+            <FaTicketAlt className="text-indigo-300" />
+           Get Ticker
           </a>
         </nav>
       </aside>
