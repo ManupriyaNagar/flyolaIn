@@ -18,16 +18,19 @@ export function AuthProvider({ children }) {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
-
+  
+        console.log("[AuthContext] Fetching /users/verify from:", `${BASE_URL}/users/verify`);
         const res = await fetch(`${BASE_URL}/users/verify`, {
           method: "GET",
           credentials: "include",
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
-
+  
+        console.log("[AuthContext] /users/verify status:", res.status);
         if (res.ok) {
           const { id, email, role } = await res.json();
+          console.log("[AuthContext] /users/verify response:", { id, email, role });
           const newAuthState = {
             isLoading: false,
             isLoggedIn: true,
@@ -37,6 +40,7 @@ export function AuthProvider({ children }) {
           setAuthState(newAuthState);
           localStorage.setItem("authState", JSON.stringify(newAuthState));
         } else {
+          console.error("[AuthContext] /users/verify failed:", await res.text());
           setAuthState({
             isLoading: false,
             isLoggedIn: false,
@@ -46,7 +50,7 @@ export function AuthProvider({ children }) {
           localStorage.removeItem("authState");
         }
       } catch (error) {
-        console.error("[AuthContext] verify error:", error);
+        console.error("[AuthContext] verify error:", error.message);
         setAuthState({
           isLoading: false,
           isLoggedIn: false,
@@ -56,7 +60,7 @@ export function AuthProvider({ children }) {
         localStorage.removeItem("authState");
       }
     };
-
+  
     verifyToken();
   }, []);
 
