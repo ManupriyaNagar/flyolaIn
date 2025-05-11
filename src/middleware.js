@@ -1,46 +1,38 @@
-export const runtime = 'experimental-edge';
+import { NextResponse } from "next/server";
+import jwt from "jsonwebtoken";
 
-import { NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
-
-export async function middleware(req) {
-  const { pathname } = req.nextUrl;
-  const token = req.cookies.get('token')?.value;
-
-  console.log("[Middleware] Request path:", pathname);
+export function middleware(req) {
+  const token = req.cookies.get("token")?.value;
+  console.log("[Middleware] Request path:", req.nextUrl.pathname);
   console.log("[Middleware] Token found:", !!token);
 
   if (!token) {
     console.log("[Middleware] No token found. Redirecting to /sign-in.");
-    return NextResponse.redirect(new URL('/sign-in', req.url));
+    return NextResponse.redirect(new URL("/sign-in", req.url));
   }
 
   try {
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    const { payload } = await jwtVerify(token, secret);
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("[Middleware] JWT payload:", payload);
 
-    console.log("[Middleware] JWT payload role:", payload.role);
-
-    const userRole = Number(payload.role);
-
-    if (pathname.startsWith('/admin-dashboard') && userRole !== 1) {
-      console.log("[Middleware] Access denied for admin-dashboard.");
-      return NextResponse.redirect(new URL('/sign-in', req.url));
+    if (req.nextUrl.pathname.startsWith("/admin-dashboard") && payload.role !== "1") {
+      console.log("[Middleware] Unauthorized role for admin dashboard.");
+      return NextResponse.redirect(new URL("/sign-in", req.url));
     }
 
-    if (pathname.startsWith('/user-dashboard') && userRole !== 3) {
-      console.log("[Middleware] Access denied for user-dashboard.");
-      return NextResponse.redirect(new URL('/sign-in', req.url));
+    if (req.nextUrl.pathname.startsWith("/user-dashboard") && payload.role !== "3") {
+      console.log("[Middleware] Unauthorized role for user dashboard.");
+      return NextResponse.redirect(new URL("/sign-in", req.url));
     }
 
     console.log("[Middleware] Access granted.");
     return NextResponse.next();
   } catch (error) {
-    console.error("[Middleware] Token verification failed:", error.message);
-    return NextResponse.redirect(new URL('/sign-in', req.url));
+    console.error("[Middleware] Token verification error:", error.message);
+    return NextResponse.redirect(new URL("/sign-in", req.url));
   }
 }
 
 export const config = {
-  matcher: ['/admin-dashboard/:path*', '/user-dashboard/:path*'],
+  matcher: ["/admin-dashboard/:path*", "/user-dashboard/:path*"],
 };
