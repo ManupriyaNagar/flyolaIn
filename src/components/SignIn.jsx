@@ -1,52 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useAuth } from "./AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import BASE_URL from "@/baseUrl/baseUrl";
+import { useRouter } from "next/navigation";
 
 const SignIn = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const { setAuthState } = useAuth();
+  const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMessage("");
+
     try {
       const response = await fetch(`${BASE_URL}/users/login`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
-        credentials: "include",
       });
 
       const data = await response.json();
-      console.log("Login response:", data);
-
-      if (response.ok) {
-        const token = data.token;
-        const role = data.role;
-
-        // Save cookie and localStorage
-        document.cookie = `token=${token}; path=/; max-age=3600; SameSite=Lax; Secure`;
-        localStorage.setItem("token", token);
-        localStorage.setItem("authState", JSON.stringify({ isLoggedIn: true, userRole: role }));
-
-        // Update context
-        setAuthState({
+      if (response.ok && data.user) {
+        const { user } = data;
+        const newAuthState = {
+          isLoading: false,
           isLoggedIn: true,
-          userRole: role,
-          user: { email, role },
-        });
+          user: { id: user.id, email: user.email },
+          userRole: String(user.role),
+        };
+        setAuthState(newAuthState);
+        localStorage.setItem("authState", JSON.stringify(newAuthState));
+
+        const redirectPath =
+          user.role === 1 ? "/admin-dashboard" : "/scheduled-flight";
+        router.push(redirectPath);
       } else {
         setErrorMessage(data.error || "Login failed");
       }
-    } catch (error) {
-      console.error("Error during login:", error);
+    } catch (err) {
+      console.error("[SignIn] Error:", err);
       setErrorMessage("An error occurred. Please try again.");
     }
   };
@@ -82,21 +83,20 @@ const SignIn = () => {
             <Button className="w-full" type="submit">
               Sign In
             </Button>
-            {errorMessage && <p className="text-red-500 text-sm text-center mt-2">{errorMessage}</p>}
+            {errorMessage && (
+              <p className="text-red-500 text-sm text-center mt-2">
+                {errorMessage}
+              </p>
+            )}
           </form>
-
-          <p className="text-center text-sm text-gray-300 mt-4">
+          <p className="text-center text-sm text-gray-500 mt-4">
             Don't have an account?{" "}
-            <a
-              href="/sign-up"
-              className="text-blue-500"
-              onClick={(e) => {
-                e.preventDefault();
-                window.location.href = "/sign-up";
-              }}
+            <span
+              onClick={() => router.push("/sign-up")}
+              className="text-blue-500 hover:underline cursor-pointer"
             >
               Sign Up
-            </a>
+            </span>
           </p>
         </CardContent>
       </Card>

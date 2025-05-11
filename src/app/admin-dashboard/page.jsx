@@ -2,6 +2,8 @@
 
 import BASE_URL from "@/baseUrl/baseUrl";
 import React, { useState, useEffect, useMemo } from "react";
+import { useAuth } from "@/components/AuthContext";
+import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import {
@@ -14,7 +16,6 @@ import {
   TicketIcon,
   UsersIcon,
   CreditCardIcon,
-  PlayIcon,
 } from "@heroicons/react/24/outline";
 import { Bar } from "react-chartjs-2";
 import {
@@ -30,7 +31,6 @@ import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { FaAccessibleIcon } from "react-icons/fa";
 
-// Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 export default function DashboardPage() {
@@ -47,50 +47,56 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const { authState } = useAuth();
+  const router = useRouter();
 
-  // Fetch data from all endpoints
   useEffect(() => {
+    if (!authState.isLoggedIn) {
+      console.log("[DashboardPage] Not logged in, redirecting to /sign-in");
+      router.push("/sign-in");
+      return;
+    }
+
     const fetchData = async () => {
       setLoading(true);
       setError(null);
       try {
-        const [
-          flightsResponse,
-          schedulesResponse,
-          airportsResponse,
-          bookingsResponse,
-          bookedSeatsResponse,
-          passengersResponse,
-          usersResponse,
-          reviewsResponse,
-          billingsResponse,
-          paymentsResponse,
-        ] = await Promise.all([
-          fetch(`${BASE_URL}/flights`),
-          fetch(`${BASE_URL}/flight-schedules`),
-          fetch(`${BASE_URL}/airport`),
-          fetch(`${BASE_URL}/bookings`),
-          fetch(`${BASE_URL}/booked-seat`),
-          fetch(`${BASE_URL}/passenger`),
-          fetch(`${BASE_URL}/users`),
-          fetch(`${BASE_URL}/reviews`),
-          fetch(`${BASE_URL}/billings`),
-          fetch(`${BASE_URL}/payments`),
-        ]);
+        const endpoints = [
+          "flights",
+          "flight-schedules",
+          "airport",
+          "bookings",
+          "booked-seat",
+          "passenger",
+          "users",
+          "reviews",
+          "billings",
+          "payments",
+        ];
 
-        if (
-          !flightsResponse.ok ||
-          !schedulesResponse.ok ||
-          !airportsResponse.ok ||
-          !bookingsResponse.ok ||
-          !bookedSeatsResponse.ok ||
-          !passengersResponse.ok ||
-          !usersResponse.ok ||
-          !reviewsResponse.ok ||
-          !billingsResponse.ok ||
-          !paymentsResponse.ok
-        ) {
-          throw new Error("Failed to fetch dashboard data");
+        const responses = await Promise.all(
+          endpoints.map((endpoint) =>
+            fetch(`${BASE_URL}/${endpoint}`, {
+              credentials: "include",
+            })
+          )
+        );
+
+        const errors = responses.filter((res) => !res.ok);
+        if (errors.length > 0) {
+          const errorDetails = await Promise.all(
+            errors.map(async (res) => ({
+              url: res.url,
+              status: res.status,
+              error: (await res.json()).error || "Unknown error",
+            }))
+          );
+          console.error("[DashboardPage] Fetch errors:", errorDetails);
+          throw new Error(
+            errorDetails.some((e) => e.status === 401)
+              ? "Authentication failed: Please log in again"
+              : "Failed to fetch dashboard data"
+          );
         }
 
         const [
@@ -104,18 +110,7 @@ export default function DashboardPage() {
           reviewsData,
           billingsData,
           paymentsData,
-        ] = await Promise.all([
-          flightsResponse.json(),
-          schedulesResponse.json(),
-          airportsResponse.json(),
-          bookingsResponse.json(),
-          bookedSeatsResponse.json(),
-          passengersResponse.json(),
-          usersResponse.json(),
-          reviewsResponse.json(),
-          billingsResponse.json(),
-          paymentsResponse.json(),
-        ]);
+        ] = await Promise.all(responses.map((res) => res.json()));
 
         setFlights(flightsData);
         setSchedules(schedulesData);
@@ -127,17 +122,24 @@ export default function DashboardPage() {
         setReviews(reviewsData);
         setBillings(billingsData);
         setPayments(paymentsData);
+        console.log("[DashboardPage] Data fetched successfully:", {
+          flights: flightsData.length,
+          bookings: bookingsData.length,
+        });
       } catch (err) {
-        console.error("Error fetching dashboard data:", err);
-        setError("Failed to load dashboard data. Please try again.");
-        toast.error("Failed to load dashboard data.");
+        console.error("[DashboardPage] Error fetching dashboard data:", err);
+        setError(err.message);
+        toast.error(err.message);
+        if (err.message.includes("Authentication failed")) {
+          router.push("/sign-in");
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [authState, router]);
 
   // Calculate metrics for cards
   const totalFlights = flights.length;
@@ -159,7 +161,7 @@ export default function DashboardPage() {
     const counts = days.map((day, index) =>
       bookings.filter((b) => {
         const bookingDate = new Date(b.created_at || b.updated_at);
-        return bookingDate.getDay() === ((index + 1) % 7); // Adjust for Sunday=0
+        return bookingDate.getDay() === ((index + 1) % 7);
       }).length
     );
 
@@ -169,7 +171,7 @@ export default function DashboardPage() {
         {
           label: "Bookings by Day",
           data: counts,
-          backgroundColor: "rgba(79, 70, 229, 0.6)", // Indigo-600
+          backgroundColor: "rgba(79, 70, 229, 0.6)",
           borderColor: "rgba(79, 70, 229, 1)",
           borderWidth: 1,
         },
@@ -177,7 +179,6 @@ export default function DashboardPage() {
     };
   }, [bookings]);
 
-  // Chart options
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -205,7 +206,6 @@ export default function DashboardPage() {
     },
   };
 
-  // Calendar bookings
   const bookingsOnSelectedDate = useMemo(() => {
     return bookings.filter((booking) => {
       const bookingDate = new Date(booking.created_at || booking.updated_at);
@@ -226,10 +226,19 @@ export default function DashboardPage() {
       </p>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg">{error}</div>
+        <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg">
+          {error}
+          {error.includes("Authentication failed") && (
+            <button
+              className="ml-4 px-4 py-2 bg-blue-600 text-white rounded"
+              onClick={() => router.push("/sign-in")}
+            >
+              Sign In
+            </button>
+          )}
+        </div>
       )}
 
-      {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {[
           {
@@ -320,12 +329,10 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Chart and Calendar Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Bar Chart */}
         <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg">
           <h3 className="text-xl font-semibold text-gray-800 mb-4">
-            Bookings Overview  
+            Bookings Overview
           </h3>
           <div className="h-80">
             {loading ? (
@@ -361,7 +368,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Calendar */}
         <div className="bg-white p-6 rounded-xl shadow-lg">
           <h3 className="text-xl font-semibold text-gray-800 mb-4">
             Bookings Calendar

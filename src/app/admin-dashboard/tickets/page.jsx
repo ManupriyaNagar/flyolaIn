@@ -12,6 +12,8 @@ import {
   FaLuggageCart,
   FaExclamationTriangle,
 } from "react-icons/fa";
+import { useAuth } from "@/components/AuthContext"; // Adjust path to your AuthContext
+import { useRouter } from "next/navigation";
 import BASE_URL from "@/baseUrl/baseUrl";
 
 const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }) => {
@@ -139,7 +141,8 @@ const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }
             doc.text(`${t.address || "Delhi"}`, 50, y);
           }
           y += 20;
-          doc.setDrawColor(229, 231, 235);
+          doc.setDraw;
+            doc.setDrawColor(229, 231, 235);
           doc.line(50, y - 10, 545, y - 10); // Separator line
         });
       } else {
@@ -558,30 +561,50 @@ const TicketView = ({ isOpen, onClose, booking, isDownload = false, onDownload }
 };
 
 const Page = () => {
+  const { authState } = useAuth();
+  const router = useRouter();
   const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [airportMap, setAirportMap] = useState({});
-  
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // Redirect if not admin
   useEffect(() => {
+    if (!authState.isLoading && (!authState.isLoggedIn || String(authState.userRole) !== "1")) {
+      router.push("/sign-in");
+    }
+  }, [authState, router]);
+
+  // Fetch bookings
+  useEffect(() => {
+    if (authState.isLoading || !authState.isLoggedIn || String(authState.userRole) !== "1") {
+      return;
+    }
+
     async function fetchBookings() {
       setIsLoading(true);
+      setError(null);
+
       try {
+        console.log("BASE_URL:", BASE_URL);
+        console.log("AuthState:", authState);
+
         const [bookingsRes, passengersRes, bookedSeatRes, billingsRes, paymentsRes, airportRes] = await Promise.all([
-          fetch(`${BASE_URL}/bookings`),
-          fetch(`${BASE_URL}/passenger`),
-          fetch(`${BASE_URL}/booked-seat`),
-          fetch(`${BASE_URL}/billings`),
-          fetch(`${BASE_URL}/payments`),
-          fetch(`${BASE_URL}/airport`),
+          fetch(`${BASE_URL}/bookings`, { credentials: "include" }),
+          fetch(`${BASE_URL}/passenger`, { credentials: "include" }),
+          fetch(`${BASE_URL}/booked-seat`, { credentials: "include" }),
+          fetch(`${BASE_URL}/billings`, { credentials: "include" }),
+          fetch(`${BASE_URL}/payments`, { credentials: "include" }),
+          fetch(`${BASE_URL}/airport`, { credentials: "include" }),
         ]);
 
         if (!bookingsRes.ok || !passengersRes.ok || !bookedSeatRes.ok || !billingsRes.ok || !paymentsRes.ok || !airportRes.ok) {
-          throw new Error("Failed to fetch data");
+          throw new Error(
+            `Fetch failed: Bookings=${bookingsRes.status}, Passengers=${passengersRes.status}, Seats=${bookedSeatRes.status}, Billings=${billingsRes.status}, Payments=${paymentsRes.status}, Airports=${airportRes.status}`
+          );
         }
 
         const [bookingsData, passengersData, bookedSeatData, billingsData, paymentsData, airportData] = await Promise.all([
@@ -593,19 +616,25 @@ const Page = () => {
           airportRes.json(),
         ]);
 
+        console.log("Raw Data:", { bookingsData, passengersData, bookedSeatData, billingsData, paymentsData, airportData });
+
+        if (!Array.isArray(bookingsData)) {
+          throw new Error("Bookings data is not an array");
+        }
+
         const map = {};
         airportData.forEach((a) => {
-          map[a.id] = a.airport_name;
+          if (a?.id && a?.airport_name) map[a.id] = a.airport_name;
         });
         setAirportMap(map);
 
         const merged = bookingsData.map((booking) => {
           const matchingSeat = bookedSeatData.find(
-            (seat) => seat.schedule_id === booking.schedule_id && seat.bookDate === booking.bookDate
+            (seat) => seat?.schedule_id === booking?.schedule_id && seat?.bookDate === booking?.bookDate
           );
-          const matchingPassengers = passengersData.filter((p) => p.bookingId === booking.id);
-          const matchingPayment = paymentsData.find((p) => p.booking_id === booking.id);
-          const matchingBilling = billingsData.find((b) => b.user_id === booking.bookedUserId);
+          const matchingPassengers = passengersData.filter((p) => p?.bookingId === booking?.id);
+          const matchingPayment = paymentsData.find((p) => p?.booking_id === booking?.id);
+          const matchingBilling = billingsData.find((b) => b?.user_id === booking?.bookedUserId);
 
           const depId = matchingSeat?.FlightSchedule?.departure_airport_id;
           const arrId = matchingSeat?.FlightSchedule?.arrival_airport_id;
@@ -622,25 +651,31 @@ const Page = () => {
           };
         });
 
+        console.log("Merged Data:", merged);
+
         merged.sort((a, b) => new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime());
         setBookings(merged);
       } catch (err) {
         console.error("Error fetching bookings:", err);
-        alert("Failed to load bookings. Please try again.");
+        setError("Failed to load bookings. Please try again.");
       } finally {
         setIsLoading(false);
       }
     }
+
     fetchBookings();
-  }, []);
+  }, [authState.isLoggedIn, authState.userRole]);
 
   // Calculate paginated bookings
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentBookings = bookings.slice(startIndex, startIndex + itemsPerPage);
+  const totalPages = Math.ceil(bookings.length / itemsPerPage) || 1;
 
   // Handle page change
   const handlePageChange = (newPage) => {
-    setCurrentPage(newPage);
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
   };
 
   return (
@@ -648,6 +683,29 @@ const Page = () => {
       <h1 style={{ fontSize: "24px", fontWeight: "600", color: "#1f2937", marginBottom: "24px", textAlign: "center" }}>
         Booking List
       </h1>
+
+      {/* Error Message and Retry Button */}
+      {error && (
+        <div style={{ textAlign: "center", padding: "16px", marginBottom: "16px", backgroundColor: "#fee2e2", borderRadius: "8px" }}>
+          <p style={{ color: "#dc2626" }}>{error}</p>
+          {error.includes("Failed to load bookings") && (
+            <button
+              onClick={() => fetchBookings()}
+              style={{
+                marginTop: "8px",
+                padding: "8px 16px",
+                backgroundColor: "#4f46e5",
+                color: "#ffffff",
+                borderRadius: "8px",
+                cursor: "pointer",
+                border: "none",
+              }}
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      )}
 
       <div style={{ backgroundColor: "#ffffff", borderRadius: "12px", boxShadow: "0 10px 15px rgba(0,0,0,0.1)", overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -662,10 +720,31 @@ const Page = () => {
             {isLoading ? (
               <tr>
                 <td colSpan={3} style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>
-                  Loading bookings...
+                  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px" }}>
+                    <svg
+                      className="animate-spin h-5 w-5 text-blue-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
+                      />
+                    </svg>
+                    Loading bookings...
+                  </div>
                 </td>
               </tr>
-            ) : currentBookings.length === 0 ? (
+            ) : currentBookings.length === 0 && !error ? (
               <tr>
                 <td colSpan={3} style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>
                   No bookings found.
@@ -724,25 +803,43 @@ const Page = () => {
       </div>
 
       {/* Pagination controls */}
-      <div style={{ textAlign: "center", marginTop: "24px" }}>
-        <button
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          style={{ padding: "8px 16px", marginRight: "8px", backgroundColor: "#4f46e5", color: "#ffffff", borderRadius: "8px", cursor: "pointer" }}
-        >
-          Previous
-        </button>
-        <span style={{ fontSize: "16px", fontWeight: "500", color: "#374151" }}>
-          Page {currentPage}
-        </span>
-        <button
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={bookings.length <= currentPage * itemsPerPage}
-          style={{ padding: "8px 16px", marginLeft: "8px", backgroundColor: "#4f46e5", color: "#ffffff", borderRadius: "8px", cursor: "pointer" }}
-        >
-          Next
-        </button>
-      </div>
+      {totalPages > 1 && (
+        <div style={{ textAlign: "center", marginTop: "24px", display: "flex", justifyContent: "center", alignItems: "center", gap: "8px" }}>
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: currentPage === 1 ? "#e5e7eb" : "#4f46e5",
+              color: currentPage === 1 ? "#6b7280" : "#ffffff",
+              borderRadius: "8px",
+              cursor: currentPage === 1 ? "not-allowed" : "pointer",
+              border: "none",
+            }}
+            aria-label="Previous page"
+          >
+            Previous
+          </button>
+          <span style={{ fontSize: "16px", fontWeight: "500", color: "#374151" }}>
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: currentPage === totalPages ? "#e5e7eb" : "#4f46e5",
+              color: currentPage === totalPages ? "#6b7280" : "#ffffff",
+              borderRadius: "8px",
+              cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+              border: "none",
+            }}
+            aria-label="Next page"
+          >
+            Next
+          </button>
+        </div>
+      )}
 
       {selectedBooking && (
         <TicketView

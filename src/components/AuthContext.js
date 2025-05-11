@@ -1,94 +1,81 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useRef } from "react";
-import { jwtDecode } from "jwt-decode";
+import { createContext, useContext, useState, useEffect } from "react";
+import BASE_URL from "@/baseUrl/baseUrl";
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [authState, setAuthState] = useState({
+    isLoading: true,
     isLoggedIn: false,
-    userRole: null,
     user: null,
+    userRole: null,
   });
-  const timeoutRef = useRef(null);
-
-  const clearAuth = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    localStorage.removeItem("authState");
-    localStorage.removeItem("token");
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    setAuthState({ isLoggedIn: false, userRole: null, user: null });
-  };
 
   useEffect(() => {
-    const checkAuth = () => {
-      const cookieToken = document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("token="))
-        ?.split("=")[1];
-      const token = cookieToken || localStorage.getItem("token");
+    const verifyToken = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      if (token) {
-        try {
-          const decoded = jwtDecode(token);
-          const nowInSeconds = Math.floor(Date.now() / 1000);
+        const res = await fetch(`${BASE_URL}/users/verify`, {
+          method: "GET",
+          credentials: "include",
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
 
-          if (decoded.exp < nowInSeconds) {
-            clearAuth();
-            return;
-          }
-
-          const expiresInMs = (decoded.exp - nowInSeconds) * 1000;
-
-          if (timeoutRef.current) clearTimeout(timeoutRef.current);
-          timeoutRef.current = setTimeout(() => {
-            clearAuth();
-            window.location.href = "/sign-in";
-          }, expiresInMs);
-
-          setAuthState({
+        if (res.ok) {
+          const { id, email, role } = await res.json();
+          const newAuthState = {
+            isLoading: false,
             isLoggedIn: true,
-            userRole: decoded.role,
-            user: decoded.user || null,
+            user: { id, email },
+            userRole: String(role),
+          };
+          setAuthState(newAuthState);
+          localStorage.setItem("authState", JSON.stringify(newAuthState));
+        } else {
+          setAuthState({
+            isLoading: false,
+            isLoggedIn: false,
+            user: null,
+            userRole: null,
           });
-        } catch (error) {
-          console.error("Token decoding error:", error);
-          clearAuth();
+          localStorage.removeItem("authState");
         }
-      } else {
-        clearAuth();
+      } catch (error) {
+        console.error("[AuthContext] verify error:", error);
+        setAuthState({
+          isLoading: false,
+          isLoggedIn: false,
+          user: null,
+          userRole: null,
+        });
+        localStorage.removeItem("authState");
       }
     };
 
-    checkAuth();
-    window.addEventListener("storage", checkAuth);
-
-    return () => {
-      window.removeEventListener("storage", checkAuth);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
+    verifyToken();
   }, []);
 
-  const logout = () => {
-    clearAuth();
-    window.location.href = "/sign-in";
-  };
+  // Delay rendering children until we know login status
+  if (authState.isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
-    <AuthContext.Provider value={{ authState, setAuthState, logout }}>
+    <AuthContext.Provider value={{ authState, setAuthState }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
-};
+}

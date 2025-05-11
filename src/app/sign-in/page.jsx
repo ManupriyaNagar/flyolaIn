@@ -10,12 +10,12 @@ const SignInPage = () => {
   const { authState } = useAuth();
 
   React.useEffect(() => {
+    console.log("[SignInPage] authState:", authState);
     if (authState.isLoggedIn) {
-      if (authState.userRole === 1) {
-        router.push("/admin-dashboard");
-      } else if (authState.userRole === 3) {
-        router.push("/scheduled-flight");
-      }
+      const redirectPath =
+        authState.userRole === "1" ? "/admin-dashboard" : "/scheduled-flight";
+      console.log("[SignInPage] Redirecting to:", redirectPath);
+      router.push(redirectPath);
     }
   }, [authState, router]);
 

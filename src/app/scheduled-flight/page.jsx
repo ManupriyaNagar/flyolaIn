@@ -8,10 +8,10 @@ import Header2 from "@/components/ScheduledFlight/Header";
 import { useAuth } from "@/components/AuthContext";
 import BASE_URL from "@/baseUrl/baseUrl";
 
-// ───────────────────────── helpers ─────────────────────────
+
 const tz = "Asia/Kolkata";
 const fmtIso = (d) =>
-  d.toLocaleDateString("sv-SE", { timeZone: tz }); // YYYY-MM-DD
+  d.toLocaleDateString("sv-SE", { timeZone: tz }); 
 
 const isValidISO = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 const normaliseStops = (raw) => {
@@ -254,7 +254,7 @@ const ScheduledFlightsPage = () => {
   const filteredAndSortedFlightSchedules = getFilteredAndSortedFlightSchedules();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row mt-20">
+    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row  ">
       <div className="w-full md:w-72 md:flex-shrink-0 overflow-y-auto h-auto md:h-screen bg-white shadow-lg md:sticky top-20">
         <FilterSidebar
           airports={airports}

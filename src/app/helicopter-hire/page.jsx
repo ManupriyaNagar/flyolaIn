@@ -50,7 +50,7 @@ export default function HelicopterHirePage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-        <div className="bg-gray-100 py-16 px-6 text-center mt-20">
+        <div className="bg-gray-100 py-10 px-6 text-center ">
       <h2 className="text-4xl font-bold text-gray-800 mb-4">Helicopter Charter</h2>
       <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-10">
       Jet Serve Aviation offers swift and versatile helicopter charter services—ideal for short-distance travel, remote access, and scenic aerial experiences. With the same standard of luxury, safety, and precision, our helicopter charters provide unmatched flexibility for business, leisure, and emergency travel needs.

@@ -2,6 +2,8 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { useAuth } from "@/components/AuthContext";
+import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -11,6 +13,9 @@ import BASE_URL from "@/baseUrl/baseUrl";
 const BOOKINGS_PER_PAGE = 50;
 
 export default function Booking() {
+  const { authState } = useAuth();
+  const router = useRouter();
+
   const [bookings, setBookings] = useState([]);
   const [status, setStatus] = useState("Confirmed");
   const [isLoading, setIsLoading] = useState(false);
@@ -18,6 +23,13 @@ export default function Booking() {
   const [searchTerm, setSearchTerm] = useState("");
   /** @type {{[key:number]:string}} */
   const [airportMap, setAirportMap] = useState({});
+
+  // Redirect if not admin
+  useEffect(() => {
+    if (!authState.isLoading && (!authState.isLoggedIn || authState.userRole !== "1")) {
+      router.push("/sign-in");
+    }
+  }, [authState, router]);
 
   // Debounced search handler
   const debouncedSearch = useCallback(
@@ -30,14 +42,18 @@ export default function Booking() {
 
   /** Fetch & merge data */
   useEffect(() => {
+    if (authState.isLoading || !authState.isLoggedIn || authState.userRole !== "1") {
+      return;
+    }
+
     async function fetchAll() {
       setIsLoading(true);
       try {
         const [bookingsRes, seatRes, paxRes, airportRes] = await Promise.all([
-          fetch(`${BASE_URL}/bookings?status=${status}`),
-          fetch(`${BASE_URL}/booked-seat`),
-          fetch(`${BASE_URL}/passenger`),
-          fetch(`${BASE_URL}/airport`),
+          fetch(`${BASE_URL}/bookings?status=${status}`, { credentials: "include" }),
+          fetch(`${BASE_URL}/booked-seat`, { credentials: "include" }),
+          fetch(`${BASE_URL}/passenger`, { credentials: "include" }),
+          fetch(`${BASE_URL}/airport`, { credentials: "include" }),
         ]);
 
         if (!bookingsRes.ok || !seatRes.ok || !paxRes.ok || !airportRes.ok) {
@@ -71,10 +87,9 @@ export default function Booking() {
           return {
             ...b,
             FlightSchedule: matchSeat?.FlightSchedule ?? {},
-            booked_seat: matchSeat?.booked_seat ?? null, // Kept for potential future use
             passengers: pax,
-            departureAirportName: map[depId] ?? depId ?? "N/A",
-            arrivalAirportName: map[arrId] ?? arrId ?? "N/A",
+            departureAirportName: map[depId] || "N/A",
+            arrivalAirportName: map[arrId] || "N/A",
           };
         });
 
@@ -92,7 +107,7 @@ export default function Booking() {
     }
 
     fetchAll();
-  }, [status]);
+  }, [status, authState]);
 
   /** Search filtering */
   const filteredBookings = useMemo(() => {
@@ -103,7 +118,9 @@ export default function Booking() {
       const pnr = b.pnr?.toLowerCase() ?? "";
       const email = b.email_id?.toLowerCase() ?? "";
       const contact = b.contact_no?.toString().toLowerCase() ?? "";
-      const passengerNames = b.passengers?.map((p) => p.name.toLowerCase()).join(" ") ?? "";
+      const passengerNames = b.passengers
+        .map((p) => p.name.toLowerCase())
+        .join(" ");
       return (
         bookingNo.includes(term) ||
         pnr.includes(term) ||
@@ -115,12 +132,16 @@ export default function Booking() {
   }, [bookings, searchTerm]);
 
   /** Pagination helpers */
-  const totalPages = Math.ceil(filteredBookings.length / BOOKINGS_PER_PAGE) || 1;
-
+  const totalPages = Math.max(1, Math.ceil(filteredBookings.length / BOOKINGS_PER_PAGE));
   const currentBookings = useMemo(() => {
     const start = (currentPage - 1) * BOOKINGS_PER_PAGE;
     return filteredBookings.slice(start, start + BOOKINGS_PER_PAGE);
   }, [filteredBookings, currentPage]);
+
+  /** Total seats booked */
+  const totalSeatsBooked = useMemo(() => {
+    return filteredBookings.reduce((sum, b) => sum + (b.noOfPassengers || 0), 0);
+  }, [filteredBookings]);
 
   /** Excel export */
   const exportToExcel = useCallback(() => {
@@ -129,17 +150,17 @@ export default function Booking() {
       PNR: b.pnr,
       FlyDate: new Date(b.bookDate).toLocaleDateString(),
       Email: b.email_id,
-      Number: b.contact_no,
-      Passenger: b.noOfPassengers,
+      Phone: b.contact_no,
+      Passengers: b.noOfPassengers,
       PassengerNames: b.passengers.map((p) => p.name).join(", "),
       Sector: b.schedule_id,
       Price: parseFloat(b.totalFare).toFixed(2),
       Status: b.bookingStatus,
-      DepartureTime: b.FlightSchedule?.departure_time ?? "N/A",
-      ArrivalTime: b.FlightSchedule?.arrival_time ?? "N/A",
+      DepartureTime: b.FlightSchedule?.departure_time || "N/A",
+      ArrivalTime: b.FlightSchedule?.arrival_time || "N/A",
       DepartureAirport: b.departureAirportName,
       ArrivalAirport: b.arrivalAirportName,
-      BookedSeats: b.noOfPassengers, // Changed from b.booked_seat to b.noOfPassengers
+      BookedSeats: b.noOfPassengers,
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -147,24 +168,7 @@ export default function Booking() {
     XLSX.utils.book_append_sheet(wb, ws, "Bookings");
     XLSX.writeFile(wb, `Bookings_Page_${currentPage}.xlsx`);
     toast.success("Excel file downloaded successfully!");
-  }, [currentBookings]);
-
-
-    /** Total seats booked in the (filtered) list */
-    const totalSeatsBooked = useMemo(() => {
-      return filteredBookings.reduce((sum, b) => sum + (b.noOfPassengers || 0), 0);
-    }, [filteredBookings]);
-  
-
-
-
-
-
-
-
-
-
-
+  }, [currentBookings, currentPage]);
 
   /** Pagination with ellipsis */
   const getPaginationItems = () => {
@@ -176,103 +180,85 @@ export default function Booking() {
     if (endPage - startPage + 1 < maxButtons) {
       startPage = Math.max(1, endPage - maxButtons + 1);
     }
-
     if (startPage > 1) {
       items.push(1);
       if (startPage > 2) items.push("...");
     }
-
-    for (let i = startPage; i <= endPage; i++) {
-      items.push(i);
-    }
-
+    for (let i = startPage; i <= endPage; i++) items.push(i);
     if (endPage < totalPages) {
       if (endPage < totalPages - 1) items.push("...");
       items.push(totalPages);
     }
-
     return items;
   };
 
-  /** UI */
   return (
     <div className="px-4 py-8">
       <ToastContainer position="top-right" autoClose={3000} />
-      <h2 className="text-3xl font-bold mb-8 text-gray-900">Booking Management</h2>
 
-      {/* Status Filters */}
-      <div className="flex flex-wrap gap-3 mb-8">
-        {["Confirmed", "Pending", "Cancelled", "All Booking"].map((filter) => (
+      <h2 className="text-3xl font-bold mb-8">Booking Management</h2>
+
+      {/* Filters */}
+      <div className="flex gap-3 mb-6">
+        {["Confirmed", "Pending", "Cancelled", "All Booking"].map((f) => (
           <button
-            key={filter}
+            key={f}
             onClick={() => {
-              setStatus(filter);
+              setStatus(f);
               setSearchTerm("");
             }}
-            className={`px-5 py-2 rounded-full font-medium transition-all duration-200 ${
-              status === filter ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            className={`px-4 py-2 rounded-full ${
+              status === f
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 hover:bg-gray-300"
             }`}
-            aria-pressed={status === filter}
           >
-            {filter}
+            {f}
           </button>
         ))}
       </div>
 
-      {/* Search Input */}
-      <div className="relative mb-8">
+      {/* Search & Export */}
+      <div className="flex flex-col sm:flex-row justify-between mb-6 gap-4">
         <input
           type="text"
           onChange={(e) => debouncedSearch(e.target.value)}
           placeholder="Search by ID, PNR, email, phone, or passenger name..."
-          className="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow shadow-sm"
-          aria-label="Search bookings"
+          className="flex-1 px-4 py-2 border rounded"
         />
-        {searchTerm && (
-          <button
-            onClick={() => {
-              setSearchTerm("");
-              setCurrentPage(1);
-            }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            aria-label="Clear search"
-          >
-            ✕
-          </button>
-        )}
-      </div>
-
-      {/* Export and Info */}
-            {/* Export and Info */}
-            <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
         <button
           onClick={exportToExcel}
-          className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 shadow-sm flex items-center gap-2"
-          aria-label="Download current page as Excel"
+          className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700"
         >
-          …Download Excel…
+          Download Excel
         </button>
-
-        <div className="flex flex-col sm:flex-row gap-4 items-center">
-          <span className="text-sm text-gray-600">
-            Showing {(currentPage - 1) * BOOKINGS_PER_PAGE + 1}–
-            {Math.min(currentPage * BOOKINGS_PER_PAGE, filteredBookings.length)}
-            {" of "}{filteredBookings.length} bookings
-          </span>
-          <span className="text-sm text-gray-600">
-            Total seats booked: <strong>{totalSeatsBooked}</strong>
-          </span>
-        </div>
       </div>
 
+      {/* Info */}
+      <div className="flex justify-between mb-4 text-sm text-gray-700">
+        <span>
+          Showing{" "}
+          {(currentPage - 1) * BOOKINGS_PER_PAGE + 1}–
+          {Math.min(currentPage * BOOKINGS_PER_PAGE, filteredBookings.length)} of{" "}
+          {filteredBookings.length}
+        </span>
+        <span>Total seats booked: {totalSeatsBooked}</span>
+      </div>
 
       {/* Table */}
-      <div className="overflow-x-auto bg-white rounded-xl shadow-lg">
+      <div className="overflow-x-auto bg-white rounded shadow">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {["BookingId", "PNR", "Fly Date", "Email", "Number", "Passenger", "Passenger Names", "Sector", "Price", "Status", "Departure Time", "Arrival Time", "Departure Airport", "Arrival Airport", "Booked Seats", "Action"].map((h) => (
-                <th key={h} className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              {[
+                "BookingId", "PNR", "Fly Date", "Email", "Number",
+                "Passenger", "Names", "Sector", "Price", "Status",
+                "Dep Time", "Arr Time", "From", "To", "Seats", "Action"
+              ].map((h) => (
+                <th
+                  key={h}
+                  className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase"
+                >
                   {h}
                 </th>
               ))}
@@ -281,33 +267,29 @@ export default function Booking() {
           <tbody className="divide-y divide-gray-100">
             {isLoading ? (
               <tr>
-                <td colSpan={16} className="px-6 py-8 text-center">
-                  <div className="flex justify-center items-center gap-2">
-                    <svg className="animate-spin h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z" />
-                    </svg>
-                    <span className="text-gray-500">Loading bookings...</span>
-                  </div>
+                <td colSpan={16} className="py-8 text-center">
+                  Loading…
                 </td>
               </tr>
             ) : currentBookings.length ? (
               currentBookings.map((b) => (
-                <tr key={b.bookingNo} className="hover:bg-gray-50 transition-colors duration-100">
-                  <th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-                    {b.bookingNo}
-                  </th>
-                  <td className="px-6 py-4 whitespace-nowrap">{b.pnr}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{new Date(b.bookDate).toLocaleDateString()}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{b.email_id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{b.contact_no}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{b.noOfPassengers}</td>
-                  <td className="px-6 py-4">{b.passengers.map((p) => p.name).join(", ") || "N/A"}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{b.schedule_id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">Rs {parseFloat(b.totalFare).toFixed(2)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                <tr key={b.bookingNo}>
+                  <td className="px-4 py-2">{b.bookingNo}</td>
+                  <td className="px-4 py-2">{b.pnr}</td>
+                  <td className="px-4 py-2">
+                    {new Date(b.bookDate).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-2">{b.email_id}</td>
+                  <td className="px-4 py-2">{b.contact_no}</td>
+                  <td className="px-4 py-2">{b.noOfPassengers}</td>
+                  <td className="px-4 py-2">
+                    {b.passengers.map((p) => p.name).join(", ")}
+                  </td>
+                  <td className="px-4 py-2">{b.schedule_id}</td>
+                  <td className="px-4 py-2">₹{b.totalFare}</td>
+                  <td className="px-4 py-2">
                     <span
-                      className={`px-3 py-1 text-xs font-medium rounded-full ${
+                      className={`px-2 py-1 rounded-full text-xs ${
                         b.bookingStatus === "Confirmed"
                           ? "bg-green-100 text-green-800"
                           : b.bookingStatus === "Pending"
@@ -318,16 +300,17 @@ export default function Booking() {
                       {b.bookingStatus}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{b.FlightSchedule?.departure_time || "N/A"}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{b.FlightSchedule?.arrival_time || "N/A"}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{b.departureAirportName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{b.arrivalAirportName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{b.noOfPassengers || "N/A"}</td> {/* Changed from b.booked_seat to b.noOfPassengers */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
-                      aria-label={`View booking ${b.bookingNo}`}
-                    >
+                  <td className="px-4 py-2">
+                    {b.FlightSchedule.departure_time || "N/A"}
+                  </td>
+                  <td className="px-4 py-2">
+                    {b.FlightSchedule.arrival_time || "N/A"}
+                  </td>
+                  <td className="px-4 py-2">{b.departureAirportName}</td>
+                  <td className="px-4 py-2">{b.arrivalAirportName}</td>
+                  <td className="px-4 py-2">{b.noOfPassengers}</td>
+                  <td className="px-4 py-2">
+                    <button className="px-2 py-1 bg-blue-600 text-white rounded">
                       View
                     </button>
                   </td>
@@ -335,8 +318,8 @@ export default function Booking() {
               ))
             ) : (
               <tr>
-                <td colSpan={16} className="px-6 py-8 text-center text-gray-500">
-                  {searchTerm ? "No bookings match your search." : "No bookings available."}
+                <td colSpan={16} className="py-8 text-center text-gray-500">
+                  No bookings found.
                 </td>
               </tr>
             )}
@@ -346,30 +329,24 @@ export default function Booking() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-2 mt-8">
+        <div className="flex justify-center gap-2 mt-4">
           <button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className={`px-4 py-2 rounded-lg transition-all duration-200 ${
-              currentPage === 1 ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-            aria-label="Previous page"
+            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
           >
-            Previous
+            Prev
           </button>
-          {getPaginationItems().map((item, index) =>
+          {getPaginationItems().map((item, idx) =>
             item === "..." ? (
-              <span key={`ellipsis-${index}`} className="px-4 py-2 text-gray-500">
-                ...
-              </span>
+              <span key={idx}>…</span>
             ) : (
               <button
                 key={item}
                 onClick={() => setCurrentPage(item)}
-                className={`px-4 py-2 rounded-lg transition-all duration-200 ${
-                  currentPage === item ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                className={`px-3 py-1 rounded ${
+                  currentPage === item ? "bg-blue-600 text-white" : "bg-gray-100"
                 }`}
-                aria-label={`Page ${item}`}
               >
                 {item}
               </button>
@@ -378,10 +355,7 @@ export default function Booking() {
           <button
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
-            className={`px-4 py-2 rounded-lg transition-all duration-200 ${
-              currentPage === totalPages ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-            aria-label="Next page"
+            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
           >
             Next
           </button>

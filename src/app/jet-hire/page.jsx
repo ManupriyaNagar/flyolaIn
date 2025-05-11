@@ -32,7 +32,7 @@ function JetHirePage() {  // Renamed from CarouselDemo to be more specific to th
   ];
 
   return (
-    <section className="relative w-full min-h-screen py-20 bg-gradient-to-b from-gray-900 to-gray-800">
+    <section className=" w-full  py-16">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -40,10 +40,10 @@ function JetHirePage() {  // Renamed from CarouselDemo to be more specific to th
         className="container mx-auto px-4"
       >
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">
+          <h2 className="text-4xl md:text-5xl font-bold text-black mb-4 tracking-tight">
             Explore Your Next Adventure
           </h2>
-          <p className="text-gray-300 text-lg max-w-2xl mx-auto">
+          <p className="text-gray-3900 text-lg max-w-2xl mx-auto">
             Journey through breathtaking destinations with our interactive carousel
           </p>
         </div>
@@ -78,4 +78,4 @@ function JetHirePage() {  // Renamed from CarouselDemo to be more specific to th
   );
 }
 
-export default JetHirePage;  // Added default exports
+export default JetHirePage;  
