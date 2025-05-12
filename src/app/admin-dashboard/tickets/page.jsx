@@ -580,7 +580,11 @@ const Page = () => {
 
   // Fetch bookings
   useEffect(() => {
-    if (authState.isLoading || !authState.isLoggedIn || String(authState.userRole) !== "1") {
+    if (
+      authState.isLoading ||
+      !authState.isLoggedIn ||
+      String(authState.userRole) !== "1"
+    ) {
       return;
     }
 
@@ -589,25 +593,51 @@ const Page = () => {
       setError(null);
 
       try {
-        console.log("BASE_URL:", BASE_URL);
-        console.log("AuthState:", authState);
+        const token = localStorage.getItem("token") || "";
+        const commonOpts = {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        };
 
-        const [bookingsRes, passengersRes, bookedSeatRes, billingsRes, paymentsRes, airportRes] = await Promise.all([
-          fetch(`${BASE_URL}/bookings`, { credentials: "include" }),
-          fetch(`${BASE_URL}/passenger`, { credentials: "include" }),
-          fetch(`${BASE_URL}/booked-seat`, { credentials: "include" }),
-          fetch(`${BASE_URL}/billings`, { credentials: "include" }),
-          fetch(`${BASE_URL}/payments`, { credentials: "include" }),
-          fetch(`${BASE_URL}/airport`, { credentials: "include" }),
+        const [
+          bookingsRes,
+          passengersRes,
+          bookedSeatRes,
+          billingsRes,
+          paymentsRes,
+          airportRes,
+        ] = await Promise.all([
+          fetch(`${BASE_URL}/bookings`, commonOpts),
+          fetch(`${BASE_URL}/passenger`, commonOpts),
+          fetch(`${BASE_URL}/booked-seat`, commonOpts),
+          fetch(`${BASE_URL}/billings`, commonOpts),
+          fetch(`${BASE_URL}/payments`, commonOpts),
+          fetch(`${BASE_URL}/airport`, commonOpts),
         ]);
 
-        if (!bookingsRes.ok || !passengersRes.ok || !bookedSeatRes.ok || !billingsRes.ok || !paymentsRes.ok || !airportRes.ok) {
+        if (
+          !bookingsRes.ok ||
+          !passengersRes.ok ||
+          !bookedSeatRes.ok ||
+          !billingsRes.ok ||
+          !paymentsRes.ok ||
+          !airportRes.ok
+        ) {
           throw new Error(
             `Fetch failed: Bookings=${bookingsRes.status}, Passengers=${passengersRes.status}, Seats=${bookedSeatRes.status}, Billings=${billingsRes.status}, Payments=${paymentsRes.status}, Airports=${airportRes.status}`
           );
         }
 
-        const [bookingsData, passengersData, bookedSeatData, billingsData, paymentsData, airportData] = await Promise.all([
+        const [
+          bookingsData,
+          passengersData,
+          bookedSeatData,
+          billingsData,
+          paymentsData,
+          airportData,
+        ] = await Promise.all([
           bookingsRes.json(),
           passengersRes.json(),
           bookedSeatRes.json(),
@@ -616,44 +646,50 @@ const Page = () => {
           airportRes.json(),
         ]);
 
-        console.log("Raw Data:", { bookingsData, passengersData, bookedSeatData, billingsData, paymentsData, airportData });
-
-        if (!Array.isArray(bookingsData)) {
-          throw new Error("Bookings data is not an array");
-        }
-
+        // Build airport map
         const map = {};
         airportData.forEach((a) => {
-          if (a?.id && a?.airport_name) map[a.id] = a.airport_name;
+          if (a.id && a.airport_name) map[a.id] = a.airport_name;
         });
         setAirportMap(map);
 
-        const merged = bookingsData.map((booking) => {
-          const matchingSeat = bookedSeatData.find(
-            (seat) => seat?.schedule_id === booking?.schedule_id && seat?.bookDate === booking?.bookDate
+        // Merge & sort exactly as before…
+        const merged = bookingsData
+          .map((booking) => {
+            const matchingSeat = bookedSeatData.find(
+              (seat) =>
+                seat.schedule_id === booking.schedule_id &&
+                seat.bookDate === booking.bookDate
+            );
+            const matchingPassengers = passengersData.filter(
+              (p) => p.bookingId === booking.id
+            );
+            const matchingPayment = paymentsData.find(
+              (p) => p.booking_id === booking.id
+            );
+            const matchingBilling = billingsData.find(
+              (b) => b.user_id === booking.bookedUserId
+            );
+
+            const depId = matchingSeat?.FlightSchedule?.departure_airport_id;
+            const arrId = matchingSeat?.FlightSchedule?.arrival_airport_id;
+
+            return {
+              ...booking,
+              FlightSchedule: matchingSeat?.FlightSchedule ?? {},
+              booked_seat: matchingSeat?.booked_seat ?? null,
+              passengers: matchingPassengers,
+              payment: matchingPayment ?? {},
+              billing: matchingBilling ?? {},
+              departureAirportName: map[depId] ?? depId ?? "N/A",
+              arrivalAirportName: map[arrId] ?? arrId ?? "N/A",
+            };
+          })
+          .sort(
+            (a, b) =>
+              new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime()
           );
-          const matchingPassengers = passengersData.filter((p) => p?.bookingId === booking?.id);
-          const matchingPayment = paymentsData.find((p) => p?.booking_id === booking?.id);
-          const matchingBilling = billingsData.find((b) => b?.user_id === booking?.bookedUserId);
 
-          const depId = matchingSeat?.FlightSchedule?.departure_airport_id;
-          const arrId = matchingSeat?.FlightSchedule?.arrival_airport_id;
-
-          return {
-            ...booking,
-            FlightSchedule: matchingSeat?.FlightSchedule ?? {},
-            booked_seat: matchingSeat?.booked_seat ?? null,
-            passengers: matchingPassengers,
-            payment: matchingPayment ?? {},
-            billing: matchingBilling ?? {},
-            departureAirportName: map[depId] ?? depId ?? "N/A",
-            arrivalAirportName: map[arrId] ?? arrId ?? "N/A",
-          };
-        });
-
-        console.log("Merged Data:", merged);
-
-        merged.sort((a, b) => new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime());
         setBookings(merged);
       } catch (err) {
         console.error("Error fetching bookings:", err);
@@ -664,7 +700,7 @@ const Page = () => {
     }
 
     fetchBookings();
-  }, [authState.isLoggedIn, authState.userRole]);
+  }, [authState.isLoggedIn, authState.userRole, authState.isLoading]);
 
   // Calculate paginated bookings
   const startIndex = (currentPage - 1) * itemsPerPage;

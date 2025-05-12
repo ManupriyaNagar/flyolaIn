@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import BASE_URL from "@/baseUrl/baseUrl";
 import { FaPlane, FaClock, FaUserFriends } from "react-icons/fa";
-import { useAuth } from "./../AuthContext";
+import { useAuth } from "../AuthContext";
 
 export default function PaymentStep({
   bookingData,
@@ -13,21 +13,37 @@ export default function PaymentStep({
 }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const { authState } = useAuth();
-  const totalPassengers = travelerDetails.length;
-  const isAdmin = authState.userRole === "1";
-  const userId = authState.user?.id; // No fallback
 
-  console.log("[PaymentStep] authState:", authState); // Debug log
-  console.log("[PaymentStep] isAdmin:", isAdmin, "userId:", userId);
+  // 1) Grab the JWT (from context or localStorage)
+  const token =
+    authState.token ||
+    (typeof window !== "undefined" && localStorage.getItem("token")) ||
+    "";
 
-  if (!userId) {
-    console.error("[PaymentStep] No user ID found in authState");
-    alert("Authentication error: User ID not found. Please log in again.");
+  if (!token) {
+    alert("Authentication error: please log in again.");
     return null;
   }
 
+  const commonOpts = {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  };
+
+  const totalPassengers = travelerDetails.length;
+  const isAdmin = String(authState.userRole) === "1";
+  const userId = authState.user?.id;
+  if (!userId) {
+    alert("No user ID found. Please log in again.");
+    return null;
+  }
+
+  // helper: ₹ → paise
   const toPaise = (rs) => Math.round(parseFloat(rs) * 100);
 
+  // dynamically load Razorpay script
   const loadRazorpay = () =>
     new Promise((resolve) => {
       const script = document.createElement("script");
@@ -39,39 +55,33 @@ export default function PaymentStep({
 
   const handleConfirmBooking = async () => {
     setIsProcessing(true);
-
     try {
-      // 1️⃣ Check seat availability
+      // 1️⃣ Check seats
       const seatResp = await fetch(
         `${BASE_URL}/flight-schedules?user=true&date=${bookingData.selectedDate}`,
-        { credentials: "include" }
+        commonOpts
       );
-      if (!seatResp.ok) {
-        throw new Error("Failed to verify seats");
-      }
+      if (!seatResp.ok) throw new Error("Failed to verify seat availability");
       const schedules = await seatResp.json();
       const fs = schedules.find((f) => f.id === +bookingData.id);
       if (!fs || fs.availableSeats < totalPassengers) {
-        throw new Error(`Only ${fs?.availableSeats || 0} seats left.`);
+        throw new Error(`Only ${fs?.availableSeats || 0} seats left`);
       }
 
-      // 2️⃣ Fetch PNR from backend
-      const pnrResp = await fetch(`${BASE_URL}/bookings/generate-pnr`, {
-        method: "GET",
-        credentials: "include",
-      });
-      if (!pnrResp.ok) {
-        throw new Error("Failed to generate PNR");
-      }
+      // 2️⃣ Fetch a PNR
+      const pnrResp = await fetch(
+        `${BASE_URL}/bookings/generate-pnr`,
+        commonOpts
+      );
+      if (!pnrResp.ok) throw new Error("Failed to generate PNR");
       const { pnr } = await pnrResp.json();
 
-      // 3️⃣ Prepare payload
-      const passengerTypes = [
+      // 3️⃣ Build the shared payload
+      const types = [
         ...Array(bookingData.passengers.adults).fill("Adult"),
         ...Array(bookingData.passengers.children).fill("Child"),
         ...Array(bookingData.passengers.infants).fill("Infant"),
       ];
-
       const payload = {
         bookedSeat: {
           bookDate: bookingData.selectedDate,
@@ -104,74 +114,74 @@ export default function PaymentStep({
         },
         payment: {
           transaction_id: `TXN${Date.now()}`,
-          payment_id: isAdmin ? `pay_admin_${Date.now()}` : null,
-          order_id: isAdmin ? `order_admin_${Date.now()}` : null,
-          razorpay_signature: isAdmin ? `sig_admin_${Math.random().toString(36).slice(2)}` : null,
+          payment_id: isAdmin ? `ADMINPAY_${Date.now()}` : null,
+          order_id: isAdmin ? `ADMINORD_${Date.now()}` : null,
+          razorpay_signature: isAdmin
+            ? `ADMINSIG_${Math.random().toString(36).slice(2)}`
+            : null,
           payment_status: isAdmin ? "SUCCESS" : "PENDING",
           payment_mode: isAdmin ? "ADMIN" : "RAZORPAY",
           payment_amount: parseFloat(bookingData.totalPrice),
-          message: isAdmin ? "Admin booking successful" : "Initiating payment",
+          message: isAdmin ? "Admin booking" : "Initiating payment",
           user_id: userId,
         },
         passengers: travelerDetails.map((t, i) => ({
           title: t.title,
           name: t.fullName,
-          type: passengerTypes[i],
+          type: types[i],
           dob: t.dateOfBirth || new Date().toISOString().slice(0, 10),
           age: (() => {
-            const birth = new Date(t.dateOfBirth || "");
-            const diff = Date.now() - birth.getTime();
-            return birth.getTime() ? Math.floor(diff / 31557600000) : 0;
+            const b = new Date(t.dateOfBirth || "");
+            return b.getTime()
+              ? Math.floor((Date.now() - b.getTime()) / 31557600000)
+              : 0;
           })(),
         })),
       };
 
+      // 4️⃣ Admin → bypass Razorpay entirely
       if (isAdmin) {
-        console.log("[PaymentStep] Admin booking, bypassing Razorpay");
-        // Admin booking: Directly complete booking without payment
-        const bookResp = await fetch(`${BASE_URL}/bookings/complete-booking`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          credentials: "include",
-        });
+        const bookResp = await fetch(
+          `${BASE_URL}/bookings/complete-booking`,
+          {
+            method: "POST",
+            ...commonOpts,
+            body: JSON.stringify(payload),
+          }
+        );
         if (!bookResp.ok) {
-          const { error } = await bookResp.json();
-          throw new Error(error || "Booking failed");
+          const err = await bookResp.json();
+          throw new Error(err.error || "Admin booking failed");
         }
-        const result = await bookResp.json();
-        onConfirm(result);
+        onConfirm(await bookResp.json());
         setIsProcessing(false);
         return;
       }
 
-      console.log("[PaymentStep] Non-admin booking, proceeding with Razorpay");
-      // Non-admin booking: Proceed with Razorpay
-      // 4️⃣ Load Razorpay SDK
-      const razorpayLoaded = await loadRazorpay();
-      if (!razorpayLoaded) {
-        throw new Error("Unable to load payment gateway");
+      // 5️⃣ Non-admin → Razorpay checkout
+      if (!(await loadRazorpay())) {
+        throw new Error("Failed to load payment gateway");
       }
 
-      // 5️⃣ Create order on server
-      const orderResp = await fetch(`${BASE_URL}/payments/create-order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: parseFloat(bookingData.totalPrice) }),
-        credentials: "include",
-      });
+      // create Razorpay order
+      const orderResp = await fetch(
+        `${BASE_URL}/payments/create-order`,
+        {
+          method: "POST",
+          ...commonOpts,
+          body: JSON.stringify({ amount: toPaise(bookingData.totalPrice) }),
+        }
+      );
       if (!orderResp.ok) {
-        const { error } = await orderResp.json();
-        throw new Error(error || "Order creation failed");
+        const err = await orderResp.json();
+        throw new Error(err.error || "Order creation failed");
       }
       const { order_id } = await orderResp.json();
-
-      // 6️⃣ Update payment fields with Razorpay details
       payload.payment.order_id = order_id;
 
-      // 7️⃣ Configure Razorpay options
+      // open the checkout
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY || "rzp_live_ZkjTCpioNNhl3g",
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
         amount: toPaise(bookingData.totalPrice),
         currency: "INR",
         order_id,
@@ -184,44 +194,33 @@ export default function PaymentStep({
         },
         theme: { color: "#4F46E5" },
         handler: async (resp) => {
-          try {
-            payload.payment.payment_id = resp.razorpay_payment_id;
-            payload.payment.order_id = resp.razorpay_order_id;
-            payload.payment.razorpay_signature = resp.razorpay_signature;
-            payload.payment.payment_status = "SUCCESS";
-            payload.payment.message = "Payment successful";
-            payload.booking.paymentStatus = "SUCCESS";
-            payload.booking.bookingStatus = "CONFIRMED";
+          // on success, finalize booking
+          payload.payment.payment_id = resp.razorpay_payment_id;
+          payload.payment.razorpay_signature = resp.razorpay_signature;
+          payload.payment.payment_status = "SUCCESS";
+          payload.payment.message = "Payment successful";
+          payload.booking.paymentStatus = "SUCCESS";
+          payload.booking.bookingStatus = "CONFIRMED";
 
-            // 8️⃣ Complete booking
-            const bookResp = await fetch(
-              `${BASE_URL}/bookings/complete-booking`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-                credentials: "include",
-              }
-            );
-            if (!bookResp.ok) {
-              const { error } = await bookResp.json();
-              throw new Error(error || "Booking failed");
+          const bookResp2 = await fetch(
+            `${BASE_URL}/bookings/complete-booking`,
+            {
+              method: "POST",
+              ...commonOpts,
+              body: JSON.stringify(payload),
             }
-            const result = await bookResp.json();
-
-            // 9️⃣ Fire parent callback
-            onConfirm(result);
-          } catch (innerErr) {
-            alert(`Booking failed: ${innerErr.message}`);
-            setIsProcessing(false);
+          );
+          if (!bookResp2.ok) {
+            const err = await bookResp2.json();
+            throw new Error(err.error || "Final booking failed");
           }
+          onConfirm(await bookResp2.json());
         },
         modal: {
           ondismiss: () => setIsProcessing(false),
         },
       };
 
-      // 10️⃣ Open Razorpay modal
       const rzp = new window.Razorpay(options);
       rzp.open();
       rzp.on("payment.failed", (err) => {
@@ -229,8 +228,7 @@ export default function PaymentStep({
         setIsProcessing(false);
       });
     } catch (err) {
-      console.error("[PaymentStep] Error:", err.message);
-      alert(err.message);
+      alert(err.message || "Something went wrong");
       setIsProcessing(false);
     }
   };
@@ -245,13 +243,13 @@ export default function PaymentStep({
         <p className="flex items-center gap-2">
           <FaPlane /> {bookingData.departure} → {bookingData.arrival}
         </p>
-        <p className="flex items-center gap-2">
+        <p className="flex items-center gap=2">
           <FaClock /> {bookingData.selectedDate}
         </p>
-        <p className="flex items-center gap-2">
+        <p className="flex items-center gap=2">
           <FaClock /> {bookingData.departureTime} – {bookingData.arrivalTime}
         </p>
-        <p className="flex items-center gap-2">
+        <p className="flex items-center gap=2">
           <FaUserFriends /> Passengers: {totalPassengers}
         </p>
       </div>

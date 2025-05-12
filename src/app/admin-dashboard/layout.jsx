@@ -34,20 +34,21 @@ export default function AdminDashboardLayout({ children }) {
   }, [normalizedPathname, authState]);
 
   useEffect(() => {
-    if (authState.isLoading) {
-      console.log("[AdminDashboardLayout] Auth state loading, waiting...");
+    if (authState.isLoading) return;
+  
+    const token = localStorage.getItem("token");
+    if (!authState.isLoggedIn || !token) {
+      console.warn("User not authenticated. Redirecting...");
+      router.push("/sign-in");
       return;
     }
-    if (!authState.isLoggedIn) {
-      console.log("[AdminDashboardLayout] Not logged in, redirecting to /sign-in");
-      router.push("/sign-in");
-    } else if (authState.userRole !== "1") {
-      console.log(
-        `[AdminDashboardLayout] Non-admin user (role: ${authState.userRole}), redirecting to /`
-      );
+  
+    if (authState.userRole !== "1") {
+      console.warn("User is not admin. Redirecting...");
       router.push("/");
     }
   }, [authState, router]);
+  
 
   const isActive = (href) => {
     const normalizedHref = normalizePath(href);

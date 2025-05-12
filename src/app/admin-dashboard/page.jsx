@@ -77,7 +77,11 @@ export default function DashboardPage() {
         const responses = await Promise.all(
           endpoints.map((endpoint) =>
             fetch(`${BASE_URL}/${endpoint}`, {
-              credentials: "include",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+              },
+              
             })
           )
         );

@@ -23,20 +23,25 @@ const SignIn = () => {
     try {
       const response = await fetch(`${BASE_URL}/users/login`, {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
-      if (response.ok && data.user) {
-        const { user } = data;
+
+      if (response.ok && data.user && data.token) {
+        const { user, token } = data;
+
+        // Store token in localStorage
+        localStorage.setItem("token", token);
+
         const newAuthState = {
           isLoading: false,
           isLoggedIn: true,
           user: { id: user.id, email: user.email },
           userRole: String(user.role),
         };
+
         setAuthState(newAuthState);
         localStorage.setItem("authState", JSON.stringify(newAuthState));
 

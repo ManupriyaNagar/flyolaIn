@@ -24,78 +24,67 @@ export default function Booking() {
   /** @type {{[key:number]:string}} */
   const [airportMap, setAirportMap] = useState({});
 
-  // Redirect if not admin
-  useEffect(() => {
-    if (!authState.isLoading && (!authState.isLoggedIn || authState.userRole !== "1")) {
-      router.push("/sign-in");
-    }
-  }, [authState, router]);
-
-  // Debounced search handler
-  const debouncedSearch = useCallback(
-    debounce((value) => {
-      setSearchTerm(value);
-      setCurrentPage(1);
-    }, 300),
-    []
-  );
-
-  /** Fetch & merge data */
   useEffect(() => {
     if (authState.isLoading || !authState.isLoggedIn || authState.userRole !== "1") {
       return;
     }
-
+  
     async function fetchAll() {
       setIsLoading(true);
       try {
+        const token = localStorage.getItem("token") || "";
+        const commonOpts = {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        };
+  
         const [bookingsRes, seatRes, paxRes, airportRes] = await Promise.all([
-          fetch(`${BASE_URL}/bookings?status=${status}`, { credentials: "include" }),
-          fetch(`${BASE_URL}/booked-seat`, { credentials: "include" }),
-          fetch(`${BASE_URL}/passenger`, { credentials: "include" }),
-          fetch(`${BASE_URL}/airport`, { credentials: "include" }),
+          fetch(`${BASE_URL}/bookings?status=${status}`, commonOpts),
+          fetch(`${BASE_URL}/booked-seat`,    commonOpts),
+          fetch(`${BASE_URL}/passenger`,      commonOpts),
+          fetch(`${BASE_URL}/airport`,        commonOpts),
         ]);
-
+  
         if (!bookingsRes.ok || !seatRes.ok || !paxRes.ok || !airportRes.ok) {
           throw new Error("Failed to fetch data");
         }
-
+  
         const [bookingsData, seatData, paxData, airportData] = await Promise.all([
           bookingsRes.json(),
           seatRes.json(),
           paxRes.json(),
           airportRes.json(),
         ]);
-
-        // Build airport id -> name map
+  
+        // Build airport id → name map
         const map = {};
-        airportData.forEach((a) => {
+        airportData.forEach(a => {
           map[a.id] = a.airport_name;
         });
         setAirportMap(map);
-
-        // Merge datasets
-        const merged = bookingsData.map((b) => {
-          const matchSeat = seatData.find(
-            (s) => s.schedule_id === b.schedule_id && s.bookDate === b.bookDate
-          );
-          const pax = paxData.filter((p) => p.bookingId === b.id);
-
-          const depId = matchSeat?.FlightSchedule?.departure_airport_id;
-          const arrId = matchSeat?.FlightSchedule?.arrival_airport_id;
-
-          return {
-            ...b,
-            FlightSchedule: matchSeat?.FlightSchedule ?? {},
-            passengers: pax,
-            departureAirportName: map[depId] || "N/A",
-            arrivalAirportName: map[arrId] || "N/A",
-          };
-        });
-
-        merged.sort(
-          (a, b) => new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime()
-        );
+  
+        // Merge & sort
+        const merged = bookingsData
+          .map(b => {
+            const matchSeat = seatData.find(
+              s => s.schedule_id === b.schedule_id && s.bookDate === b.bookDate
+            ) || { FlightSchedule: {} };
+            const pax = paxData.filter(p => p.bookingId === b.id);
+            const depId = matchSeat.FlightSchedule.departure_airport_id;
+            const arrId = matchSeat.FlightSchedule.arrival_airport_id;
+  
+            return {
+              ...b,
+              FlightSchedule: matchSeat.FlightSchedule,
+              passengers: pax,
+              departureAirportName: map[depId] || "N/A",
+              arrivalAirportName: map[arrId] || "N/A",
+            };
+          })
+          .sort((a, b) => new Date(b.bookDate) - new Date(a.bookDate));
+  
         setBookings(merged);
         setCurrentPage(1);
       } catch (err) {
@@ -105,10 +94,10 @@ export default function Booking() {
         setIsLoading(false);
       }
     }
-
+  
     fetchAll();
   }, [status, authState]);
-
+  
   /** Search filtering */
   const filteredBookings = useMemo(() => {
     if (!searchTerm.trim()) return bookings;

@@ -13,11 +13,11 @@ import BASE_URL from "@/baseUrl/baseUrl";
 const BOOKINGS_PER_PAGE = 50;
 
 export default function AllBookingsPage() {
-  // Authentication and navigation
+
   const { authState } = useAuth();
   const router = useRouter();
 
-  // State declarations
+
   const [allData, setAllData] = useState([]);
   const [status, setStatus] = useState("Confirmed");
   const [isLoading, setIsLoading] = useState(false);
@@ -42,10 +42,12 @@ export default function AllBookingsPage() {
     }, 300),
     []
   );
-
-  // Fetch and merge data
   useEffect(() => {
-    if (authState.isLoading || !authState.isLoggedIn || String(authState.userRole) !== "1") {
+    if (
+      authState.isLoading ||
+      !authState.isLoggedIn ||
+      String(authState.userRole) !== "1"
+    ) {
       return;
     }
 
@@ -54,26 +56,35 @@ export default function AllBookingsPage() {
       setError(null);
 
       try {
-        console.log("BASE_URL:", BASE_URL);
-        console.log("AuthState:", authState);
-        console.log("Fetching bookings with status:", status);
+        // grab token
+        const token = localStorage.getItem("token") || "";
+        // common opts for all fetches
+        const commonOpts = {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        };
 
-        // Fetch data
+        // fire all four requests in parallel
         const [bookingsRes, seatRes, paxRes, airportRes] = await Promise.all([
-          fetch(`${BASE_URL}/bookings?status=${status}`, { credentials: "include" }),
-          fetch(`${BASE_URL}/booked-seat`, { credentials: "include" }),
-          fetch(`${BASE_URL}/passenger`, { credentials: "include" }),
-          fetch(`${BASE_URL}/airport`, { credentials: "include" }),
+          fetch(`${BASE_URL}/bookings?status=${status}`, commonOpts),
+          fetch(`${BASE_URL}/booked-seat`,    commonOpts),
+          fetch(`${BASE_URL}/passenger`,      commonOpts),
+          fetch(`${BASE_URL}/airport`,        commonOpts),
         ]);
 
-        // Check responses
-        if (!bookingsRes.ok || !seatRes.ok || !paxRes.ok || !airportRes.ok) {
+        if (
+          !bookingsRes.ok ||
+          !seatRes.ok ||
+          !paxRes.ok ||
+          !airportRes.ok
+        ) {
           throw new Error(
             `Fetch failed: Bookings=${bookingsRes.status}, Seats=${seatRes.status}, Passengers=${paxRes.status}, Airports=${airportRes.status}`
           );
         }
 
-        // Parse JSON
         const [bookingsData, seatData, paxData, airportData] = await Promise.all([
           bookingsRes.json(),
           seatRes.json(),
@@ -81,50 +92,44 @@ export default function AllBookingsPage() {
           airportRes.json(),
         ]);
 
-        // Log raw data
-        console.log("Raw Data:", { bookingsData, seatData, paxData, airportData });
-
-        // Validate bookings data
-        if (!Array.isArray(bookingsData)) {
-          throw new Error("Bookings data is not an array");
-        }
-
-        // Build airport map
+        // build airport map
         const map = {};
         (airportData || []).forEach((a) => {
-          if (a?.id && a?.airport_name) map[a.id] = a.airport_name;
+          if (a?.id && a?.airport_name) {
+            map[a.id] = a.airport_name;
+          }
         });
         setAirportMap(map);
 
-        // Merge datasets
-        const merged = bookingsData.map((booking) => {
-          const matchSeat =
-            (seatData || []).find(
-              (s) => s?.schedule_id === booking?.schedule_id && s?.bookDate === booking?.bookDate
-            ) || {};
-          const passengers =
-            (paxData || []).filter((p) => p?.bookingId === booking?.id) || [];
+        // merge and sort
+        const merged = (bookingsData || [])
+          .map((booking) => {
+            const matchSeat =
+              (seatData || []).find(
+                (s) =>
+                  s?.schedule_id === booking?.schedule_id &&
+                  s?.bookDate === booking?.bookDate
+              ) || {};
+            const passengers = (paxData || []).filter(
+              (p) => p?.bookingId === booking?.id
+            );
 
-          const depId = matchSeat?.FlightSchedule?.departure_airport_id;
-          const arrId = matchSeat?.FlightSchedule?.arrival_airport_id;
+            const depId = matchSeat.FlightSchedule?.departure_airport_id;
+            const arrId = matchSeat.FlightSchedule?.arrival_airport_id;
 
-          return {
-            ...booking,
-            FlightSchedule: matchSeat?.FlightSchedule || {},
-            booked_seat: matchSeat?.booked_seat || null,
-            passengers,
-            departureAirportName: map[depId] || depId || "N/A",
-            arrivalAirportName: map[arrId] || arrId || "N/A",
-          };
-        });
-
-        // Log merged data
-        console.log("Merged Data:", merged);
-
-        // Sort by bookDate (newest first)
-        merged.sort(
-          (a, b) => new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime()
-        );
+            return {
+              ...booking,
+              FlightSchedule: matchSeat.FlightSchedule || {},
+              booked_seat: matchSeat.booked_seat || null,
+              passengers,
+              departureAirportName: map[depId] || "N/A",
+              arrivalAirportName: map[arrId] || "N/A",
+            };
+          })
+          .sort(
+            (a, b) =>
+              new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime()
+          );
 
         setAllData(merged);
         setCurrentPage(1);

@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "./AuthContext";
-import {  FaUserAstronaut } from "react-icons/fa";
+import { FaUserAstronaut } from "react-icons/fa";
 
 // Hook to detect clicks outside of a ref
 function useOnClickOutside(ref, handler) {
@@ -23,7 +23,7 @@ function useOnClickOutside(ref, handler) {
   }, [ref, handler]);
 }
 
-// Navigation items with corrected paths
+// Navigation items
 const NAV_ITEMS = [
   { name: "Personal Charter", path: "/personal-charter" },
   { name: "Hire Charter", path: "/hire-charter" },
@@ -53,7 +53,7 @@ const MobileMenuButton = memo(({ isOpen, onClick }) => (
 ));
 
 // Reusable nav links component
-const NavLinks = memo(({ items, activePath, onClick, isMobile = false }) => (
+const NavLinks = memo(({ items, activePath, onClick, isMobile = false }) =>
   items.map(({ name, path }) => {
     const isActive = activePath === path;
     const baseClass = isMobile
@@ -63,19 +63,21 @@ const NavLinks = memo(({ items, activePath, onClick, isMobile = false }) => (
       <Link
         key={path}
         href={path}
-        className={`transition-colors duration-200 ${baseClass} ${isActive && "text-indigo-600 font-semibold"}`}
+        className={`transition-colors duration-200 ${baseClass} ${isActive ? "text-indigo-600 font-semibold" : ""}`}
         onClick={onClick}
       >
         {name}
         {!isMobile && (
           <span
-            className={`absolute bottom-0 left-0 h-0.5 bg-indigo-600 transition-all duration-300 ${isActive ? "w-full" : "w-0 group-hover:w-full"}`}
+            className={`absolute bottom-0 left-0 h-0.5 bg-indigo-600 transition-all duration-300 ${
+              isActive ? "w-full" : "w-0 group-hover:w-full"
+            }`}
           />
         )}
       </Link>
     );
   })
-));
+);
 
 const Header = () => {
   const router = useRouter();
@@ -91,7 +93,7 @@ const Header = () => {
   useOnClickOutside(profileRef, () => setIsProfileOpen(false));
   useOnClickOutside(menuRef, () => setIsMenuOpen(false));
 
-  // Handle scroll to add shadow and backdrop
+  // Handle scroll to add shadow
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -102,7 +104,8 @@ const Header = () => {
   const toggleProfile = useCallback(() => setIsProfileOpen((o) => !o), []);
 
   const handleDashboard = useCallback(() => {
-    const path = authState.userRole === 1 ? "/admin-dashboard" : "/user-dashboard";
+    // Compare role as string, since stored as string in authState
+    const path = authState.userRole === "1" ? "/admin-dashboard" : "/user-dashboard";
     router.push(path);
     setIsProfileOpen(false);
   }, [authState.userRole, router]);
@@ -114,8 +117,9 @@ const Header = () => {
 
   return (
     <header
-      className={`fixed top-0 inset-x-0 z-50 backdrop-blur-lg px-4 sm:px-6 lg:px-8 transition-all duration-300 rounded-b-3xl
-        ${isScrolled ? "bg-white/90 shadow-lg" : "bg-white/70"}`}
+      className={`fixed top-0 inset-x-0 z-50 backdrop-blur-lg px-4 sm:px-6 lg:px-8 transition-all duration-300 rounded-b-3xl ${
+        isScrolled ? "bg-white/90 shadow-lg" : "bg-white/70"
+      }`}
     >
       <div className="max-w-11xl mx-auto flex items-center justify-between py-2">
         <Link href="/" className="flex items-center">
@@ -136,12 +140,8 @@ const Header = () => {
         <div className="flex items-center gap-4">
           {authState.isLoggedIn ? (
             <div ref={profileRef} className="relative">
-              <button
-                onClick={toggleProfile}
-                className="focus:outline-none rounded-full"
-                aria-label="User menu"
-              >
-            <FaUserAstronaut className="w-8 h-8 text-blue-700 hover:text-indigo-600 transition-colors duration-200" />
+              <button onClick={toggleProfile} className="focus:outline-none rounded-full" aria-label="User menu">
+                <FaUserAstronaut className="w-8 h-8 text-blue-700 hover:text-indigo-600 transition-colors duration-200" />
               </button>
               {isProfileOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 animate-slide-down">
@@ -174,14 +174,12 @@ const Header = () => {
       </div>
 
       {isMenuOpen && (
-        <div ref={menuRef} className="md:hidden mx-4 mt-2 bg-white/90 rounded-xl shadow-lg border border-gray-100 animate-slide-down backdrop-blur-md">
+        <div
+          ref={menuRef}
+          className="md:hidden mx-4 mt-2 bg-white/90 rounded-xl shadow-lg border border-gray-100 animate-slide-down backdrop-blur-md"
+        >
           <nav className="flex flex-col p-4 space-y-4 text-sm font-medium">
-            <NavLinks
-              items={NAV_ITEMS}
-              activePath={pathname}
-              onClick={() => setIsMenuOpen(false)}
-              isMobile
-            />
+            <NavLinks items={NAV_ITEMS} activePath={pathname} onClick={() => setIsMenuOpen(false)} isMobile />
             {authState.isLoggedIn ? (
               <>
                 <button

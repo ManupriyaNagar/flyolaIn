@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -17,108 +16,69 @@ const EMPTY_TRAVELLER = {
   gstNumber: "",
 };
 
-const CombinedBookingPage = () => {
+export default function CombinedBookingPage() {
   const [step, setStep] = useState(1);
   const [travelerDetails, setTravelerDetails] = useState([]);
   const [bookingData, setBookingData] = useState(null);
-  const [availableSeats, setAvailableSeats] = useState({});
   const router = useRouter();
 
+  // load bookingData stub from localStorage
   useEffect(() => {
-    const fetchBookingData = () => {
-      try {
-        const storedData = localStorage.getItem("bookingData");
-        if (!storedData) return console.error("No booking data found");
+    const raw = localStorage.getItem("bookingData");
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    const total =
+      data.passengers.adults +
+      data.passengers.children +
+      data.passengers.infants;
 
-        const data = JSON.parse(storedData);
-        const total =
-          data.passengers.adults +
-          data.passengers.children +
-          data.passengers.infants;
-
-        setBookingData({
-          departure: data.departure,
-          arrival: data.arrival,
-          totalPrice: data.totalPrice.toString(),
-          id: data.flightSchedule.id.toString(),
-          departureTime: data.flightSchedule.departure_time,
-          arrivalTime: data.flightSchedule.arrival_time,
-          selectedDate: data.selectedDate,
-          passengers: data.passengers,
-        });
-
-        setTravelerDetails(
-          Array.from({ length: total }, () => ({ ...EMPTY_TRAVELLER }))
-        );
-
-        setAvailableSeats({
-          [`${data.flightSchedule.id}_${data.selectedDate}`]: data.flightSchedule.availableSeats,
-        });
-      } catch (err) {
-        console.error("Error parsing booking data:", err);
-      }
-    };
-    fetchBookingData();
+    setBookingData({
+      departure: data.departure,
+      arrival: data.arrival,
+      totalPrice: data.totalPrice.toString(),
+      id: data.flightSchedule.id.toString(),
+      departureTime: data.flightSchedule.departure_time,
+      arrivalTime: data.flightSchedule.arrival_time,
+      selectedDate: data.selectedDate,
+      passengers: data.passengers,
+    });
+    setTravelerDetails(Array.from({ length: total }, () => ({ ...EMPTY_TRAVELLER })));
   }, []);
 
-  useEffect(() => {
-    function handleSeatUpdate(e) {
-      const { schedule_id, bookDate, seatsLeft } = e.detail;
-      setAvailableSeats((prev) => ({
-        ...prev,
-        [`${schedule_id}_${bookDate}`]:
-          typeof seatsLeft === "number" && seatsLeft >= 0
-            ? seatsLeft
-            : prev[`${schedule_id}_${bookDate}`] ?? 0,
-      }));
-    }
-    window.addEventListener("seats-updated", handleSeatUpdate);
-    return () => window.removeEventListener("seats-updated", handleSeatUpdate);
-  }, []);
-
-  const handleNextStep = () => setStep((prev) => Math.min(prev + 1, 3));
-  const handlePreviousStep = () => setStep((prev) => Math.max(prev - 1, 1));
+  const handleNext = () => setStep((s) => Math.min(s + 1, 3));
+  const handlePrev = () => setStep((s) => Math.max(s - 1, 1));
 
   const handleConfirm = (bookingResult) => {
     const ticketData = {
       bookingData: {
         ...bookingData,
-        bookingNo: bookingResult.bookingNo || `BOOK${Date.now()}`,
-        bookingStatus: "CONFIRMED",
-        paymentStatus: "SUCCESS",
+        bookingNo: bookingResult.bookingNo,
+        bookingStatus: bookingResult.bookingStatus,
+        paymentStatus: bookingResult.paymentStatus,
         noOfPassengers: travelerDetails.length,
       },
       travelerDetails,
       bookingResult,
     };
-    try {
-      console.log("Storing ticketData:", ticketData);
-      localStorage.setItem("ticketData", JSON.stringify(ticketData));
-      console.log("Navigating to /ticket-page");
-      router.push("/ticket-page");
-    } catch (err) {
-      console.error("Error storing ticketData:", err);
-      alert("Failed to save booking data. Please try again.");
-    }
+    localStorage.setItem("ticketData", JSON.stringify(ticketData));
+    router.push("/ticket-page");
   };
 
   if (!bookingData) {
     return (
-      <div className="flex flex-col items-center py-8 px-4 mt-20 md:mt-40">
-        <p className="text-red-600">
-          No booking data available. Please select a flight first.
-        </p>
+      <div className="py-20 text-center text-red-600">
+        No booking data found. Please select a flight first.
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 md:px-8 mt-20 md:mt-40">
+    <div className="container mx-auto py-8 px-4">
       {step === 1 && (
         <TourReviewStep
           bookingData={bookingData}
-          handleNextStep={handleNextStep}
-          handlePreviousStep={step === 1 ? null : handlePreviousStep}
+          handleNextStep={handleNext}
+          handlePreviousStep={null}
           step={step}
         />
       )}
@@ -126,8 +86,8 @@ const CombinedBookingPage = () => {
         <TravelerInfoStep
           travelerDetails={travelerDetails}
           setTravelerDetails={setTravelerDetails}
-          handleNextStep={handleNextStep}
-          handlePreviousStep={handlePreviousStep}
+          handleNextStep={handleNext}
+          handlePreviousStep={handlePrev}
           bookingData={bookingData}
         />
       )}
@@ -135,12 +95,10 @@ const CombinedBookingPage = () => {
         <PaymentStep
           bookingData={bookingData}
           travelerDetails={travelerDetails}
-          handlePreviousStep={handlePreviousStep}
+          handlePreviousStep={handlePrev}
           onConfirm={handleConfirm}
         />
       )}
     </div>
   );
-};
-
-export default CombinedBookingPage;
+}

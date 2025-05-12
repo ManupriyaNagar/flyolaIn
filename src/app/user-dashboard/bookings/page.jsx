@@ -12,26 +12,34 @@ export default function UserBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Redirect non-users or while loading
+  // Redirect non-logged-in users
   useEffect(() => {
     if (!authState.isLoading && !authState.isLoggedIn) {
       router.push("/sign-in");
     }
   }, [authState, router]);
 
-  // Fetch “my” bookings
+  // Fetch user's bookings
   useEffect(() => {
     if (authState.isLoading || !authState.isLoggedIn) return;
 
     const fetchMyBookings = async () => {
       setLoading(true);
       try {
+        const token = localStorage.getItem("token");
+        if (!token) throw new Error("No token found");
+
         const res = await fetch(`${BASE_URL}/bookings/my`, {
-          credentials: "include",
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
         });
+
         if (!res.ok) {
           throw new Error(`Error ${res.status}: ${await res.text()}`);
         }
+
         const data = await res.json();
         setBookings(data);
       } catch (err) {
@@ -48,6 +56,7 @@ export default function UserBookingsPage() {
   if (authState.isLoading || loading) {
     return <div className="p-8 text-center">Loading your bookings…</div>;
   }
+
   if (error) {
     return <div className="p-8 text-red-600">{error}</div>;
   }
