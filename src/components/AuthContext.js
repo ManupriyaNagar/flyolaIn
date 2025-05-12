@@ -2,10 +2,14 @@
 
 import { createContext, useContext, useState, useEffect } from "react";
 import BASE_URL from "@/baseUrl/baseUrl";
+import { useRouter } from "next/navigation";
+
+
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
+  const router = useRouter();     //
   const [authState, setAuthState] = useState({
     isLoading: true,
     isLoggedIn: false,
@@ -64,13 +68,35 @@ export function AuthProvider({ children }) {
     verifyToken();
   }, []);
 
+    const logout = async () => {
+        try {
+          await fetch(`${BASE_URL}/logout`, {
+            method: "POST",
+            credentials: "include",
+          });
+        } catch (err) {
+          console.error("Logout failed", err);
+        }
+        // Reset local state & storage
+        setAuthState({
+          isLoading: false,
+          isLoggedIn: false,
+          user: null,
+          userRole: null,
+        });
+        localStorage.removeItem("authState");
+        router.push("/sign-in");
+     };
+    
+
   // Delay rendering children until we know login status
   if (authState.isLoading) {
     return <div>Loading...</div>;
   }
 
   return (
-    <AuthContext.Provider value={{ authState, setAuthState }}>
+    
+        <AuthContext.Provider value={{ authState, setAuthState, logout }}>
       {children}
     </AuthContext.Provider>
   );

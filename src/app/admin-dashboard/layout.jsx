@@ -17,6 +17,7 @@ import {
   FaTicketAlt,
 } from "react-icons/fa";
 import { Home } from "lucide-react";
+import Link from "next/link";
 
 const normalizePath = (path) => path.replace(/\/+$/, "");
 
@@ -90,7 +91,7 @@ export default function AdminDashboardLayout({ children }) {
         </div>
 
         <nav className="space-y-4 flex-1">
-          <a
+          <Link
             href="/admin-dashboard"
             className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
               isActive("/admin-dashboard") ? activeClass : "hover:bg-indigo-700 text-white"
@@ -98,8 +99,8 @@ export default function AdminDashboardLayout({ children }) {
           >
             <FaHome className="text-indigo-300" />
             Home
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin-dashboard/bookflight"
             className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
               isActive("/admin-dashboard/bookflight") ? activeClass : "hover:bg-indigo-700 text-white"
@@ -107,8 +108,8 @@ export default function AdminDashboardLayout({ children }) {
           >
             <FaPlane className="text-indigo-300" />
             Book Flight
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin-dashboard/add-airport"
             className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
               isActive("/admin-dashboard/add-airport") ? activeClass : "hover:bg-indigo-700 text-white"
@@ -116,8 +117,8 @@ export default function AdminDashboardLayout({ children }) {
           >
             <FaPlus className="text-indigo-300" />
             Add Airport
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin-dashboard/add-flight"
             className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
               isActive("/admin-dashboard/add-flight") ? activeClass : "hover:bg-indigo-700 text-white"
@@ -125,8 +126,8 @@ export default function AdminDashboardLayout({ children }) {
           >
             <FaPlus className="text-indigo-300" />
             Flight
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin-dashboard/scheduled-flight"
             className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
               isActive("/admin-dashboard/scheduled-flight") ? activeClass : "hover:bg-indigo-700 text-white"
@@ -134,8 +135,8 @@ export default function AdminDashboardLayout({ children }) {
           >
             <FaClock className="text-indigo-300" />
             Scheduled Flight
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin-dashboard/booking-list"
             className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
               isActive("/admin-dashboard/booking-list") ? activeClass : "hover:bg-indigo-700 text-white"
@@ -143,8 +144,8 @@ export default function AdminDashboardLayout({ children }) {
           >
             <FaBook className="text-indigo-300" />
             Booking List
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin-dashboard/all-users"
             className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
               isActive("/admin-dashboard/all-users") ? activeClass : "hover:bg-indigo-700 text-white"
@@ -152,8 +153,8 @@ export default function AdminDashboardLayout({ children }) {
           >
             <FaUsers className="text-indigo-300" />
             Manage Users
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin-dashboard/booking-data"
             className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
               isActive("/admin-dashboard/booking-data") ? activeClass : "hover:bg-indigo-700 text-white"
@@ -161,8 +162,8 @@ export default function AdminDashboardLayout({ children }) {
           >
             <FaClock className="text-indigo-300" />
             Booking Data
-          </a>
-          <a
+          </Link>
+          <Link
             href="/admin-dashboard/tickets"
             className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
               isActive("/admin-dashboard/tickets") ? activeClass : "hover:bg-indigo-700 text-white"
@@ -170,7 +171,7 @@ export default function AdminDashboardLayout({ children }) {
           >
             <FaTicketAlt className="text-indigo-300" />
             Get Ticket
-          </a>
+          </Link>
         </nav>
       </aside>
 
