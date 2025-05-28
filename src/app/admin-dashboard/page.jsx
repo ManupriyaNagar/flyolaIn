@@ -38,7 +38,7 @@ export default function DashboardPage() {
   const [schedules, setSchedules] = useState([]);
   const [airports, setAirports] = useState([]);
   const [bookings, setBookings] = useState([]);
-  const [bookedSeats, setBookedSeats] = useState([]);
+  const [bookedSeats, setBookedSeats] = useState([]); // Still maintained for compatibility
   const [passengers, setPassengers] = useState([]);
   const [users, setUsers] = useState([]);
   const [reviews, setReviews] = useState([]);
@@ -66,7 +66,7 @@ export default function DashboardPage() {
           "flight-schedules",
           "airport",
           "bookings",
-          "booked-seat",
+          // "booked-seat" removed as per instruction
           "passenger",
           "users",
           "reviews",
@@ -81,25 +81,32 @@ export default function DashboardPage() {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${localStorage.getItem("token")}`,
               },
-              
+              credentials: 'include', // Support cookies for cross-origin
             })
           )
         );
 
-        const errors = responses.filter((res) => !res.ok);
+        const errors = responses
+          .map((res, index) => ({ res, endpoint: endpoints[index] }))
+          .filter(({ res }) => !res.ok);
+
         if (errors.length > 0) {
           const errorDetails = await Promise.all(
-            errors.map(async (res) => ({
+            errors.map(async ({ res, endpoint }) => ({
+              endpoint,
               url: res.url,
               status: res.status,
               error: (await res.json()).error || "Unknown error",
             }))
           );
           console.error("[DashboardPage] Fetch errors:", errorDetails);
+          const errorMessage = errorDetails
+            .map((e) => `Failed to fetch ${e.endpoint}: ${e.error} (Status: ${e.status})`)
+            .join("; ");
           throw new Error(
             errorDetails.some((e) => e.status === 401)
               ? "Authentication failed: Please log in again"
-              : "Failed to fetch dashboard data"
+              : errorMessage
           );
         }
 
@@ -108,7 +115,6 @@ export default function DashboardPage() {
           schedulesData,
           airportsData,
           bookingsData,
-          bookedSeatsData,
           passengersData,
           usersData,
           reviewsData,
@@ -120,7 +126,7 @@ export default function DashboardPage() {
         setSchedules(schedulesData);
         setAirports(airportsData);
         setBookings(bookingsData);
-        setBookedSeats(bookedSeatsData);
+        setBookedSeats([]); // Set to empty array since endpoint is skipped
         setPassengers(passengersData);
         setUsers(usersData);
         setReviews(reviewsData);

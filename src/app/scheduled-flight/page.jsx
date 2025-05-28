@@ -8,10 +8,9 @@ import Header2 from "@/components/ScheduledFlight/Header";
 import { useAuth } from "@/components/AuthContext";
 import BASE_URL from "@/baseUrl/baseUrl";
 
-
 const tz = "Asia/Kolkata";
 const fmtIso = (d) =>
-  d.toLocaleDateString("sv-SE", { timeZone: tz }); 
+  d.toLocaleDateString("sv-SE", { timeZone: tz });
 
 const isValidISO = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 const normaliseStops = (raw) => {
@@ -58,24 +57,35 @@ const ScheduledFlightsPage = () => {
     const month = String(today.getMonth() + 1).padStart(2, "0");
 
     try {
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authState.token || localStorage.getItem("token") || ""}`,
+      };
+
       const [schedulesRes, flightsRes, airportsRes] = await Promise.all([
-        fetch(`${BASE_URL}/flight-schedules?user=true&month=${year}-${month}`).then((res) => {
-          if (!res.ok) throw new Error();
+        fetch(`${BASE_URL}/flight-schedules?user=true&month=${year}-${month}`, { headers }).then(
+          (res) => {
+            if (!res.ok) throw new Error(`Schedules API failed: ${res.status}`);
+            return res.json();
+          }
+        ),
+        fetch(`${BASE_URL}/flights?user=true`, { headers }).then((res) => {
+          if (!res.ok) throw new Error(`Flights API failed: ${res.status}`);
           return res.json();
         }),
-        fetch(`${BASE_URL}/flights?user=true`).then((res) => {
-          if (!res.ok) throw new Error();
-          return res.json();
-        }),
-        fetch(`${BASE_URL}/airport`).then((res) => {
-          if (!res.ok) throw new Error();
+        fetch(`${BASE_URL}/airport`, { headers }).then((res) => {
+          if (!res.ok) {
+            console.warn(`Airports API failed: ${res.status}`);
+            return [];
+          }
           return res.json();
         }),
       ]);
 
       const normalized = Array.isArray(schedulesRes)
-        ? schedulesRes.map((schedule) => {
-            const departureDate = schedule.departure_date
+        ? schedulesRes.map((schedule) => ({
+            ...schedule,
+            departure_date: schedule.departure_date
               ? new Date(schedule.departure_date)
                   .toLocaleDateString("en-CA", {
                     timeZone: tz,
@@ -86,19 +96,16 @@ const ScheduledFlightsPage = () => {
                   .split("/")
                   .reverse()
                   .join("-")
-              : date;
-            return {
-              ...schedule,
-              departure_date: departureDate,
-              availableSeats: schedule.availableSeats ?? 0,
-            };
-          })
+              : date,
+            availableSeats: schedule.availableSeats ?? 0,
+          }))
         : [];
 
       setFlightSchedules(normalized);
       setFlights(Array.isArray(flightsRes) ? flightsRes : []);
       setAirports(Array.isArray(airportsRes) ? airportsRes : []);
-    } catch {
+    } catch (err) {
+      console.warn("Fetch data error:", err.message);
       setFlightSchedules([]);
       setFlights([]);
       setAirports([]);
@@ -146,13 +153,13 @@ const ScheduledFlightsPage = () => {
 
   useEffect(() => {
     function handleSeatUpdate(e) {
-      const { schedule_id, bookDate, seatsLeft } = e.detail;
+      const { schedule_id, bookDate, availableSeats } = e.detail;
       if (!isValidISO(bookDate)) return;
 
       setFlightSchedules((prev) =>
         prev.map((fs) =>
           fs.id === schedule_id && fs.departure_date === bookDate
-            ? { ...fs, availableSeats: seatsLeft >= 0 ? seatsLeft : fs.availableSeats ?? 6 }
+            ? { ...fs, availableSeats: Array.isArray(availableSeats) ? availableSeats.length : fs.availableSeats ?? 0 }
             : fs
         )
       );
@@ -188,8 +195,8 @@ const ScheduledFlightsPage = () => {
 
         return {
           ...fs,
-           departureCity: depAirport.city,
-           arrivalCity:   arrAirport.city,
+          departureCity: depAirport.city,
+          arrivalCity: arrAirport.city,
           flight_number: flight.flight_number || "Unknown",
           seat_limit: flight.seat_limit ?? 0,
           availableSeats: fs.availableSeats ?? 0,
@@ -254,7 +261,7 @@ const ScheduledFlightsPage = () => {
   const filteredAndSortedFlightSchedules = getFilteredAndSortedFlightSchedules();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row  ">
+    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
       <div className="w-full md:w-72 md:flex-shrink-0 overflow-y-auto h-auto md:h-screen bg-white shadow-lg md:sticky top-20">
         <FilterSidebar
           airports={airports}

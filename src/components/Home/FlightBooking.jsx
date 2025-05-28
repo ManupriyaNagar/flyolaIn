@@ -472,11 +472,40 @@ export default function FlightBooking() {
               </motion.div>
             )}
 
+            <Link
+                href={{
+                  pathname: "/scheduled-flight",
+                  query: {
+                    departure: getCityFromCode(departure) || "",
+                    arrival: getCityFromCode(arrival) || "",
+                    departure_code: departure || "",
+                    arrival_code: arrival || "",
+                    date: date || "",
+                    adults: passengerData.adults,
+                    children: passengerData.children,
+                    infants: passengerData.infants,
+                    passengers: totalPassengers,
+                  },
+                }}
+                passHref
+                legacyBehavior
+              >
+                <Button
+                  asChild
+                  className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-3 px-4 text-sm font-semibold rounded-lg flex items-center gap-2 hover:from-indigo-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl focus:ring-4 focus:ring-indigo-300 disabled:opacity-70 disabled:cursor-not-allowed mt-4"
+                  disabled={isSearchDisabled}
+                >
+                  <a>
+                    <FaPlaneDeparture className="text-base" /> Search Flights
+                  </a>
+                </Button>
+              </Link>
+
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className="mt-6 flex flex-col gap-3 sm:flex-row justify-between"
+              className=" flex flex-col gap-3 sm:flex-row justify-between"
             >
               <Button
                 variant="outline"
@@ -506,35 +535,22 @@ export default function FlightBooking() {
                 </a>
               </Button>
 
-              <Link
-                href={{
-                  pathname: "/scheduled-flight",
-                  query: {
-                    departure: getCityFromCode(departure) || "",
-                    arrival: getCityFromCode(arrival) || "",
-                    departure_code: departure || "",
-                    arrival_code: arrival || "",
-                    date: date || "",
-                    adults: passengerData.adults,
-                    children: passengerData.children,
-                    infants: passengerData.infants,
-                    passengers: totalPassengers,
-                  },
-                }}
-                passHref
-                legacyBehavior
-              >
-                <Button
-                  asChild
-                  className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-3 px-4 text-sm font-semibold rounded-lg flex items-center gap-2 hover:from-indigo-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl focus:ring-4 focus:ring-indigo-300 disabled:opacity-70 disabled:cursor-not-allowed"
-                  disabled={isSearchDisabled}
-                >
-                  <a>
-                    <FaPlaneDeparture className="text-base" /> Search Flights
-                  </a>
-                </Button>
-              </Link>
+           <Button
+  asChild
+  className="w-full sm:w-auto bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-500 text-white py-3 px-4 text-sm font-semibold rounded-lg flex items-center gap-2 hover:from-yellow-500 hover:to-red-600 transition-all shadow-lg hover:shadow-xl focus:ring-4 focus:ring-pink-300"
+>
+  <a>
+    <FaCalendarCheck className="text-lg" /> Joy Ride Booking
+  </a>
+</Button>
+
+
             </motion.div>
+
+
+
+
+            
           </CardContent>
         </Card>
       </motion.div>

@@ -17,33 +17,34 @@ const SignUp = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const router = useRouter();  // Initialize useRouter
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-  
-    try {
-      const response = await fetch(`${BASE_URL}/users/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name, email, password, number }),
-      });
-  
-      const data = await response.json();
-  
-      if (response.ok) {
-        console.log("User registered successfully!");
-        console.log(data);
-        window.location.href = "/sign-in";
-      } else {
-        setErrorMessage(data.message);
-        console.log("Registration failed:", data.message);
-      }
-    } catch (error) {
-      console.error("Error during registration:", error);
-      setErrorMessage("An error occurred. Please try again.");
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  try {
+    const response = await fetch(`${BASE_URL}/users/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name, email, password, number }),
+    });
+
+    const data = await response.json();
+
+    console.log('Register API response:', data);
+
+    if (response.ok) {
+      console.log("User registered successfully!");
+      router.push("/sign-in");
+    } else {
+      setErrorMessage(data.error || "Registration failed");
     }
-  };
+  } catch (error) {
+    console.error("Error during registration:", error);
+    setErrorMessage("An error occurred. Please try again.");
+  }
+};
+
 
   return (
     <div

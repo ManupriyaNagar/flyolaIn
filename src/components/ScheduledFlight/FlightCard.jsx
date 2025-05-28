@@ -1,18 +1,32 @@
 "use client";
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { FaPlane, FaClock, FaUserFriends, FaCheckCircle } from "react-icons/fa";
 import BookingPopup from "./BookingPopup";
 import { motion } from "framer-motion";
 import BASE_URL from "@/baseUrl/baseUrl";
 
 const tz = "Asia/Kolkata";
-const fmtTime = (t) =>
-  new Date(`1970-01-01T${t}`).toLocaleTimeString("en-IN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: tz,
-  });
+const fmtTime = (t) => {
+  if (!t) return "N/A";
+  if (/^\d{6}$/.test(t)) {
+    return `${t.slice(0, 2)}:${t.slice(2, 4)}`;
+  }
+  if (/^\d{2}:\d{2}:\d{2}$/.test(t)) {
+    return t.slice(0, 5);
+  }
+  try {
+    const date = new Date(`1970-01-01 ${t}`);
+    return date.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: tz,
+    });
+  } catch {
+    console.warn(`Invalid time format: ${t}`);
+    return "N/A";
+  }
+};
 
 const fmtDateLong = (iso) =>
   new Date(iso).toLocaleDateString("en-IN", {
@@ -23,77 +37,102 @@ const fmtDateLong = (iso) =>
     timeZone: tz,
   });
 
+// Generate seat labels based on seat limit (e.g., 6 seats → ["S1", "S2", ..., "S6"])
+const generateSeatLabels = (seatLimit) => {
+  return Array.from({ length: seatLimit }, (_, i) => `S${i + 1}`);
+};
+
 const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selectedDate, passengers }) => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const [isCardActive, setIsCardActive] = useState(false);
-  const [availableSeats, setAvailableSeats] = useState(flightSchedule.availableSeats ?? 6);
+  const [availableSeats, setAvailableSeats] = useState([]);
+
+  const flight = useMemo(
+    () =>
+      flights.find((f) => f.id === flightSchedule.flight_id) || {
+        id: flightSchedule.flight_id,
+        flight_number: "Unknown",
+        seat_limit: 6, // Default to 6 if not found
+        status: flightSchedule.status || 0,
+        stops: [],
+      },
+    [flights, flightSchedule.flight_id, flightSchedule.status]
+  );
+
+  // Generate all possible seat labels based on seat_limit
+  const allSeats = useMemo(() => generateSeatLabels(flight.seat_limit || 6), [flight.seat_limit]);
+
+  if ((flight.status !== 0 && flight.status !== 1) || (flightSchedule.status !== 0 && flightSchedule.status !== 1)) {
+    return null;
+  }
+
+  const departureAirport = useMemo(
+    () =>
+      airports.find((a) => a.id === flightSchedule.departure_airport_id) || {
+        city: "Unknown",
+        airport_code: "UNK",
+      },
+    [airports, flightSchedule.departure_airport_id]
+  );
+  const arrivalAirport = useMemo(
+    () =>
+      airports.find((a) => a.id === flightSchedule.arrival_airport_id) || {
+        city: "Unknown",
+        airport_code: "UNK",
+      },
+    [airports, flightSchedule.arrival_airport_id]
+  );
+
+  const stopCount = flightSchedule.stops?.length ?? 0;
+  const isNonStop = stopCount === 0;
+  const stopText = isNonStop ? "Non-Stop" : `${stopCount} Stop${stopCount > 1 ? "s" : ""}`;
+  const isSoldOut = availableSeats.length === 0;
+
+  const fetchSeats = useCallback(async () => {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/booked-seat/available-seats?schedule_id=${flightSchedule.id}&bookDate=${selectedDate}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authState.token || localStorage.getItem("token") || ""}`,
+          },
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`Seats API failed: ${response.status}`);
+      }
+      const data = await response.json();
+      const seats = Array.isArray(data.availableSeats) ? data.availableSeats : allSeats;
+      // Ensure seats are valid and within seat_limit
+      const validSeats = seats.filter((seat) => allSeats.includes(seat));
+      setAvailableSeats(validSeats);
+    } catch (err) {
+      console.warn(`Failed to fetch seats for schedule ${flightSchedule.id}: ${err.message}`);
+      // Fallback to all seats if API fails (assume none are booked)
+      setAvailableSeats(allSeats);
+    }
+  }, [flightSchedule.id, selectedDate, allSeats, authState.token]);
 
   useEffect(() => {
-    const fetchSeats = async () => {
-      try {
-        const response = await fetch(
-          `${BASE_URL}/flight-schedules?user=true&date=${selectedDate}`
-        );
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: Failed to fetch flight schedules`);
-        }
-        const schedules = await response.json();
-        const updated = schedules.find((fs) => fs.id === flightSchedule.id);
-        const seats = updated
-          ? Math.max(0, updated.availableSeats ?? 6)
-          : 6;
-        setAvailableSeats(seats);
-      } catch {
-        setAvailableSeats(6);
-      }
-    };
-    fetchSeats();
-  }, [flightSchedule.id, selectedDate]);
+    const timer = setTimeout(() => fetchSeats(), 100);
+    return () => clearTimeout(timer);
+  }, [fetchSeats]);
 
   useEffect(() => {
     const handleSeatUpdate = (e) => {
-      const { schedule_id, bookDate, seatsLeft } = e.detail;
+      const { schedule_id, bookDate, availableSeats: updatedSeats } = e.detail;
       if (schedule_id === flightSchedule.id && bookDate === selectedDate) {
-        const seatsAfter = Math.max(0, seatsLeft ?? availableSeats);
-        setAvailableSeats(seatsAfter);
+        const validSeats = Array.isArray(updatedSeats)
+          ? updatedSeats.filter((seat) => allSeats.includes(seat))
+          : allSeats;
+        setAvailableSeats(validSeats);
       }
     };
     window.addEventListener("seats-updated", handleSeatUpdate);
     return () => window.removeEventListener("seats-updated", handleSeatUpdate);
-  }, [flightSchedule.id, selectedDate, availableSeats]);
+  }, [flightSchedule.id, selectedDate, allSeats]);
 
-  const flight =
-    flights.find((f) => f.id === flightSchedule.flight_id) || {
-      id: flightSchedule.flight_id,
-      flight_number: "Unknown",
-      seat_limit: 6,
-      status: flightSchedule.status || 0,
-      stops: [],
-    };
-
-  if (flight.status !== 1 || flightSchedule.status !== 1) {
-    return null;
-  }
-
-  const departureAirport =
-    airports.find((a) => a.id === flightSchedule.departure_airport_id) || {
-      city: "Unknown",
-      airport_code: "UNK",
-    };
-  const arrivalAirport =
-    airports.find((a) => a.id === flightSchedule.arrival_airport_id) || {
-      city: "Unknown",
-      airport_code: "UNK",
-    };
-
-  const stopCount = flightSchedule.stops?.length ?? 0;
-  const isNonStop = stopCount === 0;
-  const stopText = isNonStop
-    ? "Non-Stop"
-    : `${stopCount} Stop${stopCount > 1 ? "s" : ""}`;
-  const isSoldOut = availableSeats === 0;
-
-  const handleBookNowClick = () => {
+  const handleBookNowClick = useCallback(() => {
     if (!authState.isLoggedIn) {
       alert("Please log in to book a flight.");
       return;
@@ -102,53 +141,47 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
       alert("This flight is sold out. Please select another flight.");
       return;
     }
-    if (availableSeats < passengers) {
-      alert(`Only ${availableSeats} seat(s) left. Please reduce passengers.`);
+    if (availableSeats.length < passengers) {
+      alert(`Only ${availableSeats.length} seat(s) left. Please reduce passengers.`);
       return;
     }
-    setIsCardActive(true);
     setIsPopupOpen(true);
-  };
+  }, [authState.isLoggedIn, isSoldOut, availableSeats, passengers]);
 
-  const closePopup = () => {
-    setIsCardActive(false);
+  const closePopup = useCallback(() => {
     setIsPopupOpen(false);
-  };
+  }, []);
 
   return (
     <motion.div
-      className={`relative w-full md:max-w-full max-w-2xl mx-auto rounded-xl shadow-lg transition-all duration-300 border border-gray-100 
-        ${isSoldOut
-          ? "bg-gray-100 opacity-80"
-          : "bg-gradient-to-b from-purple-50 to-indigo-50 md:bg-gradient-to-br md:from-white md:to-gray-50"} 
-        p-6 transform ${!isSoldOut && "hover:-translate-y-2"}`}
+      className={`w-full max-w-6xl mx-auto rounded-xl shadow-md border border-blue-100 bg-white p-6 transition-all ${
+        isSoldOut ? "opacity-80" : "hover:shadow-lg"
+      }`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.3 }}
     >
-      <div className="flex flex-col md:flex-row md:justify-center md:items-center space-y-6 md:space-y-0 md:gap-6">
+      <div className="flex flex-col md:flex-row md:items-center space-y-6 md:space-y-0 md:gap-6">
         <div className="flex items-center gap-4">
-          <motion.img
+          <img
             src="./pp.svg"
             alt="Flyola Logo"
             className="w-16 h-auto object-contain"
-            whileHover={{ scale: isSoldOut ? 1 : 1.1 }}
-            transition={{ duration: 0.3 }}
           />
           <div className="text-center md:text-left">
             <p className="text-base font-bold text-gray-800 flex items-center gap-2">
-              <FaPlane className="text-indigo-600" /> {flight.flight_number}
+              <FaPlane className="text-green-500" /> {flight.flight_number}
             </p>
             <p className="text-sm text-gray-600 mt-1">
-              Departs: <span className="font-medium text-indigo-700">{fmtDateLong(selectedDate)}</span>
+              Departs: <span className="font-medium text-green-700">{fmtDateLong(selectedDate)}</span>
             </p>
           </div>
         </div>
         <div className="flex-1 text-center space-y-3">
-          <p className="text-base font-semibold text-gray-800 flex items-center justify-center gap-2 bg-white/90 p-2 rounded-lg shadow-inner">
+          <p className="flex items-center justify-center gap-3 bg-blue-50 px-4 py-2 rounded-lg text-gray-900 font-semibold text-lg">
             <FaClock className="text-gray-600" />
             {fmtTime(flightSchedule.departure_time)} - {fmtTime(flightSchedule.arrival_time)}
-            <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full ml-2">
+            <span className="text-sm text-green-700 bg-green-100 px-2 py-1 rounded-full ml-3 font-medium">
               Scheduled
             </span>
           </p>
@@ -157,29 +190,29 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
               {departureAirport.city} ({departureAirport.airport_code})
             </span>
             <span className="text-gray-400 text-lg">→</span>
-            <span className="text-indigo-600 font-medium text-base">{stopText}</span>
+            <span className="text-green-600 font-medium text-base">{stopText}</span>
             <span className="text-gray-400 text-lg">→</span>
             <span className="font-medium text-base">
               {arrivalAirport.city} ({arrivalAirport.airport_code})
             </span>
           </div>
           {flightSchedule.isMultiStop && (
-            <p className="text-sm text-gray-600 italic bg-white/70 p-1 rounded">
+            <p className="text-sm text-gray-600 italic bg-white p-1 rounded">
               Route: {flightSchedule.routeCities.join(" → ")}
             </p>
           )}
-          <p className="text-sm text-green-700 font-medium flex items-center justify-center gap-1 bg-green-50 p-1 rounded">
+          <p className="text-sm text-green-700 font-medium flex items-center justify-center gap-1 bg-blue-50 p-1 rounded">
             <FaCheckCircle /> {stopText}
           </p>
         </div>
         <div className="text-right space-y-4">
-          <div className="bg-white/90 p-3 rounded-lg shadow-inner">
+          <div className="bg-white p-3 rounded-lg">
             <p className="text-sm text-gray-600 flex items-center justify-end gap-2">
               <FaUserFriends className="text-gray-500" />
               {isSoldOut ? (
                 <span className="text-red-600 font-medium">Sold Out</span>
               ) : (
-                `Seats left: ${availableSeats}`
+                `Seats left: ${availableSeats.length}`
               )}
             </p>
             <p className="text-xl font-bold text-gray-900 flex items-center justify-end gap-2">
@@ -187,31 +220,28 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
               <span className="text-sm text-gray-500">Refundable</span>
             </p>
           </div>
-          <motion.button
+          <button
             onClick={handleBookNowClick}
-            className={`w-full md:w-auto px-4 py-3 text-white rounded-lg text-base font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 
-              ${isSoldOut
-                ? "bg-gray-500 cursor-not-allowed opacity-90"
-                : "bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700"}`}
-            whileHover={{ scale: isSoldOut ? 1 : 1.05 }}
-            whileTap={{ scale: isSoldOut ? 1 : 0.95 }}
-            disabled={isSoldOut || availableSeats < passengers}
+            className={`w-full md:w-auto px-4 py-3 text-white rounded-lg text-base font-semibold transition-colors ${
+              isSoldOut
+                ? "bg-gray-500 cursor-not-allowed"
+                : "bg-green-600 hover:bg-green-700"
+            }`}
+            disabled={isSoldOut || availableSeats.length < passengers}
           >
             {isSoldOut ? "Sold Out" : "Book Now"}
-          </motion.button>
+          </button>
         </div>
       </div>
       {isPopupOpen && (
-        <div className="inset-0 relative flex justify-center items-center z-50">
-          <BookingPopup
-            closePopup={closePopup}
-            passengerData={{ adults: passengers, children: 0, infants: 0 }}
-            departure={departureAirport.city}
-            arrival={arrivalAirport.city}
-            selectedDate={flightSchedule.departure_date || selectedDate}
-            flightSchedule={{ ...flightSchedule, availableSeats }}
-          />
-        </div>
+        <BookingPopup
+          closePopup={closePopup}
+          passengerData={{ adults: passengers, children: 0, infants: 0 }}
+          departure={departureAirport.city}
+          arrival={arrivalAirport.city}
+          selectedDate={flightSchedule.departure_date || selectedDate}
+          flightSchedule={{ ...flightSchedule, availableSeats: availableSeats.length, allSeats }}
+        />
       )}
     </motion.div>
   );

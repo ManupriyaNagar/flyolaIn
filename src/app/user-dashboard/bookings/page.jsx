@@ -1,4 +1,4 @@
-"use client";
+ "use client";
 
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthContext";
@@ -12,39 +12,42 @@ export default function UserBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Redirect non-logged-in users
   useEffect(() => {
     if (!authState.isLoading && !authState.isLoggedIn) {
       router.push("/sign-in");
     }
   }, [authState, router]);
 
-  // Fetch user's bookings
   useEffect(() => {
     if (authState.isLoading || !authState.isLoggedIn) return;
 
     const fetchMyBookings = async () => {
       setLoading(true);
+      setError(null);
       try {
         const token = localStorage.getItem("token");
-        if (!token) throw new Error("No token found");
+        if (!token) throw new Error("No authentication token found. Please sign in again.");
 
         const res = await fetch(`${BASE_URL}/bookings/my`, {
           method: "GET",
           headers: {
+            "Content-Type": "application/json",
             "Authorization": `Bearer ${token}`,
           },
+          credentials: "include",
         });
 
+        const data = await res.json();
         if (!res.ok) {
-          throw new Error(`Error ${res.status}: ${await res.text()}`);
+          throw new Error(data.error || `Error ${res.status}: Failed to fetch bookings`);
         }
 
-        const data = await res.json();
         setBookings(data);
       } catch (err) {
-        console.error("Failed to load your bookings:", err);
-        setError("Could not load bookings. Please try again.");
+        console.error("Failed to load bookings:", err.message);
+        setError(err.message === "Unauthorized: No valid user token provided"
+          ? "Please sign in again to view your bookings."
+          : `Could not load bookings: ${err.message}`);
       } finally {
         setLoading(false);
       }
@@ -75,6 +78,7 @@ export default function UserBookingsPage() {
               <th className="px-4 py-2">Passengers</th>
               <th className="px-4 py-2">Status</th>
               <th className="px-4 py-2">Total Fare</th>
+              <th className="px-4 py-2">Seats</th>
             </tr>
           </thead>
           <tbody>
@@ -87,6 +91,7 @@ export default function UserBookingsPage() {
                 <td className="px-4 py-2">{b.noOfPassengers}</td>
                 <td className="px-4 py-2">{b.bookingStatus}</td>
                 <td className="px-4 py-2">₹{b.totalFare}</td>
+                <td className="px-4 py-2">{b.seatLabels?.join(", ") || "N/A"}</td>
               </tr>
             ))}
           </tbody>
