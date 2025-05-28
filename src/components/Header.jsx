@@ -31,6 +31,7 @@ const NAV_ITEMS = [
   { name: "Jet Hire", path: "/jet-hire" },
   { name: "Helicopter Hire", path: "/helicopter-hire" },
   { name: "Marriage", path: "/hire-for-marriage" },
+  { name: "Download Schedule", path: "/schedule.pdf", download: true },
 ];
 
 // Mobile menu toggle button
@@ -54,7 +55,7 @@ const MobileMenuButton = memo(({ isOpen, onClick }) => (
 
 // Reusable nav links component
 const NavLinks = memo(({ items, activePath, onClick, isMobile = false }) =>
-  items.map(({ name, path }) => {
+  items.map(({ name, path, download }) => {
     const isActive = activePath === path;
     const baseClass = isMobile
       ? "block text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-lg"
@@ -63,11 +64,12 @@ const NavLinks = memo(({ items, activePath, onClick, isMobile = false }) =>
       <Link
         key={path}
         href={path}
+        download={download ? true : undefined}
         className={`transition-colors duration-200 ${baseClass} ${isActive ? "text-indigo-600 font-semibold" : ""}`}
         onClick={onClick}
       >
         {name}
-        {!isMobile && (
+        {!isMobile && !download && (
           <span
             className={`absolute bottom-0 left-0 h-0.5 bg-indigo-600 transition-all duration-300 ${
               isActive ? "w-full" : "w-0 group-hover:w-full"
@@ -199,7 +201,7 @@ const Header = () => {
               <Link
                 href="/sign-in"
                 className="w-full px-4 py-2 rounded-full bg-gradient-to-r from-indigo-500 to-blue-500 text-white font-medium text-sm shadow-md hover:from-indigo-600 hover:to-blue-600 transition-all duration-300"
-                onClick={() => setIsMenuOpen(false)}
+               Click={() => setIsMenuOpen(false)}
               >
                 Sign In / Register
               </Link>
