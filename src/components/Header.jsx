@@ -31,7 +31,7 @@ const NAV_ITEMS = [
   { name: "Jet Hire", path: "/jet-hire" },
   { name: "Helicopter Hire", path: "/helicopter-hire" },
   { name: "Marriage", path: "/hire-for-marriage" },
-  { name: "Download Schedule", path: "/schedule.pdf", download: true },
+  { name: "Download Schedule", path: "/schedule-final.pdf", download: true },
 ];
 
 // Mobile menu toggle button
