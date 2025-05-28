@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { useAuth } from "@/components/AuthContext"; // Adjust path to your AuthContext
+import { useAuth } from "@/components/AuthContext";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 import { ToastContainer, toast } from "react-toastify";
@@ -13,10 +13,8 @@ import BASE_URL from "@/baseUrl/baseUrl";
 const BOOKINGS_PER_PAGE = 50;
 
 export default function AllBookingsPage() {
-
   const { authState } = useAuth();
   const router = useRouter();
-
 
   const [allData, setAllData] = useState([]);
   const [status, setStatus] = useState("Confirmed");
@@ -42,6 +40,7 @@ export default function AllBookingsPage() {
     }, 300),
     []
   );
+
   useEffect(() => {
     if (
       authState.isLoading ||
@@ -56,9 +55,7 @@ export default function AllBookingsPage() {
       setError(null);
 
       try {
-        // grab token
         const token = localStorage.getItem("token") || "";
-        // common opts for all fetches
         const commonOpts = {
           headers: {
             "Content-Type": "application/json",
@@ -66,64 +63,112 @@ export default function AllBookingsPage() {
           },
         };
 
-        // fire all four requests in parallel
-        const [bookingsRes, seatRes, paxRes, airportRes] = await Promise.all([
-          fetch(`${BASE_URL}/bookings?status=${status}`, commonOpts),
-          fetch(`${BASE_URL}/booked-seat`,    commonOpts),
-          fetch(`${BASE_URL}/passenger`,      commonOpts),
-          fetch(`${BASE_URL}/airport`,        commonOpts),
+        // Check cached airport data
+        const cachedAirports = localStorage.getItem("airports");
+        let airportData = cachedAirports ? JSON.parse(cachedAirports) : null;
+
+        // Fetch data in parallel
+        const [bookingsRes, paxRes, paymentsRes, airportRes] = await Promise.all([
+          fetch(`${BASE_URL}/bookings?status=${status}`, commonOpts).catch(() => ({ ok: false, status: 500 })),
+          fetch(`${BASE_URL}/passenger`, commonOpts).catch(() => ({ ok: false, status: 500 })),
+          fetch(`${BASE_URL}/payments`, commonOpts).catch(() => ({ ok: false, status: 500 })),
+          airportData ? Promise.resolve({ ok: true, json: () => Promise.resolve(airportData) }) :
+            fetch(`${BASE_URL}/airport`, commonOpts).catch(() => ({ ok: false, status: 500 })),
         ]);
 
-        if (
-          !bookingsRes.ok ||
-          !seatRes.ok ||
-          !paxRes.ok ||
-          !airportRes.ok
-        ) {
-          throw new Error(
-            `Fetch failed: Bookings=${bookingsRes.status}, Seats=${seatRes.status}, Passengers=${paxRes.status}, Airports=${airportRes.status}`
-          );
+        const [bookingsData, paxData, paymentsData, fetchedAirportData] = await Promise.all([
+          bookingsRes.ok ? bookingsRes.json() : Promise.resolve([]),
+          paxRes.ok ? paxRes.json() : Promise.resolve([]),
+          paymentsRes.ok ? paymentsRes.json() : Promise.resolve([]),
+          airportRes.ok ? airportRes.json() : Promise.resolve([]),
+        ]);
+
+        // Cache airport data
+        if (!airportData && fetchedAirportData.length) {
+          localStorage.setItem("airports", JSON.stringify(fetchedAirportData));
+          airportData = fetchedAirportData;
         }
 
-        const [bookingsData, seatData, paxData, airportData] = await Promise.all([
-          bookingsRes.json(),
-          seatRes.json(),
-          paxRes.json(),
-          airportRes.json(),
-        ]);
+        console.log("Bookings Data:", bookingsData);
+        console.log("Passenger Data:", paxData);
+        console.log("Payments Data:", paymentsData);
+        console.log("Airport Data:", airportData);
 
-        // build airport map
+        // Warn for failed APIs
+        if (!bookingsRes.ok) {
+          console.warn(`Bookings API failed with status ${bookingsRes.status}`);
+          toast.warn("Unable to load bookings data.");
+        }
+        if (!paxRes.ok) {
+          console.warn(`Passenger API failed with status ${paxRes.status}`);
+          toast.warn("Unable to load passenger data.");
+        }
+        if (!paymentsRes.ok) {
+          console.warn(`Payments API failed with status ${paymentsRes.status}`);
+          toast.warn("Unable to load payment data.");
+        }
+        if (!airportRes.ok && !airportData) {
+          console.warn(`Airport API failed with status ${airportRes.status}`);
+          toast.warn("Unable to load airport data.");
+        }
+
+        // Build airport map
         const map = {};
-        (airportData || []).forEach((a) => {
+        (Array.isArray(airportData) ? airportData : []).forEach((a) => {
           if (a?.id && a?.airport_name) {
             map[a.id] = a.airport_name;
           }
         });
         setAirportMap(map);
 
-        // merge and sort
-        const merged = (bookingsData || [])
+        // Validate bookings data
+        const validBookingsData = Array.isArray(bookingsData) ? bookingsData : [];
+        if (!validBookingsData.length && bookingsRes.ok) {
+          console.warn("Bookings API returned empty data.");
+          toast.warn("No bookings found for the selected status.");
+        }
+
+        const merged = validBookingsData
           .map((booking) => {
-            const matchSeat =
-              (seatData || []).find(
-                (s) =>
-                  s?.schedule_id === booking?.schedule_id &&
-                  s?.bookDate === booking?.bookDate
-              ) || {};
-            const passengers = (paxData || []).filter(
+            const passengers = (Array.isArray(paxData) ? paxData : []).filter(
               (p) => p?.bookingId === booking?.id
             );
 
-            const depId = matchSeat.FlightSchedule?.departure_airport_id;
-            const arrId = matchSeat.FlightSchedule?.arrival_airport_id;
+            const payment = (Array.isArray(paymentsData) ? paymentsData : [])
+              .find((p) => p?.booking_id === booking?.id) || {};
+
+            const flightSchedule = booking.FlightSchedule || {};
+            const depId = flightSchedule.departure_airport_id;
+            const arrId = flightSchedule.arrival_airport_id;
+
+            // Handle seat labels
+            const seatLabels = Array.isArray(booking.BookedSeats)
+              ? booking.BookedSeats.map((s) => s.seat_label).join(", ")
+              : "N/A";
+
+            // Dynamic data only
+            const flightNumber = flightSchedule.Flight?.flight_number || "N/A";
+            const billingName = booking.billing?.billing_name || "N/A";
+            const paymentMode = payment.payment_mode || booking.pay_mode || "N/A";
+
+            // Log missing data
+            if (!booking.FlightSchedule) {
+              console.warn(`Booking ${booking.bookingNo} is missing FlightSchedule.`);
+            }
+            if (!map[depId] || !map[arrId]) {
+              console.warn(`Booking ${booking.bookingNo} has unmatched airport IDs: ${depId}, ${arrId}`);
+            }
 
             return {
               ...booking,
-              FlightSchedule: matchSeat.FlightSchedule || {},
-              booked_seat: matchSeat.booked_seat || null,
+              FlightSchedule: flightSchedule,
+              booked_seat: seatLabels,
               passengers,
-              departureAirportName: map[depId] || "N/A",
-              arrivalAirportName: map[arrId] || "N/A",
+              flightNumber,
+              billingName,
+              paymentMode,
+              departureAirportName: depId && map[depId] ? map[depId] : "N/A",
+              arrivalAirportName: arrId && map[arrId] ? map[arrId] : "N/A",
             };
           })
           .sort(
@@ -131,8 +176,13 @@ export default function AllBookingsPage() {
               new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime()
           );
 
+        console.log("Merged Data:", merged);
         setAllData(merged);
         setCurrentPage(1);
+
+        if (!merged.length && !error) {
+          setError("No bookings found for the selected status.");
+        }
       } catch (err) {
         console.error("Error fetching data:", err);
         setError("Failed to load data. Please try again.");
@@ -156,12 +206,14 @@ export default function AllBookingsPage() {
       const contact = item.contact_no?.toString().toLowerCase() ?? "";
       const passengerNames =
         item.passengers?.map((p) => p.name?.toLowerCase()).join(" ") ?? "";
+      const billingName = item.billingName?.toLowerCase() ?? "";
       return (
         bookingNo.includes(term) ||
         pnr.includes(term) ||
         email.includes(term) ||
         contact.includes(term) ||
-        passengerNames.includes(term)
+        passengerNames.includes(term) ||
+        billingName.includes(term)
       );
     });
     console.log("Filtered Data:", filtered);
@@ -214,14 +266,17 @@ export default function AllBookingsPage() {
       ContactNumber: item.contact_no || "N/A",
       Passengers: item.noOfPassengers || 0,
       PassengerNames: item.passengers?.map((p) => p.name).join(", ") || "N/A",
+      BillingName: item.billingName || "N/A",
       Sector: item.schedule_id || "N/A",
+      FlightNumber: item.flightNumber || "N/A",
+      BookedSeats: item.booked_seat || "N/A",
       TotalFare: item.totalFare ? parseFloat(item.totalFare).toFixed(2) : "N/A",
       BookingStatus: item.bookingStatus || "N/A",
+      PaymentMode: item.paymentMode || "N/A",
       DepartureTime: item.FlightSchedule?.departure_time || "N/A",
       ArrivalTime: item.FlightSchedule?.arrival_time || "N/A",
       DepartureAirport: item.departureAirportName || "N/A",
       ArrivalAirport: item.arrivalAirportName || "N/A",
-      BookedSeats: item.booked_seat || item.noOfPassengers || "N/A",
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -279,6 +334,11 @@ export default function AllBookingsPage() {
     return items;
   };
 
+  // View booking handler
+  const handleViewBooking = (bookingId) => {
+    router.push(`/booking-details/${bookingId}`);
+  };
+
   // JSX
   return (
     <div className="px-4 py-8">
@@ -312,7 +372,7 @@ export default function AllBookingsPage() {
         <input
           type="text"
           onChange={(e) => debouncedSearch(e.target.value)}
-          placeholder="Search by ID, PNR, email, phone, or passenger name..."
+          placeholder="Search by ID, PNR, email, phone, passenger name, or billing name..."
           className="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow shadow-sm"
           aria-label="Search all bookings"
         />
@@ -369,16 +429,14 @@ export default function AllBookingsPage() {
 
       {/* Error Message and Retry Button */}
       {error && (
-        <div className="text-center py-4">
+        <div className="text-center py-6">
           <p className="text-red-600">{error}</p>
-          {error.includes("Failed to load data") && (
-            <button
-              onClick={() => fetchAllData()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mt-2"
-            >
-              Retry
-            </button>
-          )}
+          <button
+            onClick={() => fetchAllData()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mt-4"
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -388,22 +446,25 @@ export default function AllBookingsPage() {
           <thead className="bg-gray-50">
             <tr>
               {[
-                "BookingId",
+                "Booking ID",
                 "PNR",
                 "Fly Date",
                 "Booking Date",
                 "Email",
-                "Number",
+                "Phone",
                 "Passengers",
-                "Passenger Names",
+                "Names",
+                "Billing Name",
                 "Sector",
-                "Total Fare",
+                "Flight Number",
+                "Seats",
+                "Price",
                 "Status",
-                "Departure Time",
-                "Arrival Time",
-                "Departure Airport",
-                "Arrival Airport",
-                "Booked Seats",
+                "Payment",
+                "Dep Time",
+                "Arr Time",
+                "From",
+                "To",
                 "Action",
               ].map((h) => (
                 <th
@@ -418,7 +479,7 @@ export default function AllBookingsPage() {
           <tbody className="divide-y divide-gray-100">
             {!error && isLoading ? (
               <tr>
-                <td colSpan={17} className="px-6 py-8 text-center">
+                <td colSpan={19} className="px-6 py-8 text-center">
                   <div className="flex justify-center items-center gap-2">
                     <svg
                       className="animate-spin h-6 w-6 text-blue-500"
@@ -439,14 +500,14 @@ export default function AllBookingsPage() {
                         d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
                       />
                     </svg>
-                    <span className="text-gray-500">Loading data...</span>
+                    <span className="text-gray-600">Loading data...</span>
                   </div>
                 </td>
               </tr>
             ) : currentData.length ? (
               currentData.map((item) => (
                 <tr
-                  key={item.bookingNo}
+                  key={item.id}
                   className="hover:bg-gray-50 transition-colors duration-100"
                 >
                   <th
@@ -465,16 +526,17 @@ export default function AllBookingsPage() {
                   <td className="px-6 py-4 whitespace-nowrap">{item.email_id || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.contact_no || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.noOfPassengers || 0}</td>
-                  <td className="px-6 py-4">
-                    {item.passengers?.map((p) => p.name).join(", ") || "N/A"}
-                  </td>
+                  <td className="px-6 py-4">{item.passengers?.map((p) => p.name).join(", ") || "N/A"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{item.billingName || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.schedule_id || "N/A"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{item.flightNumber || "N/A"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{item.booked_seat || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {item.totalFare ? `Rs ${parseFloat(item.totalFare).toFixed(2)}` : "N/A"}
+                    {item.totalFare ? `₹${parseFloat(item.totalFare).toFixed(2)}` : "N/A"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`px-3 py-1 text-xs font-medium rounded-full ${
+                      className={`px-3 py-1 text-xs font-semibold rounded-full ${
                         item.bookingStatus === "Confirmed"
                           ? "bg-green-100 text-green-800"
                           : item.bookingStatus === "Pending"
@@ -488,19 +550,32 @@ export default function AllBookingsPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                        item.paymentMode === "UPI"
+                          ? "bg-blue-100 text-blue-800"
+                          : item.paymentMode === "ADMIN"
+                          ? "bg-green-100 text-green-800"
+                          : item.paymentMode === "DUMMY"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {item.paymentMode || "N/A"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
                     {item.FlightSchedule?.departure_time || "N/A"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {item.FlightSchedule?.arrival_time || "N/A"}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{item.departureAirportName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{item.arrivalAirportName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {item.booked_seat || item.noOfPassengers || "N/A"}
-                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">{item.departureAirportName || "N/A"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{item.arrivalAirportName || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
+                      onClick={() => handleViewBooking(item.id)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-150"
                       aria-label={`View booking ${item.bookingNo || "N/A"}`}
                     >
                       View
@@ -510,8 +585,8 @@ export default function AllBookingsPage() {
               ))
             ) : (
               <tr>
-                <td colSpan={17} className="px-6 py-8 text-center text-gray-500">
-                  {searchTerm ? "No records match your search." : "No records available."}
+                <td colSpan={19} className="px-6 py-8 text-center text-gray-600">
+                  {searchTerm ? "No records match your search." : error || "No bookings available."}
                 </td>
               </tr>
             )}
@@ -525,7 +600,7 @@ export default function AllBookingsPage() {
           <button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className={`px-4 py-2 rounded-lg transition-all duration-200 ${
+            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
               currentPage === 1
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -536,14 +611,14 @@ export default function AllBookingsPage() {
           </button>
           {getPaginationItems().map((item, idx) =>
             item === "..." ? (
-              <span key={`ellipsis-${idx}`} className="px-4 py-2 text-gray-500">
+              <span key={`ellipsis-${idx}`} className="px-4 py-2 text-gray-600">
                 …
               </span>
             ) : (
               <button
                 key={item}
                 onClick={() => setCurrentPage(item)}
-                className={`px-4 py-2 rounded-lg transition-all duration-200 ${
+                className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
                   currentPage === item
                     ? "bg-blue-600 text-white"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -557,7 +632,7 @@ export default function AllBookingsPage() {
           <button
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
-            className={`px-4 py-2 rounded-lg transition-all duration-200 ${
+            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
               currentPage === totalPages
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
