@@ -126,42 +126,82 @@ const FlightSchedulePage = () => {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    const method = isEdit ? 'PUT' : 'POST';
-    const url = isEdit ? `${BASE_URL}/flight-schedules/${formData.id}` : `${BASE_URL}/flight-schedules`;
-    try {
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          via_stop_id: formData.via_stop_id, // Include via_stop_id
-        }),
-      });
-      if (!response.ok) throw new Error('Error saving schedule');
-      setShowModal(false);
-      setFormData({
-        flight_id: '',
-        departure_airport_id: '',
-        arrival_airport_id: '',
-        departure_time: '',
-        arrival_time: '',
-        price: '',
-        status: 1,
-        via_stop_id: '[]',
-      });
-      setIsEdit(false);
-      toast.success(isEdit ? 'Schedule updated!' : 'Schedule added!');
-      await fetchData(); // Refetch data after submission
-    } catch (err) {
-      console.error('Error:', err);
-      toast.error('Failed to save schedule.');
-    } finally {
-      setLoading(false);
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  const method = isEdit ? 'PUT' : 'POST';
+  const url = isEdit ? `${BASE_URL}/flight-schedules/${formData.id}` : `${BASE_URL}/flight-schedules`;
+  try {
+    const validViaStopIds = JSON.parse(formData.via_stop_id || '[]').filter(id => Number.isInteger(id) && id > 0);
+    const payload = {
+      ...formData,
+      via_stop_id: JSON.stringify(validViaStopIds),
+    };
+    console.log('Sending payload:', payload);
+    const response = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Error saving schedule (Status: ${response.status})`);
     }
-  };
+    setShowModal(false);
+    setFormData({
+      flight_id: '',
+      departure_airport_id: '',
+      arrival_airport_id: '',
+      departure_time: '',
+      arrival_time: '',
+      price: '',
+      status: 1,
+      via_stop_id: '[]',
+    });
+    setIsEdit(false);
+    toast.success(isEdit ? 'Schedule updated!' : 'Schedule added!');
+    await fetchData();
+  } catch (err) {
+    console.error('Error:', err);
+    toast.error(err.message || 'Failed to save schedule.');
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleStatusToggle = async (schedule) => {
+  setLoading(true);
+  const newStatus = schedule.status === 'Active' ? 0 : 1;
+  try {
+    const payload = {
+      flight_id: schedule.flight_id,
+      departure_airport_id: schedule.departure_airport_id,
+      arrival_airport_id: schedule.arrival_airport_id,
+      departure_time: schedule.departure_time,
+      arrival_time: schedule.arrival_time,
+      price: schedule.price,
+      status: newStatus,
+      via_stop_id: schedule.via_stop_id || '[]',
+    };
+    console.log('Status toggle payload:', payload);
+    const response = await fetch(`${BASE_URL}/flight-schedules/${schedule.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Error updating status (Status: ${response.status})`);
+    }
+    toast.success(`Schedule ${newStatus === 1 ? 'activated' : 'deactivated'}!`);
+    await fetchData();
+  } catch (err) {
+    console.error('Error:', err);
+    toast.error(err.message || 'Failed to update status.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Handle edit
   const handleEdit = (schedule) => {
@@ -198,33 +238,7 @@ const FlightSchedulePage = () => {
     }
   };
   // Handle status toggle
-  const handleStatusToggle = async (schedule) => {
-    setLoading(true);
-    const newStatus = schedule.status === 'Active' ? 0 : 1;
-    try {
-      const response = await fetch(`${BASE_URL}/flight-schedules/${schedule.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          flight_id: schedule.flight_id,
-          departure_airport_id: schedule.departure_airport_id,
-          arrival_airport_id: schedule.arrival_airport_id,
-          departure_time: schedule.departure_time,
-          arrival_time: schedule.arrival_time,
-          price: schedule.price,
-          status: newStatus,
-        }),
-      });
-      if (!response.ok) throw new Error('Error updating status');
-      await fetchData(); // Refetch data after status update
-      toast.success(`Schedule ${newStatus === 1 ? 'activated' : 'deactivated'}!`);
-    } catch (err) {
-      console.error('Error:', err);
-      toast.error('Failed to update status.');
-    } finally {
-      setLoading(false);
-    }
-  };
+ 
 
   // Filter schedules
   const filteredSchedules = useMemo(() => {
