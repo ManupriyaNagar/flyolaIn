@@ -10,7 +10,7 @@ import { debounce } from "lodash";
 // ✱ helpers ----------------------------------------------------------- //
 const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-// Return a clean array of stop-ids (unique, numbers, no 0 / ‘’)
+// Return a clean array of stop-ids (unique, numbers, no 0 / '')
 function normaliseStops(raw) {
   try {
     // Handle string "[]" explicitly as an empty array
@@ -27,13 +27,17 @@ function validateFlightBody(fd) {
   const errors = [];
   if (!fd.flight_number.trim()) errors.push("Flight number is required");
   if (!fd.start_airport_id || !fd.end_airport_id) errors.push("Start & End airport required");
-  if (fd.start_airport_id === fd.end_airport_id) errors.push("Start & End airport must differ");
+  // Allow same start and end airports only if there are stops
+  const stops = normaliseStops(fd.airport_stop_ids);
+  if (fd.start_airport_id === fd.end_airport_id && stops.length === 0) {
+    errors.push("For flights starting and ending at the same airport, at least one stop is required");
+  }
   if (!WEEK_DAYS.includes(fd.departure_day)) errors.push("Invalid departure day");
   if (!Number.isInteger(fd.seat_limit) || fd.seat_limit < 1) errors.push("Seat-limit must be ≥1");
 
-  const stops = normaliseStops(fd.airport_stop_ids);
-  if (stops.includes(fd.start_airport_id) || stops.includes(fd.end_airport_id))
+  if (stops.includes(fd.start_airport_id) || stops.includes(fd.end_airport_id)) {
     errors.push("Stops may not include start/end airports");
+  }
 
   return { errors, clean: { ...fd, airport_stop_ids: stops } };
 }
@@ -41,7 +45,6 @@ function validateFlightBody(fd) {
 const ENTRIES_PER_PAGE = [10, 25, 50, 100];
 
 const FlightsPage = () => {
-
   const [flights, setFlights] = useState([]);
   const [airports, setAirports] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -94,7 +97,7 @@ const FlightsPage = () => {
               console.warn(`Invalid stop_airport_id ${id} in flight ${flight.id}`);
             }
           });
-          return { ...flight, airport_stop_ids: stops }; // Normalize stops in flight data
+          return { ...flight, airport_stop_ids: stops };
         });
 
         console.log("Flights:", normalizedFlights);
@@ -150,24 +153,23 @@ const FlightsPage = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    // 🛂 validate body first
+    // Validate body
     const { errors, clean } = validateFlightBody(formData);
     if (errors.length) {
-      toast.error(errors[0]); // show first error
+      toast.error(errors[0]);
       setIsLoading(false);
       return;
     }
 
     const method = isEdit ? "PUT" : "POST";
-    const url = isEdit ? `${BASE_URL}/flights/${currentFlight.id}` : `${BASE_URL}/flights`; // Assuming flights endpoint for schedules
+    const url = isEdit ? `${BASE_URL}/flights/${currentFlight.id}` : `${BASE_URL}/flights`;
     try {
-      // Normalize airport_stop_ids to ensure it's an array
       const payload = {
         ...clean,
-        airport_stop_ids: normaliseStops(clean.airport_stop_ids), // Convert to array
+        airport_stop_ids: normaliseStops(clean.airport_stop_ids),
       };
 
-      console.log("Sending payload:", payload); // Debug the payload
+      console.log("Sending payload:", payload);
 
       const response = await fetch(url, {
         method,
@@ -190,28 +192,21 @@ const FlightsPage = () => {
         const flightsRes = await fetch(`${BASE_URL}/flights`);
         setFlights(await flightsRes.json());
       } else {
-        const errorText = await response.text(); // Capture error details
+        const errorText = await response.text();
         console.error("Server error:", response.status, errorText);
-        throw new Error(`Error saving ${isEdit ? "flight" : "schedule"}: ${errorText}`);
+        throw new Error(`Error saving ${isEdit ? "flight" : "flight"}: ${errorText}`);
       }
     } catch (error) {
       console.error("Error:", error);
-      toast.error(`Failed to save ${isEdit ? "flight" : "schedule"}: ${error.message}`);
+      toast.error(`Failed to save ${isEdit ? "flight" : "flight"}: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-
-
-
-
-
-
-
   // Handle delete initiation
   const handleDelete = (id) => {
-    setShowDeleteConfirm(id); // Show confirmation modal
+    setShowDeleteConfirm(id);
   };
 
   // Handle delete confirmation
