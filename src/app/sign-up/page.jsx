@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { FcGoogle } from "react-icons/fc";
 import { FaFacebook } from "react-icons/fa";
-import { useRouter } from "next/navigation";  // Corrected import
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthContext";
 import BASE_URL from "@/baseUrl/baseUrl";
 
 const SignUp = () => {
@@ -15,36 +16,51 @@ const SignUp = () => {
   const [password, setPassword] = useState("");
   const [number, setNumber] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const router = useRouter();  // Initialize useRouter
+  const router = useRouter();
+  const { setAuthState } = useAuth();
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMessage("");
 
-  try {
-    const response = await fetch(`${BASE_URL}/users/register`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name, email, password, number }),
-    });
+    try {
+      const response = await fetch(`${BASE_URL}/users/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, email, password, number }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    console.log('Register API response:', data);
+      console.log('Register API response:', data);
 
-    if (response.ok) {
-      console.log("User registered successfully!");
-      router.push("/sign-in");
-    } else {
-      setErrorMessage(data.error || "Registration failed");
+      if (response.ok && data.user && data.token) {
+        // Store token in localStorage to match SignIn behavior
+        localStorage.setItem("token", data.token);
+
+        // Update auth state
+        const newAuthState = {
+          isLoading: false,
+          isLoggedIn: true,
+          user: { id: data.user.id, email: data.user.email },
+          userRole: String(data.user.role),
+        };
+        setAuthState(newAuthState);
+        localStorage.setItem("authState", JSON.stringify(newAuthState));
+
+        // Redirect based on role
+        const redirectPath = data.user.role === 1 ? "/admin-dashboard" : "/scheduled-flight";
+        router.push(redirectPath);
+      } else {
+        setErrorMessage(data.error || "Registration failed");
+      }
+    } catch (error) {
+      console.error("Error during registration:", error);
+      setErrorMessage("An error occurred. Please try again.");
     }
-  } catch (error) {
-    console.error("Error during registration:", error);
-    setErrorMessage("An error occurred. Please try again.");
-  }
-};
-
+  };
 
   return (
     <div
@@ -131,7 +147,7 @@ const handleSubmit = async (e) => {
               className="text-blue-500"
               onClick={(e) => {
                 e.preventDefault();
-                router.push("/sign-in"); // Redirect to sign-in
+                router.push("/sign-in");
               }}
             >
               Sign In

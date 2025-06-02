@@ -63,7 +63,6 @@ export default function AllBookingsPage() {
           },
         };
 
-        // Fetch all data in parallel
         const [bookingsRes, seatRes, paxRes, airportRes] = await Promise.all([
           fetch(`${BASE_URL}/bookings?status=${status}`, commonOpts),
           fetch(`${BASE_URL}/booked-seat`, commonOpts).catch(() => ({ ok: false, status: 404 })),
@@ -84,7 +83,7 @@ export default function AllBookingsPage() {
           airportRes.json(),
         ]);
 
-        console.log("Bookings Data:", bookingsData); // Debug log
+        console.log("Bookings Data:", bookingsData);
         console.log("Seat Data:", seatData);
         console.log("Passenger Data:", paxData);
         console.log("Airport Data:", airportData);
@@ -94,7 +93,6 @@ export default function AllBookingsPage() {
           toast.warn("Unable to load booked seat data. Using available booking information.");
         }
 
-        // Build airport map
         const map = {};
         (airportData || []).forEach((a) => {
           if (a?.id && a?.airport_name) {
@@ -103,7 +101,6 @@ export default function AllBookingsPage() {
         });
         setAirportMap(map);
 
-        // Merge data
         const merged = (bookingsData || [])
           .map((booking) => {
             const matchSeat = (seatData || []).find(
@@ -119,21 +116,14 @@ export default function AllBookingsPage() {
             const depId = flightSchedule.departure_airport_id;
             const arrId = flightSchedule.arrival_airport_id;
 
-            // Handle seat labels from BookedSeats
             const seatLabels = Array.isArray(booking.BookedSeats)
               ? booking.BookedSeats.map((s) => s.seat_label).join(", ")
               : "N/A";
 
-            // Handle flight number
             const flightNumber = flightSchedule.Flight?.flight_number || "N/A";
-
-            // Handle billing name
             const billingName = booking.billing?.billing_name || "N/A";
-
-            // Handle payment mode
             const paymentMode = booking.Payments?.[0]?.payment_mode || "N/A";
 
-            // Log missing data for debugging
             if (!booking.FlightSchedule && !matchSeat.FlightSchedule) {
               console.warn(`Booking ${booking.bookingNo} is missing FlightSchedule data.`);
             }
@@ -169,30 +159,80 @@ export default function AllBookingsPage() {
     fetchAllData();
   }, [status, authState.isLoggedIn, authState.userRole]);
 
-  // Search filtering
+  // Helper function to get date boundaries
+  const getDateFilterRange = (filter) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    switch (filter) {
+      case "today":
+        return { start: today, end: today };
+      case "tomorrow":
+        return { start: tomorrow, end: tomorrow };
+      case "yesterday":
+        return { start: yesterday, end: yesterday };
+      default:
+        return null;
+    }
+  };
+
+  // Search and date filtering
   const filteredData = useMemo(() => {
-    if (!searchTerm.trim()) return allData;
-    const term = searchTerm.toLowerCase();
-    const filtered = allData.filter((item) => {
-      const bookingNo = item.bookingNo?.toString().toLowerCase() ?? "";
-      const pnr = item.pnr?.toLowerCase() ?? "";
-      const email = item.email_id?.toLowerCase() ?? "";
-      const contact = item.contact_no?.toString().toLowerCase() ?? "";
-      const passengerNames =
-        item.passengers?.map((p) => p.name?.toLowerCase()).join(" ") ?? "";
-      const billingName = item.billingName?.toLowerCase() ?? "";
-      return (
-        bookingNo.includes(term) ||
-        pnr.includes(term) ||
-        email.includes(term) ||
-        contact.includes(term) ||
-        passengerNames.includes(term) ||
-        billingName.includes(term)
-      );
-    });
-    console.log("Filtered Data:", filtered);
-    return filtered;
-  }, [allData, searchTerm]);
+    let data = allData;
+
+    // Apply search term filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      data = data.filter((item) => {
+        const bookingNo = item.bookingNo?.toString().toLowerCase() ?? "";
+        const pnr = item.pnr?.toLowerCase() ?? "";
+        const email = item.email_id?.toLowerCase() ?? "";
+        const contact = item.contact_no?.toString().toLowerCase() ?? "";
+        const passengerNames =
+          item.passengers?.map((p) => p.name?.toLowerCase()).join(" ") ?? "";
+        const billingName = item.billingName?.toLowerCase() ?? "";
+        return (
+          bookingNo.includes(term) ||
+          pnr.includes(term) ||
+          email.includes(term) ||
+          contact.includes(term) ||
+          passengerNames.includes(term) ||
+          billingName.includes(term)
+        );
+      });
+    }
+
+    // Apply date filter
+    if (downloadRange === "today" || downloadRange === "tomorrow" || downloadRange === "yesterday") {
+      const dateRange = getDateFilterRange(downloadRange);
+      if (dateRange) {
+        data = data.filter((item) => {
+          const bookDate = new Date(item.bookDate);
+          bookDate.setHours(0, 0, 0, 0);
+          return (
+            bookDate.getTime() >= dateRange.start.getTime() &&
+            bookDate.getTime() <= dateRange.end.getTime()
+          );
+        });
+      }
+    } else if (downloadRange.startsWith("month-")) {
+      const [year, month] = downloadRange.split("-").slice(1);
+      data = data.filter((item) => {
+        const date = new Date(item.bookDate);
+        return date.getFullYear() === parseInt(year) && date.getMonth() === parseInt(month) - 1;
+      });
+    } else if (downloadRange.startsWith("year-")) {
+      const year = downloadRange.split("-")[1];
+      data = data.filter((item) => new Date(item.bookDate).getFullYear() === parseInt(year));
+    }
+
+    console.log("Filtered Data:", data);
+    return data;
+  }, [allData, searchTerm, downloadRange]);
 
   // Pagination
   const totalPages = Math.ceil(filteredData.length / BOOKINGS_PER_PAGE) || 1;
@@ -213,16 +253,22 @@ export default function AllBookingsPage() {
     } else if (downloadRange === "all") {
       exportData = filteredData;
       filename = "AllBookings_AllData.xlsx";
+    } else if (downloadRange === "today") {
+      exportData = filteredData;
+      filename = `AllBookings_Today_${new Date().toLocaleDateString().replace(/\//g, "-")}.xlsx`;
+    } else if (downloadRange === "tomorrow") {
+      exportData = filteredData;
+      filename = `AllBookings_Tomorrow_${new Date(new Date().setDate(new Date().getDate() + 1)).toLocaleDateString().replace(/\//g, "-")}.xlsx`;
+    } else if (downloadRange === "yesterday") {
+      exportData = filteredData;
+      filename = `AllBookings_Yesterday_${new Date(new Date().setDate(new Date().getDate() - 1)).toLocaleDateString().replace(/\//g, "-")}.xlsx`;
     } else if (downloadRange.startsWith("month-")) {
       const [year, month] = downloadRange.split("-").slice(1);
-      exportData = filteredData.filter((item) => {
-        const date = new Date(item.bookDate);
-        return date.getFullYear() === parseInt(year) && date.getMonth() === parseInt(month) - 1;
-      });
+      exportData = filteredData;
       filename = `AllBookings_${year}_${month}.xlsx`;
     } else if (downloadRange.startsWith("year-")) {
       const year = downloadRange.split("-")[1];
-      exportData = filteredData.filter((item) => new Date(item.bookDate).getFullYear() === parseInt(year));
+      exportData = filteredData;
       filename = `AllBookings_${year}.xlsx`;
     }
 
@@ -265,6 +311,9 @@ export default function AllBookingsPage() {
     const options = [
       { value: "page", label: "Current Page" },
       { value: "all", label: "All Data" },
+      { value: "today", label: "Today" },
+      { value: "tomorrow", label: "Tomorrow" },
+      { value: "yesterday", label: "Yesterday" },
     ];
 
     const yearMonthMap = new Map();
@@ -313,7 +362,7 @@ export default function AllBookingsPage() {
     router.push(`/booking-details/${bookingId}`);
   };
 
-  // JSX
+  // JSX (No changes needed in the JSX as the dropdown already uses downloadOptions)
   return (
     <div className="px-4 py-8">
       <ToastContainer position="top-right" autoClose={3000} />
@@ -328,6 +377,7 @@ export default function AllBookingsPage() {
               setStatus(filter);
               setSearchTerm("");
               setCurrentPage(1);
+              setDownloadRange("page"); // Reset download range when status changes
             }}
             className={`px-5 py-2 rounded-full font-medium transition-all duration-200 ${
               status === filter
@@ -369,7 +419,10 @@ export default function AllBookingsPage() {
         <div className="flex items-center gap-4">
           <select
             value={downloadRange}
-            onChange={(e) => setDownloadRange(e.target.value)}
+            onChange={(e) => {
+              setDownloadRange(e.target.value);
+              setCurrentPage(1); // Reset to page 1 when changing range
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Select download range"
           >
@@ -452,115 +505,114 @@ export default function AllBookingsPage() {
               ))}
             </tr>
           </thead>
-        <tbody className="divide-y divide-gray-100">
-  {!error && isLoading ? (
-    <tr>
-      <td colSpan={19} className="px-6 py-8 text-center">
-        <div className="flex justify-center items-center gap-2">
-          <svg
-            className="animate-spin h-6 w-6 text-blue-500"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
-            />
-          </svg>
-          <span className="text-gray-500">Loading data...</span>
-        </div>
-      </td>
-    </tr>
-  ) : currentData.length ? (
-    currentData.map((b) => (
-      <tr key={b.id} className="hover:bg-gray-50 transition-colors">
-        <th
-          scope="row"
-          className="px-4 py-2 font-medium text-gray-900 whitespace-nowrap"
-        >
-          {b.bookingNo || "N/A"}
-        </th>
-        <td className="px-4 py-2">{b.pnr || "N/A"}</td>
-        <td className="px-4 py-2">
-          {b.bookDate ? new Date(b.bookDate).toLocaleDateString() : "N/A"}
-        </td>
-        <td className="px-6 py-4">
-          {b.created_at ? new Date(b.created_at).toLocaleString() : "N/A"}
-        </td>
-        <td className="px-4 py-2">{b.email_id || "N/A"}</td>
-        <td className="px-4 py-2">{b.contact_no || "N/A"}</td>
-        <td className="px-4 py-2">{b.noOfPassengers || "0"}</td>
-        <td className="px-4 py-2">
-          {b.passengers?.map((p) => p.name).join(", ") || "N/A"}
-        </td>
-        <td className="px-4 py-2">{b.billingName || "N/A"}</td>
-        <td className="px-4 py-2">{b.schedule_id || "N/A"}</td>
-        <td className="px-4 py-2">{b.flightNumber || "N/A"}</td>
-        <td className="px-4 py-2">{b.booked_seat || "N/A"}</td>
-        <td className="px-4 py-2">
-          {b.totalFare ? `₹${parseFloat(b.totalFare).toFixed(2)}` : "N/A"}
-        </td>
-        <td className="px-4 py-2">
-          <span
-            className={`px-2 py-1 text-xs font-medium rounded-full ${
-              b.bookingStatus === "Confirmed"
-                ? "bg-green-100 text-green-800"
-                : b.bookingStatus === "Pending"
-                ? "bg-yellow-100 text-yellow-800"
-                : b.bookingStatus === "Cancelled"
-                ? "bg-red-100 text-red-800"
-                : "bg-gray-100 text-gray-800"
-            }`}
-          >
-            {b.bookingStatus || "N/A"}
-          </span>
-        </td>
-        <td className="px-4 py-2">
-          <span
-            className={`px-2 py-1 text-xs font-medium rounded-full ${
-              b.paymentMode === "ADMIN"
-                ? "bg-green-100 text-green-800"
-                : b.paymentMode === "DUMMY"
-                ? "bg-yellow-100 text-yellow-800"
-                : "bg-blue-100 text-blue-800"
-            }`}
-          >
-            {b.paymentMode || "N/A"}
-          </span>
-        </td>
-        <td className="px-4 py-2">{b.FlightSchedule?.departure_time || "N/A"}</td>
-        <td className="px-4 py-2">{b.FlightSchedule?.arrival_time || "N/A"}</td>
-        <td className="px-4 py-2">{b.departureAirportName || "N/A"}</td>
-        <td className="px-4 py-2">{b.arrivalAirportName || "N/A"}</td>
-        <td className="px-4 py-2">
-          <button
-            onClick={() => handleViewBooking(b.id)}
-            className="px-2 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
-            aria-label={`View booking ${b.bookingNo || "N/A"}`}
-          >
-            View
-          </button>
-        </td>
-      </tr>
-    ))
-  ) : (
-    <tr>
-      <td colSpan={19} className="px-6 py-8 text-center text-gray-500">
-        {searchTerm ? "No records match your search." : "No records available."}
-      </td>
-    </tr>
-  )}
-</tbody>
-
+          <tbody className="divide-y divide-gray-100">
+            {!error && isLoading ? (
+              <tr>
+                <td colSpan={19} className="px-6 py-8 text-center">
+                  <div className="flex justify-center items-center gap-2">
+                    <svg
+                      className="animate-spin h-6 w-6 text-blue-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
+                      />
+                    </svg>
+                    <span className="text-gray-500">Loading data...</span>
+                  </div>
+                </td>
+              </tr>
+            ) : currentData.length ? (
+              currentData.map((b) => (
+                <tr key={b.id} className="hover:bg-gray-50 transition-colors">
+                  <th
+                    scope="row"
+                    className="px-4 py-2 font-medium text-gray-900 whitespace-nowrap"
+                  >
+                    {b.bookingNo || "N/A"}
+                  </th>
+                  <td className="px-4 py-2">{b.pnr || "N/A"}</td>
+                  <td className="px-4 py-2">
+                    {b.bookDate ? new Date(b.bookDate).toLocaleDateString() : "N/A"}
+                  </td>
+                  <td className="px-6 py-4">
+                    {b.created_at ? new Date(b.created_at).toLocaleString() : "N/A"}
+                  </td>
+                  <td className="px-4 py-2">{b.email_id || "N/A"}</td>
+                  <td className="px-4 py-2">{b.contact_no || "N/A"}</td>
+                  <td className="px-4 py-2">{b.noOfPassengers || "0"}</td>
+                  <td className="px-4 py-2">
+                    {b.passengers?.map((p) => p.name).join(", ") || "N/A"}
+                  </td>
+                  <td className="px-4 py-2">{b.billingName || "N/A"}</td>
+                  <td className="px-4 py-2">{b.schedule_id || "N/A"}</td>
+                  <td className="px-4 py-2">{b.flightNumber || "N/A"}</td>
+                  <td className="px-4 py-2">{b.booked_seat || "N/A"}</td>
+                  <td className="px-4 py-2">
+                    {b.totalFare ? `₹${parseFloat(b.totalFare).toFixed(2)}` : "N/A"}
+                  </td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        b.bookingStatus === "Confirmed"
+                          ? "bg-green-100 text-green-800"
+                          : b.bookingStatus === "Pending"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : b.bookingStatus === "Cancelled"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {b.bookingStatus || "N/A"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        b.paymentMode === "ADMIN"
+                          ? "bg-green-100 text-green-800"
+                          : b.paymentMode === "DUMMY"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
+                    >
+                      {b.paymentMode || "N/A"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2">{b.FlightSchedule?.departure_time || "N/A"}</td>
+                  <td className="px-4 py-2">{b.FlightSchedule?.arrival_time || "N/A"}</td>
+                  <td className="px-4 py-2">{b.departureAirportName || "N/A"}</td>
+                  <td className="px-4 py-2">{b.arrivalAirportName || "N/A"}</td>
+                  <td className="px-4 py-2">
+                    <button
+                      onClick={() => handleViewBooking(b.id)}
+                      className="px-2 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
+                      aria-label={`View booking ${b.bookingNo || "N/A"}`}
+                    >
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={19} className="px-6 py-8 text-center text-gray-500">
+                  {searchTerm || downloadRange !== "page" ? "No records match your filters." : "No records available."}
+                </td>
+              </tr>
+            )}
+          </tbody>
         </table>
       </div>
 
