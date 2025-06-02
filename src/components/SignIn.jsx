@@ -59,8 +59,23 @@ const SignIn = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 mt-10">
-      <Card className="w-96 p-6 shadow-lg rounded-2xl">
+    <div className="relative flex items-center justify-center min-h-screen">
+      {/* Video Background */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute top-0 left-0 w-full h-full object-cover z-20"
+      >
+        <source src="/signin.mp4" type="video/mp4" />
+      </video>
+      
+      {/* Overlay */}
+      <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-10"></div>
+
+      {/* Content */}
+      <Card className="w-96 p-6 shadow-lg rounded-2xl z-20 bg-white bg-opacity-90 backdrop-blur-sm">
         <CardContent>
           <h2 className="text-2xl font-semibold text-center mb-4">Sign In</h2>
           <form className="space-y-4" onSubmit={handleSubmit}>
@@ -69,6 +84,7 @@ const SignIn = () => {
               <Input
                 type="email"
                 id="email"
+                text="black"
                 placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

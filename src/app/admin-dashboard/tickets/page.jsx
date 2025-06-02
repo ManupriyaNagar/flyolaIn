@@ -594,6 +594,10 @@ const Page = () => {
 
       try {
         const token = localStorage.getItem("token") || "";
+        if (!token) {
+          throw new Error("No authentication token found. Please log in again.");
+        }
+
         const commonOpts = {
           headers: {
             "Content-Type": "application/json",
@@ -601,99 +605,110 @@ const Page = () => {
           },
         };
 
-        const [
-          bookingsRes,
-          passengersRes,
-          bookedSeatRes,
-          billingsRes,
-          paymentsRes,
-          airportRes,
-        ] = await Promise.all([
-          fetch(`${BASE_URL}/bookings`, commonOpts),
-          fetch(`${BASE_URL}/passenger`, commonOpts),
-          fetch(`${BASE_URL}/booked-seat`, commonOpts),
-          fetch(`${BASE_URL}/billings`, commonOpts),
-          fetch(`${BASE_URL}/payments`, commonOpts),
-          fetch(`${BASE_URL}/airport`, commonOpts),
-        ]);
-
-        if (
-          !bookingsRes.ok ||
-          !passengersRes.ok ||
-          !bookedSeatRes.ok ||
-          !billingsRes.ok ||
-          !paymentsRes.ok ||
-          !airportRes.ok
-        ) {
-          throw new Error(
-            `Fetch failed: Bookings=${bookingsRes.status}, Passengers=${passengersRes.status}, Seats=${bookedSeatRes.status}, Billings=${billingsRes.status}, Payments=${paymentsRes.status}, Airports=${airportRes.status}`
-          );
+        // Fetch bookings first since it's the main data we need
+        const bookingsRes = await fetch(`${BASE_URL}/bookings`, commonOpts);
+        if (!bookingsRes.ok) {
+          throw new Error(`Failed to fetch bookings: ${bookingsRes.status} ${bookingsRes.statusText}`);
         }
+        const bookingsData = await bookingsRes.json();
 
-        const [
-          bookingsData,
-          passengersData,
-          bookedSeatData,
-          billingsData,
-          paymentsData,
-          airportData,
-        ] = await Promise.all([
-          bookingsRes.json(),
-          passengersRes.json(),
-          bookedSeatRes.json(),
-          billingsRes.json(),
-          paymentsRes.json(),
-          airportRes.json(),
-        ]);
+        // Then fetch supporting data
+        try {
+          const [
+            passengersRes,
+            bookedSeatRes,
+            billingsRes,
+            paymentsRes,
+            airportRes,
+          ] = await Promise.all([
+            fetch(`${BASE_URL}/passenger`, commonOpts),
+            fetch(`${BASE_URL}/booked-seat`, commonOpts),
+            fetch(`${BASE_URL}/billings`, commonOpts),
+            fetch(`${BASE_URL}/payments`, commonOpts),
+            fetch(`${BASE_URL}/airport`, commonOpts),
+          ]);
 
-        // Build airport map
-        const map = {};
-        airportData.forEach((a) => {
-          if (a.id && a.airport_name) map[a.id] = a.airport_name;
-        });
-        setAirportMap(map);
+          const [
+            passengersData,
+            bookedSeatData,
+            billingsData,
+            paymentsData,
+            airportData,
+          ] = await Promise.all([
+            passengersRes.ok ? passengersRes.json() : [],
+            bookedSeatRes.ok ? bookedSeatRes.json() : [],
+            billingsRes.ok ? billingsRes.json() : [],
+            paymentsRes.ok ? paymentsRes.json() : [],
+            airportRes.ok ? airportRes.json() : [],
+          ]);
 
-        // Merge & sort exactly as before…
-        const merged = bookingsData
-          .map((booking) => {
-            const matchingSeat = bookedSeatData.find(
-              (seat) =>
-                seat.schedule_id === booking.schedule_id &&
-                seat.bookDate === booking.bookDate
+          // Build airport map
+          const map = {};
+          airportData.forEach((a) => {
+            if (a.id && a.airport_name) map[a.id] = a.airport_name;
+          });
+          setAirportMap(map);
+
+          // Merge & sort bookings with supporting data
+          const merged = bookingsData
+            .map((booking) => {
+              const matchingSeat = bookedSeatData.find(
+                (seat) =>
+                  seat.schedule_id === booking.schedule_id &&
+                  seat.bookDate === booking.bookDate
+              );
+              const matchingPassengers = passengersData.filter(
+                (p) => p.bookingId === booking.id
+              );
+              const matchingPayment = paymentsData.find(
+                (p) => p.booking_id === booking.id
+              );
+              const matchingBilling = billingsData.find(
+                (b) => b.user_id === booking.bookedUserId
+              );
+
+              const depId = matchingSeat?.FlightSchedule?.departure_airport_id;
+              const arrId = matchingSeat?.FlightSchedule?.arrival_airport_id;
+
+              return {
+                ...booking,
+                FlightSchedule: matchingSeat?.FlightSchedule ?? {},
+                booked_seat: matchingSeat?.booked_seat ?? null,
+                passengers: matchingPassengers,
+                payment: matchingPayment ?? {},
+                billing: matchingBilling ?? {},
+                departureAirportName: map[depId] ?? depId ?? "N/A",
+                arrivalAirportName: map[arrId] ?? arrId ?? "N/A",
+              };
+            })
+            .sort(
+              (a, b) =>
+                new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime()
             );
-            const matchingPassengers = passengersData.filter(
-              (p) => p.bookingId === booking.id
-            );
-            const matchingPayment = paymentsData.find(
-              (p) => p.booking_id === booking.id
-            );
-            const matchingBilling = billingsData.find(
-              (b) => b.user_id === booking.bookedUserId
-            );
 
-            const depId = matchingSeat?.FlightSchedule?.departure_airport_id;
-            const arrId = matchingSeat?.FlightSchedule?.arrival_airport_id;
-
-            return {
-              ...booking,
-              FlightSchedule: matchingSeat?.FlightSchedule ?? {},
-              booked_seat: matchingSeat?.booked_seat ?? null,
-              passengers: matchingPassengers,
-              payment: matchingPayment ?? {},
-              billing: matchingBilling ?? {},
-              departureAirportName: map[depId] ?? depId ?? "N/A",
-              arrivalAirportName: map[arrId] ?? arrId ?? "N/A",
-            };
-          })
-          .sort(
-            (a, b) =>
-              new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime()
-          );
-
-        setBookings(merged);
+          setBookings(merged);
+        } catch (supportingDataError) {
+          console.error("Error fetching supporting data:", supportingDataError);
+          // Even if supporting data fails, we can still show the bookings
+          const merged = bookingsData.map((booking) => ({
+            ...booking,
+            passengers: [],
+            payment: {},
+            billing: {},
+            departureAirportName: "N/A",
+            arrivalAirportName: "N/A",
+          }));
+          setBookings(merged);
+          setError("Some booking details may be incomplete. Please try refreshing the page.");
+        }
       } catch (err) {
         console.error("Error fetching bookings:", err);
-        setError("Failed to load bookings. Please try again.");
+        if (err.message.includes("No authentication token")) {
+          setError("Please log in again to view bookings.");
+          router.push("/sign-in");
+        } else {
+          setError(`Failed to load bookings: ${err.message}`);
+        }
       } finally {
         setIsLoading(false);
       }

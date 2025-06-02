@@ -33,7 +33,7 @@ const Hero = () => {
       {/* Background Image */}
       <div className="absolute inset-0">
         <Image
-          src="/images/private-jet.jpg"
+          src="/flight.png"
           alt="Private Jet Background"
           fill
           className="object-cover object-center"

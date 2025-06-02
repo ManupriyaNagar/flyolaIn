@@ -63,13 +63,25 @@ const SignUp = () => {
   };
 
   return (
-    <div
-      className="flex items-center justify-center min-h-screen bg-cover bg-center mt-20"
-      style={{ backgroundImage: "url('/background6.png')" }}
-    >
-      <Card className="w-96 p-6 shadow-lg rounded-2xl bg-white bg-opacity-10 backdrop-blur-lg">
+    <div className="relative flex items-center justify-center min-h-screen">
+      {/* Video Background */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute top-0 left-0 w-full h-full object-cover z-20"
+      >
+        <source src="/signup.mp4" type="video/mp4" />
+      </video>
+      
+      {/* Overlay */}
+      <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-10"></div>
+
+      {/* Content */}
+      <Card className="w-96 p-6 shadow-lg rounded-2xl z-20 bg-white bg-opacity-90 backdrop-blur-sm">
         <CardContent>
-          <h2 className="text-2xl font-semibold text-center mb-4 text-gray-100">Sign Up</h2>
+          <h2 className="text-2xl font-semibold text-center mb-4">Sign Up</h2>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <Label htmlFor="name">Full Name</Label>
@@ -79,6 +91,7 @@ const SignUp = () => {
                 placeholder="Enter your full name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                border="black"
                 required
               />
             </div>
@@ -140,7 +153,7 @@ const SignUp = () => {
             </Button>
           </div>
 
-          <p className="text-center text-sm text-gray-300 mt-4">
+          <p className="text-center text-sm text-gray-900 mt-4">
             Already have an account?{" "}
             <a
               href="/sign-in"

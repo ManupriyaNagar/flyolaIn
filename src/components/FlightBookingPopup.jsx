@@ -31,54 +31,65 @@ const BookingPopup = ({ closePopup, passengerData, departure, arrival, selectedD
   };
 
   const handleConfirmBooking = async () => {
-    try {
-      const response = await fetch(`${BASE_URL}/api/booking/ticket`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + localStorage.getItem('token')
-        },
-        body: JSON.stringify({
-          departure,
-          arrival,
-          selectedDate: new Date(selectedDate).toISOString().split('T')[0],
-          passengers: Array.from({ length: passengers.adults }, (_, i) => ({
+  try {
+    const response = await fetch(`${BASE_URL}/api/booking/ticket`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + localStorage.getItem('token')
+      },
+      body: JSON.stringify({
+        departure,
+        arrival,
+        selectedDate: new Date(selectedDate).toISOString().split('T')[0],
+        passengers: [
+          ...Array.from({ length: passengers.adults }, (_, i) => ({
             title: 'Mr.',
             full_name: `Passenger ${i + 1}`,
             dob: '1990-01-01',
             type: 'Adult'
-          })).concat(
-            Array.from({ length: passengers.children }, (_, i) => ({
-              title: 'Master',
-              full_name: `Child ${i + 1}`,
-              dob: '2015-01-01',
-              type: 'Child'
-            }))
-          ).concat(
-            Array.from({ length: passengers.infants }, (_, i) => ({
-              title: 'Infant',
-              full_name: `Infant ${i + 1}`,
-              dob: '2020-01-01',
-              type: 'Infant'
-            }))
-          ),
-          totalFare: calculateTotalPrice(),
-          payFare: (calculateTotalPrice() * 0.65).toFixed(2), // 35% discount
-          flightSchedule
-        }),
-      });
-  
-      // Handle response (if needed)
-      if (!response.ok) {
-        throw new Error("Failed to confirm booking");
-      }
-      const data = await response.json();
-      console.log("Booking confirmed:", data);
-  
-    } catch (error) {
-      console.error("Error confirming booking:", error);
+          })),
+          ...Array.from({ length: passengers.children }, (_, i) => ({
+            title: 'Master',
+            full_name: `Child ${i + 1}`,
+            dob: '2015-01-01',
+            type: 'Child'
+          })),
+          ...Array.from({ length: passengers.infants }, (_, i) => ({
+            title: 'Infant',
+            full_name: `Infant ${i + 1}`,
+            dob: '2020-01-01',
+            type: 'Infant'
+          }))
+        ],
+        totalFare: calculateTotalPrice(),
+        payFare: (calculateTotalPrice() * 0.65).toFixed(2),
+        flightSchedule
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      localStorage.setItem('bookingData', JSON.stringify({
+        id: data.bookingNo,
+        departure,
+        arrival,
+        selectedDate,
+        totalPrice: calculateTotalPrice(),
+        flightSchedule
+      }));
+      closePopup();
+      router.push('/combined-booking-page');
+    } else {
+      alert(data.message || 'Booking failed');
     }
-  };
+  } catch (error) {
+    console.error('Error during booking:', error);
+    alert('An error occurred. Please try again.');
+  }
+};
+
   
 
       const data = await response.json();

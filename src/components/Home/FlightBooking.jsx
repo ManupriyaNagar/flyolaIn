@@ -111,21 +111,24 @@ export default function FlightBooking() {
     airportFetchError;
 
   return (
-    <div
-      className="relative flex flex-col items-center justify-center min-h-screen p-4 bg-gradient-to-br from-gray-900 to-gray-800"
-      style={{
-        backgroundImage: "url('/back.jpg')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundBlendMode: "overlay",
-      }}
-    >
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="relative z-10 w-full max-w-7xl mx-auto"
-      >
+    <div className="relative flex flex-col items-center justify-center min-h-screen p-4">
+      {/* Video Background */}
+      <div className="absolute inset-0 w-full h-full overflow-hidden">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute min-w-full min-h-full object-cover"
+         
+        >
+          <source src="/backgroundvideo.mp4" type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 " />
+      </div>
+      
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-7xl mx-auto">
         <Card className="bg-white/90 backdrop-blur-lg shadow-2xl rounded-3xl border border-gray-200/50 mx-4 sm:mx-6 md:mx-20 lg:mx-40 py-6 sm:py-8 px-4 sm:px-6">
           <CardContent className="p-4 sm:p-6 flex flex-col gap-6">
             <div className="text-center">
@@ -553,7 +556,7 @@ export default function FlightBooking() {
             
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
     </div>
   );
 }
