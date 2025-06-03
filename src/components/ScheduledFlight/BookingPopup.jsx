@@ -22,7 +22,7 @@ const BookingPopup = ({ closePopup, passengerData, departure, arrival, selectedD
   const childDiscount = 0.5;
   const infantFee = 10;
   const totalPassengers = passengers.adults + passengers.children;
-  const allSeats = flightSchedule.allSeats || ["S1", "S2", "S3", "S4", "S5", "S6"]; // Use allSeats from props
+  const allSeats = flightSchedule.allSeats || ["S1", "S2", "S3", "S4", "S5", "S6"];
 
   const isValidISODate = useCallback((date) => /^\d{4}-\d{2}-\d{2}$/.test(date), []);
   const formattedDate = useMemo(
@@ -139,8 +139,8 @@ const BookingPopup = ({ closePopup, passengerData, departure, arrival, selectedD
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-gray-800">Book Your Flight</h2>
           <button
