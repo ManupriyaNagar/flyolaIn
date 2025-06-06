@@ -36,7 +36,7 @@ export default function PaymentStep({
 
   const totalPassengers = travelerDetails.length;
   const userId = authState.user?.id;
-  const isAdmin = authState.user?.role === "1";
+  const isAdmin = authState.user?.role === 1; // Updated to use number comparison
 
   useEffect(() => {
     async function fetchSeats() {
@@ -102,10 +102,10 @@ export default function PaymentStep({
   }, [bookingData.id, bookingData.selectedDate, totalPassengers]);
 
   function toPaise(rs) {
-    return Math.round(parseFloat(rs) * 1);
+    return Math.round(parseFloat(rs) * 100); // Fixed: Convert rupees to paise correctly
   }
 
-  function loadRazorpay() {
+  async function loadRazorpay() {
     return new Promise((resolve) => {
       const script = document.createElement("script");
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
@@ -120,6 +120,10 @@ export default function PaymentStep({
       alert(`Please select exactly ${totalPassengers} seat(s).`);
       return;
     }
+    if (availableSeats.length < totalPassengers) {
+      alert("Not enough seats available. Please select another flight.");
+      return;
+    }
 
     const totalPrice = parseFloat(bookingData.totalPrice);
     if (!Number.isFinite(totalPrice) || totalPrice <= 0) {
@@ -129,6 +133,7 @@ export default function PaymentStep({
     }
 
     setIsProcessing(true);
+    console.log(`Processing booking with mode: ${isAdmin ? "ADMIN" : "RAZORPAY"}`);
 
     try {
       const seatResp = await fetch(
@@ -217,7 +222,10 @@ export default function PaymentStep({
             body: JSON.stringify(payload),
           }
         );
-        if (!finalResp.ok) throw new Error(`Booking failed: ${await finalResp.text()}`);
+        if (!finalResp.ok) {
+          const errorText = await finalResp.text();
+          throw new Error(`Booking failed: ${errorText}`);
+        }
         const result = await finalResp.json();
         setIsProcessing(false);
         onConfirm(result);
@@ -283,7 +291,7 @@ export default function PaymentStep({
             },
           },
           theme: {
-            color: "#1E3A8A", // Blue theme for consistency
+            color: "#1E3A8A",
           },
         };
         const rzp = new window.Razorpay(options);

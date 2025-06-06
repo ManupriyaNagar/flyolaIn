@@ -37,7 +37,6 @@ const fmtDateLong = (iso) =>
     timeZone: tz,
   });
 
-// Generate seat labels based on seat limit (e.g., 6 seats → ["S1", "S2", ..., "S6"])
 const generateSeatLabels = (seatLimit) => {
   return Array.from({ length: seatLimit }, (_, i) => `S${i + 1}`);
 };
@@ -45,20 +44,21 @@ const generateSeatLabels = (seatLimit) => {
 const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selectedDate, passengers }) => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [availableSeats, setAvailableSeats] = useState([]);
+  const [isBookingDisabled, setIsBookingDisabled] = useState(false);
+  const [isDeparted, setIsDeparted] = useState(false);
 
   const flight = useMemo(
     () =>
       flights.find((f) => f.id === flightSchedule.flight_id) || {
         id: flightSchedule.flight_id,
         flight_number: "Unknown",
-        seat_limit: 6, // Default to 6 if not found
+        seat_limit: 6,
         status: flightSchedule.status || 0,
         stops: [],
       },
     [flights, flightSchedule.flight_id, flightSchedule.status]
   );
 
-  // Generate all possible seat labels based on seat_limit
   const allSeats = useMemo(() => generateSeatLabels(flight.seat_limit || 6), [flight.seat_limit]);
 
   if ((flight.status !== 0 && flight.status !== 1) || (flightSchedule.status !== 0 && flightSchedule.status !== 1)) {
@@ -103,12 +103,10 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
       }
       const data = await response.json();
       const seats = Array.isArray(data.availableSeats) ? data.availableSeats : allSeats;
-      // Ensure seats are valid and within seat_limit
       const validSeats = seats.filter((seat) => allSeats.includes(seat));
       setAvailableSeats(validSeats);
     } catch (err) {
       console.warn(`Failed to fetch seats for schedule ${flightSchedule.id}: ${err.message}`);
-      // Fallback to all seats if API fails (assume none are booked)
       setAvailableSeats(allSeats);
     }
   }, [flightSchedule.id, selectedDate, allSeats, authState.token]);
@@ -132,6 +130,41 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
     return () => window.removeEventListener("seats-updated", handleSeatUpdate);
   }, [flightSchedule.id, selectedDate, allSeats]);
 
+  useEffect(() => {
+    const checkBookingStatus = () => {
+      const now = new Date();
+      const istTime = new Date(now.toLocaleString("en-US", { timeZone: tz }));
+      const hours = istTime.getHours();
+      const minutes = istTime.getMinutes();
+      const currentTimeInMinutes = hours * 60 + minutes;
+      const currentDate = istTime.toISOString().split("T")[0];
+
+      // Check if current date matches selected date and time is after 9 AM IST (09:00)
+      const isAfter9AM = selectedDate === currentDate && currentTimeInMinutes >= 9 * 60;
+
+      // Parse flight departure time
+      let departureTimeInMinutes;
+      try {
+        const departureTime = fmtTime(flightSchedule.departure_time);
+        const [depHours, depMinutes] = departureTime.split(":").map(Number);
+        departureTimeInMinutes = depHours * 60 + depMinutes;
+      } catch {
+        departureTimeInMinutes = Infinity; // Fallback if time parsing fails
+      }
+
+      // Check if flight has departed
+      const isFlightDeparted =
+        selectedDate === currentDate && currentTimeInMinutes >= departureTimeInMinutes;
+
+      setIsBookingDisabled(isAfter9AM || isFlightDeparted);
+      setIsDeparted(isFlightDeparted);
+    };
+
+    checkBookingStatus();
+    const interval = setInterval(checkBookingStatus, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [flightSchedule.departure_time, selectedDate]);
+
   const handleBookNowClick = useCallback(() => {
     if (!authState.isLoggedIn) {
       alert("Please log in to book a flight.");
@@ -145,8 +178,12 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
       alert(`Only ${availableSeats.length} seat(s) left. Please reduce passengers.`);
       return;
     }
+    if (isBookingDisabled) {
+      alert(isDeparted ? "This flight has departed." : "Booking is closed after 9 AM IST on the departure date.");
+      return;
+    }
     setIsPopupOpen(true);
-  }, [authState.isLoggedIn, isSoldOut, availableSeats, passengers]);
+  }, [authState.isLoggedIn, isSoldOut, availableSeats, passengers, isBookingDisabled, isDeparted]);
 
   const closePopup = useCallback(() => {
     setIsPopupOpen(false);
@@ -155,7 +192,7 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
   return (
     <motion.div
       className={`w-full max-w-6xl mx-auto rounded-xl shadow-md border border-blue-100 bg-white p-6 transition-all ${
-        isSoldOut ? "opacity-80" : "hover:shadow-lg"
+        isSoldOut || isBookingDisabled ? "opacity-80" : "hover:shadow-lg"
       }`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -182,7 +219,7 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
             <FaClock className="text-gray-600" />
             {fmtTime(flightSchedule.departure_time)} - {fmtTime(flightSchedule.arrival_time)}
             <span className="text-sm text-green-700 bg-green-100 px-2 py-1 rounded-full ml-3 font-medium">
-              Scheduled
+              {isDeparted ? "Departed" : "Scheduled"}
             </span>
           </p>
           <div className="flex items-center justify-center gap-2 text-gray-800">
@@ -223,13 +260,13 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
           <button
             onClick={handleBookNowClick}
             className={`w-full md:w-auto px-4 py-3 text-white rounded-lg text-base font-semibold transition-colors ${
-              isSoldOut
+              isSoldOut || isBookingDisabled
                 ? "bg-gray-500 cursor-not-allowed"
                 : "bg-green-600 hover:bg-green-700"
             }`}
-            disabled={isSoldOut || availableSeats.length < passengers}
+            disabled={isSoldOut || isBookingDisabled}
           >
-            {isSoldOut ? "Sold Out" : "Book Now"}
+            {isDeparted ? "Departed" : isSoldOut ? "Sold Out" : "Book Now"}
           </button>
         </div>
       </div>
