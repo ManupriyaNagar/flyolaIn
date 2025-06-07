@@ -16,7 +16,7 @@ import {
   FaCog,
   FaTicketAlt,
 } from "react-icons/fa";
-import { Home } from "lucide-react";
+import { Home, ToyBrickIcon } from "lucide-react";
 import Link from "next/link";
 
 const normalizePath = (path) => path.replace(/\/+$/, "");
@@ -101,15 +101,7 @@ export default function AdminDashboardLayout({ children }) {
             <FaHome className="text-indigo-300" />
             Home
           </Link>
-          <Link
-            href="/admin-dashboard/bookflight"
-            className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
-              isActive("/admin-dashboard/bookflight") ? activeClass : "hover:bg-indigo-700 text-white"
-            }`}
-          >
-            <FaPlane className="text-indigo-300" />
-            Book Flight
-          </Link>
+       
           <Link
             href="/admin-dashboard/add-airport"
             className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
@@ -172,6 +164,27 @@ export default function AdminDashboardLayout({ children }) {
           >
             <FaTicketAlt className="text-indigo-300" />
             Get Ticket
+          </Link>
+
+
+           <Link
+            href="/admin-dashboard/bookid-joyride"
+            className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
+              isActive("/admin-dashboard/bookid-joyride") ? activeClass : "hover:bg-indigo-700 text-white"
+            }`}
+          >
+            <ToyBrickIcon className="text-indigo-300" />
+            Joy Ride
+          </Link>
+
+           <Link
+            href="/admin-dashboard/all-joyride-slots"
+            className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
+              isActive("/admin-dashboard/all-joyride-slots") ? activeClass : "hover:bg-indigo-700 text-white"
+            }`}
+          >
+            <ToyBrickIcon className="text-indigo-300" />
+            All Joy Ride
           </Link>
         </nav>
       </aside>

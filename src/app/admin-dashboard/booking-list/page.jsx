@@ -8,6 +8,8 @@ import * as XLSX from "xlsx";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { debounce } from "lodash";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import BASE_URL from "@/baseUrl/baseUrl";
 
 const BOOKINGS_PER_PAGE = 50;
@@ -22,15 +24,21 @@ export default function AllBookingsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [airportMap, setAirportMap] = useState({});
+  const [paymentMap, setPaymentMap] = useState({});
+  const [agentMap, setAgentMap] = useState({});
+  const [selectedAgent, setSelectedAgent] = useState("all"); // New state for agent filter
   const [downloadRange, setDownloadRange] = useState("page");
   const [error, setError] = useState(null);
+  const [bookingDateRange, setBookingDateRange] = useState([null, null]);
+
+  const [startBookingDate, endBookingDate] = bookingDateRange;
 
   // Redirect if not admin
   useEffect(() => {
-    if (!authState.isLoading && (!authState.isLoggedIn || String(authState.userRole) !== "1")) {
+    if (!authState.isLoading && (!authState.isLoggedIn || authState.userRole !== "1")) {
       router.push("/sign-in");
     }
-  }, [authState, router]);
+  }, [authState.isLoading, authState.isLoggedIn, authState.userRole]);
 
   // Debounced search handler
   const debouncedSearch = useCallback(
@@ -41,16 +49,11 @@ export default function AllBookingsPage() {
     []
   );
 
+  // Fetch data
   useEffect(() => {
-    if (
-      authState.isLoading ||
-      !authState.isLoggedIn ||
-      String(authState.userRole) !== "1"
-    ) {
-      return;
-    }
+    if (authState.isLoading || !authState.isLoggedIn || authState.userRole !== "1") return;
 
-    async function fetchAllData() {
+    const fetchAllData = async () => {
       setIsLoading(true);
       setError(null);
 
@@ -63,55 +66,54 @@ export default function AllBookingsPage() {
           },
         };
 
-        const [bookingsRes, seatRes, paxRes, airportRes] = await Promise.all([
-          fetch(`${BASE_URL}/bookings?status=${status}`, commonOpts),
-          fetch(`${BASE_URL}/booked-seat`, commonOpts).catch(() => ({ ok: false, status: 404 })),
-          fetch(`${BASE_URL}/passenger`, commonOpts),
-          fetch(`${BASE_URL}/airport`, commonOpts),
-        ]);
+        const endpoints = [
+          `${BASE_URL}/bookings?status=${status}`,
+          `${BASE_URL}/booked-seat`,
+          `${BASE_URL}/passenger`,
+          `${BASE_URL}/airport`,
+          `${BASE_URL}/agents`,
+          `${BASE_URL}/payments`,
+          `http://localhost:4000/flights`,
+        ];
 
-        if (!bookingsRes.ok || !paxRes.ok || !airportRes.ok) {
-          throw new Error(
-            `Fetch failed: Bookings=${bookingsRes.status}, Seats=${seatRes.status}, Passengers=${paxRes.status}, Airports=${airportRes.status}`
-          );
-        }
+        const responses = await Promise.all(
+          endpoints.map((url) =>
+            fetch(url, commonOpts).catch(() => ({ ok: false, status: 404 }))
+          )
+        );
 
-        const [bookingsData, seatData, paxData, airportData] = await Promise.all([
-          bookingsRes.json(),
-          seatRes.ok ? seatRes.json() : Promise.resolve([]),
-          paxRes.json(),
-          airportRes.json(),
-        ]);
+        const data = await Promise.all(
+          responses.map((res, index) =>
+            res.ok ? res.json() : index === 1 ? [] : Promise.reject(new Error(`Fetch failed: ${endpoints[index]} - ${res.status}`))
+          )
+        );
 
-        console.log("Bookings Data:", bookingsData);
-        console.log("Seat Data:", seatData);
-        console.log("Passenger Data:", paxData);
-        console.log("Airport Data:", airportData);
+        const [bookingsData, seatData, paxData, airportData, agentData, paymentData, flightsData] = data;
 
-        if (!seatRes.ok) {
-          console.warn(`Booked-seat API returned ${seatRes.status}. Using bookings data for FlightSchedule and seats.`);
-          toast.warn("Unable to load booked seat data. Using available booking information.");
-        }
+        // Create mappings
+        const flightMap = Object.fromEntries(
+          (flightsData || []).filter(f => f.id && f.flight_number && f.status === 1).map((f) => [f.id, f.flight_number])
+        );
+        const airportMap = Object.fromEntries(
+          (airportData || []).filter(a => a.id && a.airport_name).map((a) => [a.id, a.airport_name])
+        );
+        const agentMap = Object.fromEntries(
+          (agentData || []).filter(a => a.id && a.agentId).map((a) => [a.id, a.agentId])
+        );
+        const paymentMap = Object.fromEntries(
+          (paymentData || []).filter(p => p.booking_id && p.transaction_id).map((p) => [p.booking_id, p.transaction_id])
+        );
 
-        const map = {};
-        (airportData || []).forEach((a) => {
-          if (a?.id && a?.airport_name) {
-            map[a.id] = a.airport_name;
-          }
-        });
-        setAirportMap(map);
+        setAirportMap(airportMap);
+        setPaymentMap(paymentMap);
+        setAgentMap(agentMap);
 
         const merged = (bookingsData || [])
           .map((booking) => {
             const matchSeat = (seatData || []).find(
-              (s) =>
-                s?.schedule_id === booking?.schedule_id &&
-                s?.bookDate === booking?.bookDate
+              (s) => s?.schedule_id === booking?.schedule_id && s?.bookDate === booking?.bookDate
             ) || {};
-            const passengers = (paxData || []).filter(
-              (p) => p?.bookingId === booking?.id
-            );
-
+            const passengers = (paxData || []).filter((p) => p?.bookingId === booking?.id);
             const flightSchedule = booking.FlightSchedule || matchSeat.FlightSchedule || {};
             const depId = flightSchedule.departure_airport_id;
             const arrId = flightSchedule.arrival_airport_id;
@@ -120,46 +122,37 @@ export default function AllBookingsPage() {
               ? booking.BookedSeats.map((s) => s.seat_label).join(", ")
               : "N/A";
 
-            const flightNumber = flightSchedule.Flight?.flight_number || "N/A";
-            const billingName = booking.billing?.billing_name || "N/A";
-            const paymentMode = booking.Payments?.[0]?.payment_mode || "N/A";
-
-            if (!booking.FlightSchedule && !matchSeat.FlightSchedule) {
-              console.warn(`Booking ${booking.bookingNo} is missing FlightSchedule data.`);
-            }
-
             return {
               ...booking,
               FlightSchedule: flightSchedule,
               booked_seat: seatLabels,
               passengers,
-              flightNumber,
-              billingName,
-              paymentMode,
-              departureAirportName: depId && map[depId] ? map[depId] : "N/A",
-              arrivalAirportName: arrId && map[arrId] ? map[arrId] : "N/A",
+              flightNumber: flightMap[booking.schedule_id] || "N/A",
+              billingName: booking.billing?.billing_name || "N/A",
+              paymentMode: booking.Payments?.[0]?.payment_mode || booking.pay_mode || "N/A",
+              agentId: booking.agentId ? agentMap[booking.agentId] || "FLYOLA" : "FLYOLA",
+              transactionId: booking.transactionId || paymentMap[booking.id] || "N/A",
+              departureAirportName: depId && airportMap[depId] ? airportMap[depId] : "N/A",
+              arrivalAirportName: arrId && airportMap[arrId] ? airportMap[arrId] : "N/A",
             };
           })
-          .sort(
-            (a, b) =>
-              new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime()
-          );
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
         setAllData(merged);
         setCurrentPage(1);
       } catch (err) {
-        console.error("Error fetching data:", err);
+        console.error("Error fetching data:", err.message);
         setError("Failed to load data. Please try again.");
         toast.error("Failed to load data. Please try again.");
       } finally {
         setIsLoading(false);
       }
-    }
+    };
 
     fetchAllData();
   }, [status, authState.isLoggedIn, authState.userRole]);
 
-  // Helper function to get date boundaries
+  // Date filter helper
   const getDateFilterRange = (filter) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -169,107 +162,88 @@ export default function AllBookingsPage() {
     yesterday.setDate(today.getDate() - 1);
 
     switch (filter) {
-      case "today":
-        return { start: today, end: today };
-      case "tomorrow":
-        return { start: tomorrow, end: tomorrow };
-      case "yesterday":
-        return { start: yesterday, end: yesterday };
-      default:
-        return null;
+      case "today": return { start: today, end: today };
+      case "tomorrow": return { start: tomorrow, end: tomorrow };
+      case "yesterday": return { start: yesterday, end: yesterday };
+      case "custom": return startBookingDate && endBookingDate ? { start: startBookingDate, end: endBookingDate } : null;
+      default: return null;
     }
   };
 
-  // Search and date filtering
+  // Filtered data
   const filteredData = useMemo(() => {
     let data = allData;
 
-    // Apply search term filter
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      data = data.filter((item) => {
-        const bookingNo = item.bookingNo?.toString().toLowerCase() ?? "";
-        const pnr = item.pnr?.toLowerCase() ?? "";
-        const email = item.email_id?.toLowerCase() ?? "";
-        const contact = item.contact_no?.toString().toLowerCase() ?? "";
-        const passengerNames =
-          item.passengers?.map((p) => p.name?.toLowerCase()).join(" ") ?? "";
-        const billingName = item.billingName?.toLowerCase() ?? "";
-        return (
-          bookingNo.includes(term) ||
-          pnr.includes(term) ||
-          email.includes(term) ||
-          contact.includes(term) ||
-          passengerNames.includes(term) ||
-          billingName.includes(term)
-        );
-      });
+    // Agent filter
+    if (selectedAgent !== "all") {
+      data = data.filter((item) => item.agentId === selectedAgent);
     }
 
-    // Apply date filter
-    if (downloadRange === "today" || downloadRange === "tomorrow" || downloadRange === "yesterday") {
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      data = data.filter((item) =>
+        [
+          item.bookingNo?.toString().toLowerCase(),
+          item.pnr?.toLowerCase(),
+          item.email_id?.toLowerCase(),
+          item.contact_no?.toString().toLowerCase(),
+          item.passengers?.map((p) => p.name?.toLowerCase()).join(" "),
+          item.billingName?.toLowerCase(),
+          item.transactionId?.toLowerCase(),
+          item.agentId?.toLowerCase(),
+        ].some((field) => field?.includes(term))
+      );
+    }
+
+    if (["today", "tomorrow", "yesterday", "custom"].includes(downloadRange)) {
       const dateRange = getDateFilterRange(downloadRange);
       if (dateRange) {
         data = data.filter((item) => {
-          const bookDate = new Date(item.bookDate);
-          bookDate.setHours(0, 0, 0, 0);
+          const createdAt = new Date(item.created_at);
+          createdAt.setHours(0, 0, 0, 0);
           return (
-            bookDate.getTime() >= dateRange.start.getTime() &&
-            bookDate.getTime() <= dateRange.end.getTime()
+            createdAt.getTime() >= dateRange.start.getTime() &&
+            createdAt.getTime() <= dateRange.end.getTime()
           );
         });
       }
     } else if (downloadRange.startsWith("month-")) {
-      const [year, month] = downloadRange.split("-").slice(1);
-      data = data.filter((item) => {
-        const date = new Date(item.bookDate);
-        return date.getFullYear() === parseInt(year) && date.getMonth() === parseInt(month) - 1;
-      });
+      const [, year, month] = downloadRange.split("-");
+      data = data.filter(
+        (item) =>
+          new Date(item.created_at).getFullYear() === parseInt(year) &&
+          new Date(item.created_at).getMonth() === parseInt(month) - 1
+      );
     } else if (downloadRange.startsWith("year-")) {
-      const year = downloadRange.split("-")[1];
-      data = data.filter((item) => new Date(item.bookDate).getFullYear() === parseInt(year));
+      const [, year] = downloadRange.split("-");
+      data = data.filter((item) => new Date(item.created_at).getFullYear() === parseInt(year));
     }
 
-    console.log("Filtered Data:", data);
     return data;
-  }, [allData, searchTerm, downloadRange]);
+  }, [allData, searchTerm, downloadRange, startBookingDate, endBookingDate, selectedAgent]);
 
   // Pagination
   const totalPages = Math.ceil(filteredData.length / BOOKINGS_PER_PAGE) || 1;
-  const currentData = useMemo(() => {
-    const start = (currentPage - 1) * BOOKINGS_PER_PAGE;
-    const sliced = filteredData.slice(start, start + BOOKINGS_PER_PAGE);
-    console.log("Current Data:", sliced);
-    return sliced;
-  }, [filteredData, currentPage]);
+  const currentData = useMemo(
+    () => filteredData.slice((currentPage - 1) * BOOKINGS_PER_PAGE, currentPage * BOOKINGS_PER_PAGE),
+    [filteredData, currentPage]
+  );
 
   // Excel export
   const exportToExcel = useCallback(() => {
-    let exportData = [];
-    let filename = `AllBookings_Page_${currentPage}.xlsx`;
+    let exportData = downloadRange === "page" ? currentData : filteredData;
+    let filename = `AllBookings_${downloadRange === "page" ? `Page_${currentPage}` : downloadRange}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}.xlsx`;
 
-    if (downloadRange === "page") {
-      exportData = currentData;
-    } else if (downloadRange === "all") {
-      exportData = filteredData;
-      filename = "AllBookings_AllData.xlsx";
-    } else if (downloadRange === "today") {
-      exportData = filteredData;
-      filename = `AllBookings_Today_${new Date().toLocaleDateString().replace(/\//g, "-")}.xlsx`;
-    } else if (downloadRange === "tomorrow") {
-      exportData = filteredData;
-      filename = `AllBookings_Tomorrow_${new Date(new Date().setDate(new Date().getDate() + 1)).toLocaleDateString().replace(/\//g, "-")}.xlsx`;
-    } else if (downloadRange === "yesterday") {
-      exportData = filteredData;
-      filename = `AllBookings_Yesterday_${new Date(new Date().setDate(new Date().getDate() - 1)).toLocaleDateString().replace(/\//g, "-")}.xlsx`;
+    if (["today", "tomorrow", "yesterday"].includes(downloadRange)) {
+      filename = `AllBookings_${downloadRange}_${new Date().toLocaleDateString().replace(/\//g, '-')}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}.xlsx`;
+    } else if (downloadRange === "custom") {
+      filename = `AllBookings_${startBookingDate?.toLocaleDateString().replace(/\//g, '-')}_to_${endBookingDate?.toLocaleDateString().replace(/\//g, '-')}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}.xlsx`;
     } else if (downloadRange.startsWith("month-")) {
-      const [year, month] = downloadRange.split("-").slice(1);
-      exportData = filteredData;
-      filename = `AllBookings_${year}_${month}.xlsx`;
+      const [, year, month] = downloadRange.split("-");
+      filename = `AllBookings_${year}_${month}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}.xlsx`;
     } else if (downloadRange.startsWith("year-")) {
-      const year = downloadRange.split("-")[1];
-      exportData = filteredData;
-      filename = `AllBookings_${year}.xlsx`;
+      const [, year] = downloadRange.split("-");
+      filename = `AllBookings_${year}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}.xlsx`;
     }
 
     if (!exportData.length) {
@@ -293,6 +267,8 @@ export default function AllBookingsPage() {
       TotalFare: item.totalFare ? parseFloat(item.totalFare).toFixed(2) : "N/A",
       BookingStatus: item.bookingStatus || "N/A",
       PaymentMode: item.paymentMode || "N/A",
+      TransactionId: item.transactionId || "N/A",
+      AgentId: item.agentId || "FLYOLA",
       DepartureTime: item.FlightSchedule?.departure_time || "N/A",
       ArrivalTime: item.FlightSchedule?.arrival_time || "N/A",
       DepartureAirport: item.departureAirportName || "N/A",
@@ -304,7 +280,7 @@ export default function AllBookingsPage() {
     XLSX.utils.book_append_sheet(wb, ws, "AllBookings");
     XLSX.writeFile(wb, filename);
     toast.success("Excel file downloaded successfully!");
-  }, [currentData, filteredData, downloadRange]);
+  }, [currentData, filteredData, downloadRange, startBookingDate, endBookingDate, selectedAgent]);
 
   // Download options
   const downloadOptions = useMemo(() => {
@@ -314,11 +290,12 @@ export default function AllBookingsPage() {
       { value: "today", label: "Today" },
       { value: "tomorrow", label: "Tomorrow" },
       { value: "yesterday", label: "Yesterday" },
+      { value: "custom", label: "Custom Date Range" },
     ];
 
     const yearMonthMap = new Map();
     filteredData.forEach((item) => {
-      const date = new Date(item.bookDate);
+      const date = new Date(item.created_at);
       const year = date.getFullYear();
       const month = date.getMonth() + 1;
       if (!yearMonthMap.has(year)) yearMonthMap.set(year, new Set());
@@ -336,7 +313,16 @@ export default function AllBookingsPage() {
     return options;
   }, [filteredData]);
 
-  // Pagination UI helpers
+  // Agent options
+  const agentOptions = useMemo(() => {
+    const options = [{ value: "all", label: "All Agents" }];
+    Object.entries(agentMap).forEach(([id, agentId]) => {
+      options.push({ value: agentId, label: agentId });
+    });
+    return options;
+  }, [agentMap]);
+
+  // Pagination UI
   const getPaginationItems = () => {
     const items = [];
     const maxButtons = 5;
@@ -345,10 +331,8 @@ export default function AllBookingsPage() {
     if (endPage - startPage + 1 < maxButtons) {
       startPage = Math.max(1, endPage - maxButtons + 1);
     }
-    if (startPage > 1) {
-      items.push(1);
-      if (startPage > 2) items.push("...");
-    }
+    if (startPage > 1) items.push(1);
+    if (startPage > 2) items.push("...");
     for (let i = startPage; i <= endPage; i++) items.push(i);
     if (endPage < totalPages) {
       if (endPage < totalPages - 1) items.push("...");
@@ -362,9 +346,8 @@ export default function AllBookingsPage() {
     router.push(`/booking-details/${bookingId}`);
   };
 
-  // JSX (No changes needed in the JSX as the dropdown already uses downloadOptions)
   return (
-    <div className="px-4 py-8">
+    <div className="px-4 py-8 max-w-[100vw] overflow-x-auto">
       <ToastContainer position="top-right" autoClose={3000} />
       <h2 className="text-3xl font-bold mb-8 text-gray-900">All Bookings Data</h2>
 
@@ -376,8 +359,10 @@ export default function AllBookingsPage() {
             onClick={() => {
               setStatus(filter);
               setSearchTerm("");
+              setSelectedAgent("all");
               setCurrentPage(1);
-              setDownloadRange("page"); // Reset download range when status changes
+              setDownloadRange("page");
+              setBookingDateRange([null, null]);
             }}
             className={`px-5 py-2 rounded-full font-medium transition-all duration-200 ${
               status === filter
@@ -391,37 +376,55 @@ export default function AllBookingsPage() {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative mb-8">
-        <input
-          type="text"
-          onChange={(e) => debouncedSearch(e.target.value)}
-          placeholder="Search by ID, PNR, email, phone, passenger name, or billing name..."
-          className="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow shadow-sm"
-          aria-label="Search all bookings"
-        />
-        {searchTerm && (
-          <button
-            onClick={() => {
-              setSearchTerm("");
-              setCurrentPage(1);
-            }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            aria-label="Clear search"
-          >
-            ✕
-          </button>
-        )}
+      {/* Search and Agent Filter */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-8">
+        <div className="relative flex-1 max-w-2xl">
+          <input
+            type="text"
+            onChange={(e) => debouncedSearch(e.target.value)}
+            placeholder="Search by ID, PNR, email, phone, passenger name, billing name, transaction ID, or agent ID..."
+            className="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow shadow-sm"
+            aria-label="Search all bookings"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setCurrentPage(1);
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              aria-label="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        <select
+          value={selectedAgent}
+          onChange={(e) => {
+            setSelectedAgent(e.target.value);
+            setCurrentPage(1);
+          }}
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="Select agent"
+        >
+          {agentOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* Export */}
+      {/* Date Range Picker and Export */}
       <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-center gap-4">
           <select
             value={downloadRange}
             onChange={(e) => {
               setDownloadRange(e.target.value);
-              setCurrentPage(1); // Reset to page 1 when changing range
+              setCurrentPage(1);
+              if (e.target.value !== "custom") setBookingDateRange([null, null]);
             }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Select download range"
@@ -432,6 +435,33 @@ export default function AllBookingsPage() {
               </option>
             ))}
           </select>
+          {downloadRange === "custom" && (
+            <div className="flex gap-2">
+              <DatePicker
+                selected={startBookingDate}
+                onChange={(date) => setBookingDateRange([date, endBookingDate])}
+                selectsStart
+                startDate={startBookingDate}
+                endDate={endBookingDate}
+                maxDate={endBookingDate || new Date()}
+                placeholderText="Start Booking Date"
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Select start booking date"
+              />
+              <DatePicker
+                selected={endBookingDate}
+                onChange={(date) => setBookingDateRange([startBookingDate, date])}
+                selectsEnd
+                startDate={startBookingDate}
+                endDate={endBookingDate}
+                minDate={startBookingDate}
+                maxDate={new Date()}
+                placeholderText="End Booking Date"
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Select end booking date"
+              />
+            </div>
+          )}
           <button
             onClick={exportToExcel}
             className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 shadow-sm flex items-center gap-2"
@@ -475,32 +505,33 @@ export default function AllBookingsPage() {
           <thead className="bg-gray-50">
             <tr>
               {[
-                "Booking ID",
-                "PNR",
-                "Fly Date",
-                "Booking Date",
-                "Email",
-                "Phone",
-                "Passengers",
-                "Names",
-                "Billing Name",
-                "Sector",
-                "Flight Number",
-                "Seats",
-                "Price",
-                "Status",
-                "Payment",
-                "Dep Time",
-                "Arr Time",
-                "From",
-                "To",
-                "Action",
+                { label: "Booking ID", width: "min-w-[120px]" },
+                { label: "PNR", width: "min-w-[100px]" },
+                { label: "Fly Date", width: "min-w-[120px]" },
+                { label: "Booking Date", width: "min-w-[160px]" },
+                { label: "Email", width: "min-w-[200px]" },
+                { label: "Phone", width: "min-w-[120px]" },
+                { label: "Passengers", width: "min-w-[100px]" },
+                { label: "Names", width: "min-w-[320px]" },
+                { label: "Billing Name", width: "min-w-[200px]" },
+                { label: "Sector", width: "min-w-[100px]" },
+                { label: "Seats", width: "min-w-[120px]" },
+                { label: "Price", width: "min-w-[100px]" },
+                { label: "Status", width: "min-w-[120px]" },
+                { label: "Payment", width: "min-w-[120px]" },
+                { label: "Transaction ID", width: "min-w-[140px]" },
+                { label: "Agent ID", width: "min-w-[120px]" },
+                { label: "Dep Time", width: "min-w-[120px]" },
+                { label: "Arr Time", width: "min-w-[120px]" },
+                { label: "From", width: "min-w-[160px]" },
+                { label: "To", width: "min-w-[160px]" },
+                { label: "Action", width: "min-w-[100px]" },
               ].map((h) => (
                 <th
-                  key={h}
-                  className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                  key={h.label}
+                  className={`px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider ${h.width}`}
                 >
-                  {h}
+                  {h.label}
                 </th>
               ))}
             </tr>
@@ -508,7 +539,7 @@ export default function AllBookingsPage() {
           <tbody className="divide-y divide-gray-100">
             {!error && isLoading ? (
               <tr>
-                <td colSpan={19} className="px-6 py-8 text-center">
+                <td colSpan={22} className="px-6 py-8 text-center">
                   <div className="flex justify-center items-center gap-2">
                     <svg
                       className="animate-spin h-6 w-6 text-blue-500"
@@ -542,27 +573,24 @@ export default function AllBookingsPage() {
                   >
                     {b.bookingNo || "N/A"}
                   </th>
-                  <td className="px-4 py-2">{b.pnr || "N/A"}</td>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2 whitespace-nowrap">{b.pnr || "N/A"}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">
                     {b.bookDate ? new Date(b.bookDate).toLocaleDateString() : "N/A"}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-2 whitespace-nowrap">
                     {b.created_at ? new Date(b.created_at).toLocaleString() : "N/A"}
                   </td>
-                  <td className="px-4 py-2">{b.email_id || "N/A"}</td>
-                  <td className="px-4 py-2">{b.contact_no || "N/A"}</td>
-                  <td className="px-4 py-2">{b.noOfPassengers || "0"}</td>
-                  <td className="px-4 py-2">
-                    {b.passengers?.map((p) => p.name).join(", ") || "N/A"}
-                  </td>
-                  <td className="px-4 py-2">{b.billingName || "N/A"}</td>
-                  <td className="px-4 py-2">{b.schedule_id || "N/A"}</td>
-                  <td className="px-4 py-2">{b.flightNumber || "N/A"}</td>
-                  <td className="px-4 py-2">{b.booked_seat || "N/A"}</td>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2 whitespace-nowrap">{b.email_id || "N/A"}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{b.contact_no || "N/A"}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{b.noOfPassengers || "0"}</td>
+                  <td className="px-4 py-2 whitespace-nowrap w-80">{b.passengers?.map((p) => p.name).join(", ") || "N/A"}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{b.billingName || "N/A"}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{b.schedule_id || "N/A"}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{b.booked_seat || "N/A"}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">
                     {b.totalFare ? `₹${parseFloat(b.totalFare).toFixed(2)}` : "N/A"}
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2 whitespace-nowrap">
                     <span
                       className={`px-2 py-1 text-xs font-medium rounded-full ${
                         b.bookingStatus === "Confirmed"
@@ -577,7 +605,7 @@ export default function AllBookingsPage() {
                       {b.bookingStatus || "N/A"}
                     </span>
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2 whitespace-nowrap">
                     <span
                       className={`px-2 py-1 text-xs font-medium rounded-full ${
                         b.paymentMode === "ADMIN"
@@ -590,11 +618,13 @@ export default function AllBookingsPage() {
                       {b.paymentMode || "N/A"}
                     </span>
                   </td>
-                  <td className="px-4 py-2">{b.FlightSchedule?.departure_time || "N/A"}</td>
-                  <td className="px-4 py-2">{b.FlightSchedule?.arrival_time || "N/A"}</td>
-                  <td className="px-4 py-2">{b.departureAirportName || "N/A"}</td>
-                  <td className="px-4 py-2">{b.arrivalAirportName || "N/A"}</td>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2 whitespace-nowrap">{b.transactionId || "N/A"}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{b.agentId || "FLYOLA"}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{b.FlightSchedule?.departure_time || "N/A"}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{b.FlightSchedule?.arrival_time || "N/A"}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{b.departureAirportName || "N/A"}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{b.arrivalAirportName || "N/A"}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">
                     <button
                       onClick={() => handleViewBooking(b.id)}
                       className="px-2 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
@@ -607,8 +637,8 @@ export default function AllBookingsPage() {
               ))
             ) : (
               <tr>
-                <td colSpan={19} className="px-6 py-8 text-center text-gray-500">
-                  {searchTerm || downloadRange !== "page" ? "No records match your filters." : "No records available."}
+                <td colSpan={22} className="px-6 py-8 text-center text-gray-500">
+                  {searchTerm || downloadRange !== "page" || selectedAgent !== "all" ? "No records match your filters." : "No records available."}
                 </td>
               </tr>
             )}

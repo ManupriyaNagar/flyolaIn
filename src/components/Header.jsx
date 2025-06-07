@@ -28,10 +28,12 @@ const NAV_ITEMS = [
   { name: "Personal Charter", path: "/personal-charter" },
   { name: "Hire Charter", path: "/hire-charter" },
   { name: "Business Class Charter", path: "/business-class-charter" },
-  { name: "Jet Hire", path: "/jet-hire" },
+
   { name: "Helicopter Hire", path: "/helicopter-hire" },
   { name: "Marriage", path: "/hire-for-marriage" },
+    { name: "Download Ticket", path: "/get-ticket" },
   { name: "Download Schedule", path: "/schedule-final.pdf", download: true },
+
 ];
 
 // Mobile menu toggle button

@@ -9,6 +9,8 @@ import "react-toastify/dist/ReactToastify.css";
 import TicketView from "./../../../components/Ticket/TicketView"; // Adjust path as needed
 import BASE_URL from "@/baseUrl/baseUrl";
 import { FaPlane } from "react-icons/fa";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 const Page = () => {
   const { authState } = useAuth();
@@ -19,6 +21,9 @@ const Page = () => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [airportMap, setAirportMap] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
+  const [dateFilter, setDateFilter] = useState("all"); // New state for date filter
+  const [dateRange, setDateRange] = useState([null, null]); // New state for custom date range
+  const [startDate, endDate] = dateRange;
   const itemsPerPage = 10;
 
   // Redirect if not admin
@@ -88,7 +93,6 @@ const Page = () => {
           airportRes.ok ? airportRes.json() : [],
         ]);
 
-       
         // Build airport map
         const map = {};
         (airportData || []).forEach((a) => {
@@ -157,10 +161,54 @@ const Page = () => {
     fetchBookings();
   }, [authState.isLoggedIn, authState.userRole, authState.isLoading]);
 
+  // Helper function to get date boundaries
+  const getDateFilterRange = (filter) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    switch (filter) {
+      case "today":
+        return { start: today, end: today };
+      case "tomorrow":
+        return { start: tomorrow, end: tomorrow };
+      case "yesterday":
+        return { start: yesterday, end: yesterday };
+      case "custom":
+        return startDate && endDate ? { start: startDate, end: endDate } : null;
+      default:
+        return null;
+    }
+  };
+
+  // Filter bookings by date
+  const filteredBookings = React.useMemo(() => {
+    let data = bookings;
+
+    if (["today", "tomorrow", "yesterday", "custom"].includes(dateFilter)) {
+      const dateRange = getDateFilterRange(dateFilter);
+      if (dateRange) {
+        data = data.filter((booking) => {
+          const bookDate = new Date(booking.bookDate);
+          bookDate.setHours(0, 0, 0, 0);
+          return (
+            bookDate.getTime() >= dateRange.start.getTime() &&
+            bookDate.getTime() <= dateRange.end.getTime()
+          );
+        });
+      }
+    }
+
+    return data;
+  }, [bookings, dateFilter, startDate, endDate]);
+
   // Calculate paginated bookings
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentBookings = bookings.slice(startIndex, startIndex + itemsPerPage);
-  const totalPages = Math.ceil(bookings.length / itemsPerPage) || 1;
+  const currentBookings = filteredBookings.slice(startIndex, startIndex + itemsPerPage);
+  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage) || 1;
 
   // Handle page change
   const handlePageChange = (newPage) => {
@@ -175,6 +223,82 @@ const Page = () => {
       <h1 style={{ fontSize: "24px", fontWeight: "600", color: "#1f2937", marginBottom: "24px", textAlign: "center" }}>
         Booking List
       </h1>
+
+      {/* Date Filter */}
+      <div style={{ marginBottom: "24px", display: "flex", flexWrap: "wrap", gap: "16px", alignItems: "center" }}>
+        <select
+          value={dateFilter}
+          onChange={(e) => {
+            setDateFilter(e.target.value);
+            setCurrentPage(1);
+            if (e.target.value !== "custom") {
+              setDateRange([null, null]);
+            }
+          }}
+          style={{
+            padding: "8px 16px",
+            border: "1px solid #d1d5db",
+            borderRadius: "8px",
+            fontSize: "14px",
+            backgroundColor: "#ffffff",
+            cursor: "pointer",
+          }}
+          aria-label="Select date filter"
+        >
+          <option value="all">All Dates</option>
+          <option value="today">Today</option>
+          <option value="tomorrow">Tomorrow</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="custom">Custom Date Range</option>
+        </select>
+        {dateFilter === "custom" && (
+          <div style={{ display: "flex", gap: "8px" }}>
+            <DatePicker
+              selected={startDate}
+              onChange={(date) => {
+                setDateRange([date, endDate]);
+                setCurrentPage(1);
+              }}
+              selectsStart
+              startDate={startDate}
+              endDate={endDate}
+              maxDate={endDate || new Date()}
+              placeholderText="Start Date"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{
+                padding: "8px 16px",
+                border: "1px solid #d1d5db",
+                borderRadius: "8px",
+                fontSize: "14px",
+                backgroundColor: "#ffffff",
+              }}
+              aria-label="Select start date"
+            />
+            <DatePicker
+              selected={endDate}
+              onChange={(date) => {
+                setDateRange([startDate, date]);
+                setCurrentPage(1);
+              }}
+              selectsEnd
+              startDate={startDate}
+              endDate={endDate}
+              minDate={startDate}
+              maxDate={new Date()}
+              placeholderText="End Date"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{
+                padding: "8px 16px",
+                border: "1px solid #d1d5db",
+                borderRadius: "8px",
+                fontSize: "14px",
+                backgroundColor: "#ffffff",
+              }}
+              aria-label="Select end date"
+            />
+          </div>
+        )}
+      </div>
 
       {/* Error Message and Retry Button */}
       {error && (
@@ -239,7 +363,7 @@ const Page = () => {
             ) : currentBookings.length === 0 && !error ? (
               <tr>
                 <td colSpan={3} style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>
-                  No bookings found.
+                  {dateFilter !== "all" ? "No bookings match your date filter." : "No bookings found."}
                 </td>
               </tr>
             ) : (
