@@ -72,7 +72,7 @@ export default function JoyrideBookingPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-8">
-      <div className="w-full max-w-4xl bg-white shadow-lg rounded-lg p-6">
+      <div className="w-full max-w-6xl bg-white shadow-lg rounded-lg p-6">
         <h1 className="text-3xl font-bold text-center mb-6">Book Your Helicopter Joyride</h1>
         {error && <p className="text-red-500 mb-4">{error}</p>}
         {selectedSlot ? (

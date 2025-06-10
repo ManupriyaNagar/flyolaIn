@@ -13,7 +13,7 @@ const SignInPage = () => {
     console.log("[SignInPage] authState:", authState);
     if (authState.isLoggedIn) {
       const redirectPath =
-        authState.userRole === "1" ? "/admin-dashboard" : "/scheduled-flight";
+        authState.userRole === "1" ? "/admin-dashboard" : "/";
       console.log("[SignInPage] Redirecting to:", redirectPath);
       router.push(redirectPath);
     }
