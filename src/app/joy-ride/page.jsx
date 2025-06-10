@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/components/AuthContext';
 import { useRouter } from 'next/navigation';
 import PassengerSelection from './../../components/Joyride/PassengerSelection';
@@ -9,25 +10,24 @@ import CalendarAndSlots from './../../components/Joyride/CalendarAndSlots';
 export default function JoyrideBookingPage() {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [error, setError] = useState('');
+  const [popup, setPopup] = useState({ show: false, message: '', isError: false });
   const { authState } = useAuth();
   const router = useRouter();
-
-  useEffect(() => {
-    if (!authState.isLoggedIn || authState.userRole !== '3') {
-      console.log('[JoyrideBookingPage] User not logged in or incorrect role:', authState);
-      router.push('/sign-in');
-    }
-  }, [authState, router]);
 
   const handleSlotSelect = (slot) => {
     setSelectedSlot(slot);
     setError('');
   };
 
+  const showPopup = (message, isError = false) => {
+    setPopup({ show: true, message, isError });
+    setTimeout(() => setPopup({ show: false, message: '', isError: false }), 3000); // Auto-close after 3s
+  };
+
   const handleBookingSubmit = async (data) => {
-    if (!authState.user?.id) {
-      console.error('[JoyrideBookingPage] User ID missing in authState:', authState);
-      setError('User not authenticated. Please sign in again.');
+    if (!authState.isLoggedIn || !authState.user?.id) {
+      console.log('[JoyrideBookingPage] User not logged in:', authState);
+      setError('Please sign in to confirm your booking.');
       router.push('/sign-in');
       return;
     }
@@ -40,8 +40,8 @@ export default function JoyrideBookingPage() {
         passengers: data.passengers,
       });
 
-      alert(
-        `Booking and payment confirmed for ${data.passengers[0].name} and ${data.passengers.length} passenger(s) on ${selectedSlot.date} at ${selectedSlot.time} for ₹${data.totalPrice.toFixed(2)}`
+      showPopup(
+        `Booking confirmed for ${data.passengers[0].name} and ${data.passengers.length} passenger(s) on ${selectedSlot.date} at ${selectedSlot.time} for ₹${data.totalPrice.toFixed(2)}`
       );
 
       // Save booking data to localStorage
@@ -59,16 +59,12 @@ export default function JoyrideBookingPage() {
       setSelectedSlot(null); // Reset to show CalendarAndSlots
 
       // Redirect to /joy-ride-ticket after successful booking
-      router.push('/joy-ride-ticket');
+      setTimeout(() => router.push('/joy-ride-ticket'), 3000); // Wait for popup
     } catch (err) {
       console.error('[JoyrideBookingPage] Error processing booking:', err.message);
-      setError('An error occurred while confirming the booking');
+      showPopup('An error occurred while confirming the booking', true);
     }
   };
-
-  if (!authState.isLoggedIn) {
-    return null; // Render nothing while redirecting
-  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-8">
@@ -79,7 +75,8 @@ export default function JoyrideBookingPage() {
           <PassengerSelection
             selectedSlot={selectedSlot}
             onSubmit={handleBookingSubmit}
-            userId={authState.user.id}
+            userId={authState.user?.id}
+            showPopup={showPopup}
           />
         ) : (
           <CalendarAndSlots onSlotSelect={handleSlotSelect} />
@@ -89,6 +86,26 @@ export default function JoyrideBookingPage() {
           <p>Contact us for rescheduling or refunds. Partnered with Delhi NCR influencers!</p>
         </div>
       </div>
+      {popup.show && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+          <div
+            className={`p-6 rounded-lg shadow-lg max-w-sm w-full text-center animate-fadeIn ${
+              popup.isError ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
+            }`}
+          >
+            <p>{popup.message}</p>
+          </div>
+        </div>
+      )}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
