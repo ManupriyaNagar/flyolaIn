@@ -22,13 +22,13 @@ export default function PaymentStep({
   const [error, setError] = useState(null);
   const { authState } = useAuth();
   const router = useRouter();
+  const token = localStorage.getItem("token");
 
   // Debug: Log authState to verify role
-  console.log("authState in PaymentStep:", authState);
-
-  const token = authState.token || localStorage.getItem("token");
-  const isAdmin = authState.user?.role === 1; // Admin role check
-  console.log("isAdmin:", isAdmin, "User role:", authState.user?.role);
+  console.log("[PaymentStep] authState:", authState);
+  // Check both user.role and userRole as strings for consistency
+  const isAdmin = authState.user?.role === "1" || authState.userRole === "1";
+  console.log("[PaymentStep] isAdmin:", isAdmin, "User role:", authState.user?.role, "userRole:", authState.userRole);
 
   if (!token) {
     alert("Authentication error: please log in again.");
@@ -67,7 +67,7 @@ export default function PaymentStep({
         );
         setError(null);
       } catch (err) {
-        console.error("Seat fetch error:", err.message);
+        console.error("[PaymentStep] Seat fetch error:", err.message);
         setError(`Failed to load seats: ${err.message}. Please try again or select another flight.`);
         setAvailableSeats([]);
       }
@@ -80,9 +80,9 @@ export default function PaymentStep({
     import("socket.io-client")
       .then(({ io }) => {
         socket = io(BASE_URL, { transports: ["websocket"] });
-        socket.on("connect", () => console.log("WebSocket connected for PaymentStep"));
+        socket.on("connect", () => console.log("[PaymentStep] WebSocket connected"));
         socket.on("seats-updated", ({ schedule_id, bookDate, availableSeats }) => {
-          console.log("Received seats-updated:", { schedule_id, bookDate, availableSeats });
+          console.log("[PaymentStep] Received seats-updated:", { schedule_id, bookDate, availableSeats });
           if (
             schedule_id === Number(bookingData.id) &&
             bookDate === bookingData.selectedDate &&
@@ -95,10 +95,10 @@ export default function PaymentStep({
             setError(null);
           }
         });
-        socket.on("connect_error", (err) => console.error("WebSocket error:", err.message));
+        socket.on("connect_error", (err) => console.error("[PaymentStep] WebSocket error:", err.message));
       })
       .catch((err) => {
-        console.error("Failed to load socket.io-client:", err);
+        console.error("[PaymentStep] Failed to load socket.io-client:", err);
         setError("Real-time seat updates unavailable. Please refresh to see latest seats.");
       });
 
@@ -117,204 +117,217 @@ export default function PaymentStep({
     });
   }
 
-  async function handleBooking(paymentMode) {
-    if (selectedSeats.length !== totalPassengers) {
-      alert(`Please select exactly ${totalPassengers} seat(s).`);
-      return;
-    }
-    if (availableSeats.length < totalPassengers) {
-      alert("Not enough seats available. Please select another flight.");
-      return;
-    }
-
-    const totalPrice = parseFloat(bookingData.totalPrice);
-    if (!Number.isFinite(totalPrice) || totalPrice <= 0) {
-      alert("Error: Total price must be a positive number.");
-      setIsProcessing(false);
-      return;
-    }
-
-    setIsProcessing(true);
-    console.log(`Processing booking with mode: ${paymentMode}`);
-
-    try {
-      // Verify seat availability
-      const seatResp = await fetch(
-        `${BASE_URL}/flight-schedules?user=true&date=${bookingData.selectedDate}`,
-        { headers }
-      );
-      if (!seatResp.ok) throw new Error(`Seat check failed: ${await seatResp.text()}`);
-      const schedules = await seatResp.json();
-      const schedule = schedules.find((f) => f.id === Number(bookingData.id));
-      if (!schedule || schedule.availableSeats < totalPassengers) {
-        throw new Error(`Only ${schedule?.availableSeats || 0} seats available`);
-      }
-
-      // Generate PNR
-      const pnrResp = await fetch(`${BASE_URL}/bookings/generate-pnr`, { headers });
-      if (!pnrResp.ok) throw new Error(`PNR generation failed: ${await pnrResp.text()}`);
-      const { pnr } = await pnrResp.json();
-
-      // Prepare passenger types
-      const types = [
-        ...Array(bookingData.passengers.adults).fill("Adult"),
-        ...Array(bookingData.passengers.children).fill("Child"),
-        ...Array(bookingData.passengers.infants).fill("Infant"),
-      ];
-
-      // Construct payload
-      const payload = {
-        bookedSeat: {
-          bookDate: bookingData.selectedDate,
-          schedule_id: Number(bookingData.id),
-          booked_seat: totalPassengers,
-          seat_labels: selectedSeats,
-        },
-        booking: {
-          pnr,
-          bookingNo: `BOOK${Date.now()}`,
-          contact_no: travelerDetails[0].phone,
-          email_id: travelerDetails[0].email,
-          noOfPassengers: totalPassengers,
-          bookDate: bookingData.selectedDate,
-          schedule_id: Number(bookingData.id),
-          totalFare: totalPrice.toString(),
-          bookedUserId: userId,
-          paymentStatus: paymentMode === "RAZORPAY" ? "PENDING" : "SUCCESS",
-          bookingStatus: paymentMode === "RAZORPAY" ? "PENDING" : "CONFIRMED",
-          agentId: 1, // IRCTC agent
-        },
-        billing: {
-          billing_name: `${travelerDetails[0].title} ${travelerDetails[0].fullName}`,
-          billing_email: travelerDetails[0].email,
-          billing_number: travelerDetails[0].phone,
-          billing_address: travelerDetails[0].address || "N/A",
-          billing_country: "India",
-          billing_state: "N/A",
-          billing_pin_code: "000000",
-          GST_Number: travelerDetails[0].gstNumber || null,
-          user_id: userId,
-        },
-        payment: {
-          transaction_id: `TXN${Date.now()}`,
-          payment_id: null, // Let backend set for ADMIN or DUMMY
-          order_id: null, // Let backend set for ADMIN or DUMMY
-          razorpay_signature: null,
-          payment_status: paymentMode === "RAZORPAY" ? "PENDING" : "SUCCESS",
-          payment_mode: paymentMode,
-          payment_amount: totalPrice.toString(),
-          message: paymentMode === "ADMIN" ? "Admin booking (cash payment received)" : paymentMode === "DUMMY" ? "Dummy booking for testing" : "Initiating payment",
-          user_id: userId,
-        },
-        passengers: travelerDetails.map((t, i) => ({
-          title: t.title,
-          name: t.fullName,
-          type: types[i],
-          dob: t.dateOfBirth || new Date().toISOString().slice(0, 10),
-          age: (() => {
-            const b = new Date(t.dateOfBirth || "");
-            return b.getTime()
-              ? Math.floor((Date.now() - b.getTime()) / 31557600000)
-              : 0;
-          })(),
-        })),
-      };
-
-      if (paymentMode === "ADMIN" || paymentMode === "DUMMY") {
-        // Admin or dummy booking: bypass Razorpay
-        console.log(`${paymentMode} booking: Processing ${paymentMode === "ADMIN" ? "cash payment" : "test booking"}`);
-        const finalResp = await fetch(`${BASE_URL}/bookings/complete-booking`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(payload),
-        });
-        if (!finalResp.ok) {
-          const errorText = await finalResp.text();
-          throw new Error(`Booking failed: ${errorText}`);
-        }
-        const result = await finalResp.json();
-        setIsProcessing(false);
-        console.log(`${paymentMode} booking completed:`, result);
-        onConfirm(result);
-      } else {
-        // Non-admin: proceed with Razorpay
-        if (!(await loadRazorpay())) {
-          throw new Error("Failed to load payment gateway");
-        }
-
-        const orderResp = await fetch(`${BASE_URL}/payments/create-order`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ amount: totalPrice * 1, payment_mode: "RAZORPAY" }), // Convert to paise
-        });
-        if (!orderResp.ok) throw new Error(`Order creation failed: ${await orderResp.text()}`);
-        const { order_id } = await orderResp.json();
-        payload.payment.order_id = order_id;
-
-        const options = {
-          key: RAZORPAY_KEY,
-          amount: totalPrice * 1, // Convert to paise
-          currency: "INR",
-          order_id,
-          name: "Flyola Aviation",
-          description: `${bookingData.departure} → ${bookingData.arrival}`,
-          prefill: {
-            name: `${travelerDetails[0].title} ${travelerDetails[0].fullName}`,
-            email: travelerDetails[0].email,
-            contact: travelerDetails[0].phone,
-          },
-          handler: async (resp) => {
-            try {
-              payload.payment.payment_id = resp.razorpay_payment_id;
-              payload.payment.razorpay_signature = resp.razorpay_signature;
-              payload.payment.payment_status = "SUCCESS";
-              payload.payment.message = "Payment successful";
-              payload.booking.paymentStatus = "SUCCESS";
-              payload.booking.bookingStatus = "CONFIRMED";
-
-              const finalResp = await fetch(`${BASE_URL}/bookings/complete-booking`, {
-                method: "POST",
-                headers,
-                body: JSON.stringify(payload),
-              });
-              if (!finalResp.ok) throw new Error(`Booking failed: ${await finalResp.text()}`);
-              const result = await finalResp.json();
-              setIsProcessing(false);
-              onConfirm(result);
-            } catch (err) {
-              alert(`Booking error: ${err.message}`);
-              setIsProcessing(false);
-            }
-          },
-          modal: {
-            ondismiss: () => {
-              setIsProcessing(false);
-              alert("Payment cancelled");
-            },
-          },
-          theme: {
-            color: "#1E3A8A",
-          },
-        };
-        const rzp = new window.Razorpay(options);
-        rzp.open();
-        rzp.on("payment.failed", (err) => {
-          alert(`Payment failed: ${err.error.description}`);
-          setIsProcessing(false);
-        });
-      }
-    } catch (err) {
-      alert(`Error: ${err.message}`);
-      setIsProcessing(false);
-    }
+ async function handleBooking() {
+  if (selectedSeats.length !== totalPassengers) {
+    alert(`Please select exactly ${totalPassengers} seat(s).`);
+    return;
   }
+  if (availableSeats.length < totalPassengers) {
+    alert("Not enough seats available. Please select another flight.");
+    return;
+  }
+
+  const totalPrice = parseFloat(bookingData.totalPrice);
+  if (!isFinite(totalPrice) || totalPrice <= 0) {
+    alert("Error: Total price must be a positive number.");
+    setIsProcessing(false);
+    return;
+  }
+
+  setIsProcessing(true);
+  console.log(`[PaymentStep] Processing booking for ${isAdmin ? "ADMIN" : "RAZORPAY"}`);
+
+  try {
+    // Verify seat availability
+    const seatResp = await fetch(
+      `${BASE_URL}/flight-schedules?user=true&date=${bookingData.selectedDate}`,
+      { headers }
+    );
+    if (!seatResp.ok) throw new Error(`Seat check failed: ${await seatResp.text()}`);
+    const schedules = await seatResp.json();
+    const schedule = schedules.find((f) => f.id === Number(bookingData.id));
+    if (!schedule || schedule.availableSeats < totalPassengers) {
+      throw new Error(`Only ${schedule?.availableSeats || 0} seats available`);
+    }
+
+    // Generate PNR
+    console.log("[PNR Generation] Fetching from:", `${BASE_URL}/bookings/generate-pnr`);
+    const pnrResp = await fetch(`${BASE_URL}/bookings/generate-pnr`, { headers });
+    const pnrResponseText = await pnrResp.text();
+    console.log("[PNR Generation] Response:", pnrResponseText);
+    if (!pnrResp.ok) throw new Error(`PNR generation failed: ${pnrResponseText}`);
+    const pnrData = JSON.parse(pnrResponseText);
+    const pnr = pnrData.pnr;
+    if (typeof pnr !== 'string' || pnr.length < 6) {
+      throw new Error(`Invalid PNR received: ${pnr}`);
+    }
+    console.log("[PNR Generation] PNR:", pnr);
+
+    // Prepare passenger types
+    const types = [
+      ...Array(bookingData.passengers.adults).fill("Adult"),
+      ...Array(bookingData.passengers.children).fill("Child"),
+      ...Array(bookingData.passengers.infants).fill("Infant"),
+    ];
+
+    // Construct payload
+    const payload = {
+      bookedSeat: {
+        bookDate: bookingData.selectedDate,
+        schedule_id: Number(bookingData.id),
+        booked_seat: totalPassengers,
+        seat_labels: selectedSeats,
+      },
+      booking: {
+        pnr,
+        bookingNo: `BOOK${Date.now()}`,
+        contact_no: travelerDetails[0].phone,
+        email_id: travelerDetails[0].email,
+        noOfPassengers: totalPassengers,
+        bookDate: bookingData.selectedDate,
+        schedule_id: Number(bookingData.id),
+        totalFare: totalPrice.toString(),
+        bookedUserId: userId,
+        paymentStatus: isAdmin ? "SUCCESS" : "PENDING",
+        bookingStatus: isAdmin ? "CONFIRMED" : "PENDING",
+        agentId: 1, // IRCTC agent
+      },
+      billing: {
+        billing_name: `${travelerDetails[0].title} ${travelerDetails[0].fullName}`,
+        billing_email: travelerDetails[0].email,
+        billing_number: travelerDetails[0].phone,
+        billing_address: travelerDetails[0].address || "N/A",
+        billing_country: "India",
+        billing_state: "N/A",
+        billing_pin_code: "000000",
+        GST_Number: travelerDetails[0].gstNumber || null,
+        user_id: userId,
+      },
+      payment: {
+        transaction_id: `TXN${Date.now()}`,
+        payment_id: isAdmin ? `ADMIN_${Date.now()}` : null,
+        order_id: isAdmin ? `ADMIN_${Date.now()}` : null,
+        razorpay_signature: null,
+        payment_status: isAdmin ? "SUCCESS" : "PENDING",
+        payment_mode: isAdmin ? "ADMIN" : "RAZORPAY",
+        payment_amount: totalPrice.toString(),
+        message: isAdmin ? "Admin booking (no payment required)" : "Initiating payment",
+        user_id: userId,
+      },
+      passengers: travelerDetails.map((t, i) => ({
+        title: t.title,
+        name: t.fullName,
+        type: types[i],
+        dob: t.dateOfBirth || new Date().toISOString().slice(0, 10),
+        age: (() => {
+          const b = new Date(t.dateOfBirth || "");
+          return b.getTime()
+            ? Math.floor((Date.now() - b.getTime()) / 31557600000)
+            : 0;
+        })(),
+      })),
+    };
+
+    if (isAdmin) {
+      // Admin booking: bypass Razorpay
+      console.log("[PaymentStep] Admin booking: Processing without payment");
+      const finalResp = await fetch(`${BASE_URL}/bookings/complete-booking`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      });
+      if (!finalResp.ok) {
+        const errorText = await finalResp.text();
+        throw new Error(`Booking failed: ${errorText}`);
+      }
+      const result = await finalResp.json();
+      setIsProcessing(false);
+      console.log("[PaymentStep] Admin booking completed:", result);
+      onConfirm(result);
+    } else {
+      // Non-admin: proceed with Razorpay
+      if (!(await loadRazorpay())) {
+        throw new Error("Failed to load payment gateway");
+      }
+
+      const orderResp = await fetch(`${BASE_URL}/payments/create-order`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ amount: totalPrice * 100, payment_mode: "RAZORPAY" }), // Convert to paise
+      });
+      if (!orderResp.ok) throw new Error(`Order creation failed: ${await orderResp.text()}`);
+      const { order_id } = await orderResp.json();
+      payload.payment.order_id = order_id;
+
+      const options = {
+        key: RAZORPAY_KEY,
+        amount: totalPrice * 100, // Convert to paise
+        currency: "INR",
+        order_id,
+        name: "Flyola Aviation",
+        description: `${bookingData.departure} → ${bookingData.arrival}`,
+        prefill: {
+          name: `${travelerDetails[0].title} ${travelerDetails[0].fullName}`,
+          email: travelerDetails[0].email,
+          contact: travelerDetails[0].phone,
+        },
+        handler: async (resp) => {
+          try {
+            payload.payment.payment_id = resp.razorpay_payment_id;
+            payload.payment.razorpay_signature = resp.razorpay_signature;
+            payload.payment.payment_status = "SUCCESS";
+            payload.payment.message = "Payment successful";
+            payload.booking.paymentStatus = "SUCCESS";
+            payload.booking.bookingStatus = "CONFIRMED";
+
+            const finalResp = await fetch(`${BASE_URL}/bookings/complete-booking`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify(payload),
+            });
+            if (!finalResp.ok) throw new Error(`Booking failed: ${await finalResp.text()}`);
+            const result = await finalResp.json();
+            setIsProcessing(false);
+            onConfirm(result);
+          } catch (err) {
+            alert(`Booking error: ${err.message}`);
+            setIsProcessing(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setIsProcessing(false);
+            alert("Payment cancelled");
+          },
+        },
+        theme: {
+          color: "#1E3A8A",
+        },
+      };
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+      rzp.on("payment.failed", (err) => {
+        alert(`Payment failed: ${err.error.description}`);
+        setIsProcessing(false);
+      });
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+    setIsProcessing(false);
+  }
+}
 
   return (
     <div className="max-w-3xl mx-auto bg-white p-6 rounded shadow">
       <h2 className="text-2xl font-semibold text-indigo-700 mb-4">Make Payment</h2>
+      {isAdmin && (
+        <p className="text-gray-600 mb-4">
+          As an administrator, you will not be charged for this booking.
+        </p>
+      )}
       {isProcessing && (
         <div className="text-center text-gray-600 mb-4">
-          Processing your {isAdmin ? (selectedSeats.length === totalPassengers ? "booking" : "test booking") : "payment"}, please wait...
+          Processing your {isAdmin ? "booking" : "payment"}, please wait...
         </div>
       )}
       {error && <div className="text-red-600 mb-4">{error}</div>}
@@ -385,21 +398,12 @@ export default function PaymentStep({
           Previous
         </button>
         <button
-          onClick={() => handleBooking(isAdmin ? "ADMIN" : "RAZORPAY")}
+          onClick={handleBooking}
           disabled={isProcessing || selectedSeats.length !== totalPassengers || availableSeats.length === 0}
           className="px-6 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
         >
-          {isProcessing ? "Processing…" : isAdmin ? "Confirm Booking (Cash)" : `Pay ₹${bookingData.totalPrice}`}
+          {isProcessing ? "Processing…" : isAdmin ? "Confirm Booking (No Payment)" : `Pay ₹${bookingData.totalPrice}`}
         </button>
-        {isAdmin && (
-          <button
-            onClick={() => handleBooking("DUMMY")}
-            disabled={isProcessing || selectedSeats.length !== totalPassengers || availableSeats.length === 0}
-            className="px-6 py-2 bg-yellow-600 text-white rounded disabled:bg-gray-400"
-          >
-            {isProcessing ? "Processing…" : "Dummy Payment (Test)"}
-          </button>
-        )}
       </div>
     </div>
   );

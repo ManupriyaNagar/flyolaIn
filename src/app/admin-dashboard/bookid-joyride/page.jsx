@@ -5,7 +5,8 @@ import Head from 'next/head';
 
 const AdminJoyrideSlotsPage = () => {
   const [slotData, setSlotData] = useState({
-    date: '',
+    startDate: '',
+    endDate: '',
     time: '',
     seats: 1,
     price: '',
@@ -13,29 +14,39 @@ const AdminJoyrideSlotsPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Handle changes to form inputs
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setSlotData({ ...slotData, [name]: value });
   };
 
+  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
-    if (!slotData.date || !slotData.time || slotData.seats < 0 || slotData.price <= 0) {
-      setError('Date, time, seats, and price are required, and seats must be non-negative, price must be positive');
+    // Validate inputs
+    if (!slotData.startDate || !slotData.endDate || !slotData.time || slotData.seats < 0 || slotData.price <= 0) {
+      setError('Start date, end date, time, seats, and price are required, and seats must be non-negative, price must be positive');
+      return;
+    }
+
+    // Validate startDate is not after endDate
+    if (new Date(slotData.startDate) > new Date(slotData.endDate)) {
+      setError('Start date must not be after end date');
       return;
     }
 
     try {
-      const response = await fetch('http://localhost:4000/api/joyride-slots', {
+const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/joyride-slots`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          date: slotData.date,
+          startDate: slotData.startDate,
+          endDate: slotData.endDate,
           time: slotData.time,
           seats: parseInt(slotData.seats),
           price: parseFloat(slotData.price),
@@ -43,34 +54,43 @@ const AdminJoyrideSlotsPage = () => {
       });
 
       if (response.ok) {
-        setSuccess('Joyride slot created successfully!');
-        setSlotData({ date: '', time: '', seats: 1, price: '' });
+        const data = await response.json();
+        setSuccess(data.message || 'Joyride slots created successfully!');
+        setSlotData({ startDate: '', endDate: '', time: '', seats: 1, price: '' });
       } else {
         const data = await response.json();
-        setError(data.message || 'Failed to create joyride slot');
+        setError(data.error || 'Failed to create joyride slots');
       }
     } catch (err) {
-      setError('An error occurred while creating the joyride slot');
+      setError('An error occurred while creating the joyride slots');
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-8">
-      <Head>
-        <title>Admin - Create Joyride Slots</title>
-        <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-      </Head>
+     
       <div className="w-full max-w-md bg-white shadow-lg rounded-lg p-6">
-        <h1 className="text-2xl font-bold text-center mb-6">Create Joyride Slot</h1>
+        <h1 className="text-2xl font-bold text-center mb-6">Create Joyride Slots</h1>
         {error && <p className="text-red-500 mb-4">{error}</p>}
         {success && <p className="text-green-500 mb-4">{success}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium">Date</label>
+            <label className="block text-sm font-medium">Start Date</label>
             <input
               type="date"
-              name="date"
-              value={slotData.date}
+              name="startDate"
+              value={slotData.startDate}
+              onChange={handleInputChange}
+              className="w-full p-2 border rounded"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">End Date</label>
+            <input
+              type="date"
+              name="endDate"
+              value={slotData.endDate}
               onChange={handleInputChange}
               className="w-full p-2 border rounded"
               required
@@ -116,7 +136,7 @@ const AdminJoyrideSlotsPage = () => {
             type="submit"
             className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700"
           >
-            Create Joyride Slot
+            Create Joyride Slots
           </button>
         </form>
       </div>

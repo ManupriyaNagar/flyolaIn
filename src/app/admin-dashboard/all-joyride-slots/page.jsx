@@ -16,22 +16,23 @@ const AdminJoyrideSlotsManager = () => {
   });
 
   // Fetch all joyride slots
-  const fetchSlots = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const response = await fetch('http://localhost:4000/api/joyride-slots');
-      if (!response.ok) {
-        throw new Error('Failed to fetch slots');
-      }
-      const data = await response.json();
-      setSlots(data);
-    } catch (err) {
-      setError('Error fetching joyride slots');
-    } finally {
-      setLoading(false);
+const fetchSlots = async () => {
+  setLoading(true);
+  setError('');
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/joyride-slots`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch slots');
     }
-  };
+    const data = await response.json();
+    setSlots(data);
+  } catch (err) {
+    setError('Error fetching joyride slots');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // Load slots on component mount
   useEffect(() => {

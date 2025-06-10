@@ -159,9 +159,7 @@ const CalendarAndSlots = ({ onSlotSelect }) => {
   return (
     <div>
       {error && <p className="text-red-500 mb-4">{error}</p>}
-      {
-
-loading && <p className="text-gray-500 mb-4">Loading slots...</p>}
+      {loading && <p className="text-gray-500 mb-4">Loading slots...</p>}
       <div className="mb-6">
         <h2 className="text-xl font-semibold mb-2">Select Date</h2>
         <CustomCalendar selectedDate={selectedDate} setSelectedDate={setSelectedDate} />

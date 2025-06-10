@@ -23,15 +23,18 @@ export default function CombinedBookingPage() {
   const router = useRouter();
   const { authState } = useAuth();
 
-  useEffect(() => {
-    console.log("Checking auth state:", authState);
-    const token = authState.token || localStorage.getItem("token");
-    console.log("Token in CombinedBookingPage:", token);
-    if (!token) {
-      alert("Please log in to continue.");
-      router.push("/sign-in");
-      return;
-    }
+useEffect(() => {
+  console.log("[CombinedBookingPage] authState:", authState); // Debug
+  const token = authState.token || localStorage.getItem("token");
+  console.log("[CombinedBookingPage] Token:", token);
+  console.log("[CombinedBookingPage] User role:", authState.user?.role); // Debug
+  if (!token) {
+    alert("Please log in to continue.");
+    router.push("/sign-in");
+    return;
+  }
+  // ... rest of the code
+
 
     const raw = localStorage.getItem("bookingData");
     if (!raw) {

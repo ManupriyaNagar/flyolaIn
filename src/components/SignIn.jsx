@@ -41,15 +41,16 @@ const SignIn = () => {
         const newAuthState = {
           isLoading: false,
           isLoggedIn: true,
-          user: { id: user.id, email: user.email },
-          userRole: String(user.role),
+          user: { id: user.id, email: user.email, role: String(user.role) }, // Include role
+          userRole: String(user.role), // Keep for compatibility
         };
 
+        console.log("[SignIn] Setting authState:", newAuthState); // Debug
         setAuthState(newAuthState);
         localStorage.setItem("authState", JSON.stringify(newAuthState));
 
-        const redirectPath =
-          user.role === 1 ? "/admin-dashboard" : "/scheduled-flight";
+        const redirectPath = user.role === 1 ? "/admin-dashboard" : "/scheduled-flight";
+        console.log("[SignIn] Redirecting to:", redirectPath);
         router.push(redirectPath);
       } else {
         setErrorMessage(data.error || "Login failed");
@@ -59,7 +60,6 @@ const SignIn = () => {
       setErrorMessage("An error occurred. Please try again.");
     }
   };
-
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     setErrorMessage("");

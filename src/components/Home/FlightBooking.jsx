@@ -538,13 +538,13 @@ export default function FlightBooking() {
                 </a>
               </Button>
 
-           <Button
+         <Button
   asChild
   className="w-full sm:w-auto bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-500 text-white py-3 px-4 text-sm font-semibold rounded-lg flex items-center gap-2 hover:from-yellow-500 hover:to-red-600 transition-all shadow-lg hover:shadow-xl focus:ring-4 focus:ring-pink-300"
 >
-  <a>
+  <Link href="/joy-ride">
     <FaCalendarCheck className="text-lg" /> Joy Ride Booking
-  </a>
+  </Link>
 </Button>
 
 

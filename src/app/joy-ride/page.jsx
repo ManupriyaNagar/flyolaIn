@@ -21,62 +21,47 @@ export default function JoyrideBookingPage() {
 
   const handleSlotSelect = (slot) => {
     setSelectedSlot(slot);
+    setError('');
   };
 
   const handleBookingSubmit = async (data) => {
     if (!authState.user?.id) {
       console.error('[JoyrideBookingPage] User ID missing in authState:', authState);
-      setError('User not authenticated');
-      return;
-    }
-
-    const token = localStorage.getItem('token');
-    if (!token) {
-      console.error('[JoyrideBookingPage] No token found in localStorage');
-      setError('Authentication token missing. Please sign in again.');
+      setError('User not authenticated. Please sign in again.');
       router.push('/sign-in');
       return;
     }
 
     setError('');
     try {
-      console.log('[JoyrideBookingPage] Sending booking request:', {
-        slotId: selectedSlot.id,
-        email: data.email,
-        phone: data.phone,
+      console.log('[JoyrideBookingPage] Booking confirmed:', {
+        bookingId: data.bookingId,
+        payment: data.payment,
         passengers: data.passengers,
-        totalPrice: data.totalPrice,
-        token: token.slice(0, 20) + '...',
-        authState,
       });
-      const response = await fetch('http://localhost:4000/api/joyride-slots/joyride-bookings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        credentials: 'include', // Include cookies for backend authentication
-        body: JSON.stringify({
-          slotId: selectedSlot.id,
-          email: data.email,
-          phone: data.phone,
-          passengers: data.passengers,
-          totalPrice: data.totalPrice,
-        }),
-      });
-      const resData = await response.json();
-      console.log('[JoyrideBookingPage] Booking response:', { status: response.status, data: resData });
 
-      if (response.ok) {
-        alert(
-          `Booking confirmed for ${data.passengers[0].name} and ${data.passengers.length} passenger(s) on ${selectedSlot.date} at ${selectedSlot.time} for ₹${data.totalPrice.toFixed(2)}`
-        );
-        setSelectedSlot(null);
-      } else {
-        setError(resData.error || 'Failed to confirm booking');
-      }
+      alert(
+        `Booking and payment confirmed for ${data.passengers[0].name} and ${data.passengers.length} passenger(s) on ${selectedSlot.date} at ${selectedSlot.time} for ₹${data.totalPrice.toFixed(2)}`
+      );
+
+      // Save booking data to localStorage
+      const bookingData = {
+        bookingId: data.bookingId,
+        slot: {
+          date: selectedSlot.date,
+          time: selectedSlot.time,
+        },
+        passengers: data.passengers,
+        total_price: data.totalPrice,
+      };
+      localStorage.setItem('recentBooking', JSON.stringify(bookingData));
+
+      setSelectedSlot(null); // Reset to show CalendarAndSlots
+
+      // Redirect to /joy-ride-ticket after successful booking
+      router.push('/joy-ride-ticket');
     } catch (err) {
-      console.error('[JoyrideBookingPage] Booking request failed:', err);
+      console.error('[JoyrideBookingPage] Error processing booking:', err.message);
       setError('An error occurred while confirming the booking');
     }
   };
@@ -91,7 +76,11 @@ export default function JoyrideBookingPage() {
         <h1 className="text-3xl font-bold text-center mb-6">Book Your Helicopter Joyride</h1>
         {error && <p className="text-red-500 mb-4">{error}</p>}
         {selectedSlot ? (
-          <PassengerSelection selectedSlot={selectedSlot} onSubmit={handleBookingSubmit} />
+          <PassengerSelection
+            selectedSlot={selectedSlot}
+            onSubmit={handleBookingSubmit}
+            userId={authState.user.id}
+          />
         ) : (
           <CalendarAndSlots onSlotSelect={handleSlotSelect} />
         )}

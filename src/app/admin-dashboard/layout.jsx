@@ -184,7 +184,17 @@ export default function AdminDashboardLayout({ children }) {
             }`}
           >
             <ToyBrickIcon className="text-indigo-300" />
-            All Joy Ride
+          Joy Ride Slots
+          </Link>
+
+            <Link
+            href="/admin-dashboard/all-joyride-booking"
+            className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors text-lg font-medium ${
+              isActive("/admin-dashboard/all-joyride-slots") ? activeClass : "hover:bg-indigo-700 text-white"
+            }`}
+          >
+            <ToyBrickIcon className="text-indigo-300" />
+            Joy Ride Bookings
           </Link>
         </nav>
       </aside>

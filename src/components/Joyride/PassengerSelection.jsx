@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 
-const PassengerSelection = ({ selectedSlot, onSubmit }) => {
+const PassengerSelection = ({ selectedSlot, onSubmit, userId }) => {
   const [passengerCount, setPassengerCount] = useState(1);
   const [formData, setFormData] = useState({
     email: '',
@@ -10,6 +10,37 @@ const PassengerSelection = ({ selectedSlot, onSubmit }) => {
     passengers: [{ name: '', weight: '' }],
   });
   const [totalPrice, setTotalPrice] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [isRazorpayLoaded, setIsRazorpayLoaded] = useState(false);
+
+  // Load Razorpay script dynamically
+  useEffect(() => {
+    const loadRazorpayScript = () => {
+      if (window.Razorpay) {
+        setIsRazorpayLoaded(true);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      script.onload = () => {
+        setIsRazorpayLoaded(true);
+        console.log('[PassengerSelection] Razorpay script loaded successfully');
+      };
+      script.onerror = () => {
+        console.error('[PassengerSelection] Failed to load Razorpay script');
+        setIsRazorpayLoaded(false);
+      };
+      document.body.appendChild(script);
+
+      return () => {
+        document.body.removeChild(script);
+      };
+    };
+
+    loadRazorpayScript();
+  }, []);
 
   // Update passengers array when passengerCount changes
   useEffect(() => {
@@ -48,7 +79,86 @@ const PassengerSelection = ({ selectedSlot, onSubmit }) => {
     }
   };
 
-  const handleSubmit = (e) => {
+  // Initiate Razorpay order and open payment modal
+  const initiatePayment = async (bookingId) => {
+    try {
+      if (!isRazorpayLoaded || !window.Razorpay) {
+        throw new Error('Razorpay script not loaded. Please try again.');
+      }
+
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Authentication token missing');
+
+      // Call backend to create Razorpay order
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/joyride-slots/create-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amount: totalPrice, payment_mode: 'RAZORPAY' }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to create order');
+
+      const { order_id } = result;
+
+      // Configure Razorpay options
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: totalPrice * 100,
+        currency: 'INR',
+        name: 'Flyola Aviation',
+        description: 'Joyride Booking Payment',
+        order_id,
+        handler: async (response) => {
+          try {
+            const verifyResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/joyride-slots/verify`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                order_id: response.razorpay_order_id,
+                payment_id: response.razorpay_payment_id,
+                signature: response.razorpay_signature,
+                booking_id: bookingId,
+                user_id: userId,
+                payment_amount: totalPrice,
+              }),
+            });
+            const verifyResult = await verifyResponse.json();
+            if (!verifyResponse.ok) throw new Error(verifyResult.error || 'Payment verification failed');
+
+            // Notify parent component
+            onSubmit({ ...formData, totalPrice, bookingId, payment: verifyResult.payment });
+          } catch (err) {
+            alert('Payment verification failed: ' + err.message);
+          } finally {
+            setLoading(false);
+          }
+        },
+        prefill: {
+          email: formData.email,
+          contact: formData.phone,
+        },
+        theme: { color: '#2563EB' },
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.on('payment.failed', () => {
+        setLoading(false);
+        alert('Payment failed. Please try again.');
+      });
+      razorpay.open();
+    } catch (err) {
+      setLoading(false);
+      alert('Failed to initiate payment: ' + err.message);
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.email || !formData.phone || passengerCount < 1 || passengerCount > selectedSlot.seats) {
       alert(`Please fill all fields and ensure 1-${selectedSlot.seats} passengers.`);
@@ -65,7 +175,34 @@ const PassengerSelection = ({ selectedSlot, onSubmit }) => {
         return;
       }
     }
-    onSubmit({ ...formData, totalPrice });
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Authentication token missing');
+
+      const bookingResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/joyride-slots/joyride-bookings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          slotId: selectedSlot.id,
+          email: formData.email,
+          phone: formData.phone,
+          passengers: formData.passengers,
+          totalPrice,
+        }),
+      });
+      const bookingResult = await bookingResponse.json();
+      if (!bookingResponse.ok) throw new Error(bookingResult.error || 'Failed to create booking');
+
+      await initiatePayment(bookingResult.booking.id);
+    } catch (err) {
+      setLoading(false);
+      alert('Booking creation failed: ' + err.message);
+    }
   };
 
   return (
@@ -87,6 +224,7 @@ const PassengerSelection = ({ selectedSlot, onSubmit }) => {
             required
             min="1"
             max={selectedSlot.seats}
+            disabled={loading}
           />
         </div>
         <div>
@@ -98,6 +236,7 @@ const PassengerSelection = ({ selectedSlot, onSubmit }) => {
             onChange={(e) => handleInputChange(e)}
             className="w-full p-2 border rounded"
             required
+            disabled={loading}
           />
         </div>
         <div>
@@ -109,6 +248,7 @@ const PassengerSelection = ({ selectedSlot, onSubmit }) => {
             onChange={(e) => handleInputChange(e)}
             className="w-full p-2 border rounded"
             required
+            disabled={loading}
           />
         </div>
         {formData.passengers.map((passenger, index) => (
@@ -123,6 +263,7 @@ const PassengerSelection = ({ selectedSlot, onSubmit }) => {
                 onChange={(e) => handleInputChange(e, index)}
                 className="w-full p-2 border rounded"
                 required
+                disabled={loading}
               />
             </div>
             <div className="mt-2">
@@ -136,6 +277,7 @@ const PassengerSelection = ({ selectedSlot, onSubmit }) => {
                 required
                 min="1"
                 step="0.1"
+                disabled={loading}
               />
             </div>
           </div>
@@ -150,9 +292,10 @@ const PassengerSelection = ({ selectedSlot, onSubmit }) => {
         </div>
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700"
+          className={`w-full p-2 rounded ${loading || !isRazorpayLoaded ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+          disabled={loading || !isRazorpayLoaded}
         >
-          Confirm Booking
+          {loading ? 'Processing...' : !isRazorpayLoaded ? 'Loading Payment...' : 'Confirm Booking'}
         </button>
       </form>
     </div>
