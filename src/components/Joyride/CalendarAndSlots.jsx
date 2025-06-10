@@ -131,30 +131,32 @@ const CalendarAndSlots = ({ onSlotSelect }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const fetchSlots = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const response = await fetch(`http://localhost:4000/api/joyride-slots?date=${selectedDate}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch slots');
-        }
-        const slots = await response.json();
-        setAvailableSlots(slots);
-      } catch (err) {
-        setError('Error fetching available slots');
-      } finally {
-        setLoading(false);
+useEffect(() => {
+  const fetchSlots = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/joyride-slots?date=${selectedDate}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch slots');
       }
-    };
-    fetchSlots();
-  }, [selectedDate]);
-
-  const handleSlotSelect = (slot) => {
-    setSelectedSlot(slot);
-    onSlotSelect(slot);
+      const slots = await response.json();
+      setAvailableSlots(slots);
+    } catch (err) {
+      setError('Error fetching available slots');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  fetchSlots();
+}, [selectedDate]);
+
+const handleSlotSelect = (slot) => {
+  setSelectedSlot(slot);
+  onSlotSelect(slot);
+};
+
 
   return (
     <div>
