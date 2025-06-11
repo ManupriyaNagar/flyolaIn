@@ -1,3 +1,4 @@
+// RootLayout.tsx
 import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
 
