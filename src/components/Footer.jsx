@@ -17,17 +17,17 @@ const Footer = () => {
               Jet Serve Aviation is a premier provider of private jet services, catering to travelers seeking luxury, comfort, and convenience.
             </p>
             {/* Social Media Icons */}
-            <div className="flex space-x-4 mt-4">
+            {/* <div className="flex space-x-4 mt-4">
               <FaFacebookF className="cursor-pointer hover:text-gray-400" />
               <FaLinkedinIn className="cursor-pointer hover:text-gray-400" />
               <FaInstagram className="cursor-pointer hover:text-gray-400" />
               <FaTwitter className="cursor-pointer hover:text-gray-400" />
               <FaGlobe className="cursor-pointer hover:text-gray-400" />
-            </div>
+            </div> */}
           </div>
 
           {/* Useful Links */}
-          <div>
+          {/* <div>
             <h3 className="font-semibold text-lg mb-3">Useful Links</h3>
             <ul className="space-y-2">
               <li><a href="#" className="hover:text-gray-400">Home</a></li>
@@ -36,10 +36,10 @@ const Footer = () => {
               <li><a href="#" className="hover:text-gray-400">Contact Us</a></li>
               <li><a href="#" className="hover:text-gray-400">Download Ticket</a></li>
             </ul>
-          </div>
+          </div> */}
 
           {/* Legal */}
-          <div>
+          {/* <div>
             <h3 className="font-semibold text-lg mb-3">Legal</h3>
             <ul className="space-y-2">
               <li><a href="#" className="hover:text-gray-400">Privacy Policy</a></li>
@@ -47,10 +47,10 @@ const Footer = () => {
               <li><a href="#" className="hover:text-gray-400">Terms & Conditions</a></li>
               <li><a href="#" className="hover:text-gray-400">Disclaimer</a></li>
             </ul>
-          </div>
+          </div> */}
 
           {/* Services */}
-          <div>
+          {/* <div>
             <h3 className="font-semibold text-lg mb-3">Services</h3>
             <ul className="space-y-2">
               <li><a href="#" className="hover:text-gray-400">Personal Charter</a></li>
@@ -59,11 +59,11 @@ const Footer = () => {
               <li><a href="#" className="hover:text-gray-400">Jet Hire</a></li>
               <li><a href="#" className="hover:text-gray-400">Helicopter Hire</a></li>
             </ul>
-          </div>
+          </div> */}
         </div>
 
         {/* Payment Methods */}
-        <div className="mt-8">
+        {/* <div className="mt-8">
           <h3 className="font-semibold text-lg mb-3">Payment Methods</h3>
           <div className="flex space-x-4">
             <img src="/1.png" alt="Amex" className="h-6" />
@@ -71,7 +71,9 @@ const Footer = () => {
             <img src="/3.png" alt="Apple Pay" className="h-6" />
             <img src="/4.png" alt="Visa" className="h-6" />
           </div>
-        </div>
+        </div> */}
+
+      
       </div>
 
 <div className="flex justify-between items-center bg-[#09182C] text-sm py-4 px-6">
