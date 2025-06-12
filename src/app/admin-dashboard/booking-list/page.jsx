@@ -26,7 +26,7 @@ export default function AllBookingsPage() {
   const [airportMap, setAirportMap] = useState({});
   const [paymentMap, setPaymentMap] = useState({});
   const [agentMap, setAgentMap] = useState({});
-  const [selectedAgent, setSelectedAgent] = useState("all"); // New state for agent filter
+  const [selectedAgent, setSelectedAgent] = useState("all"); 
   const [downloadRange, setDownloadRange] = useState("page");
   const [error, setError] = useState(null);
   const [bookingDateRange, setBookingDateRange] = useState([null, null]);
@@ -73,7 +73,8 @@ export default function AllBookingsPage() {
           `${BASE_URL}/airport`,
           `${BASE_URL}/agents`,
           `${BASE_URL}/payments`,
-          `http://localhost:4000/flights`,
+
+            `${BASE_URL}/flights`,
         ];
 
         const responses = await Promise.all(

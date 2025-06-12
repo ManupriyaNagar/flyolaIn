@@ -36,8 +36,8 @@ export default function PaymentStep({
     return null;
   }
 
-  // Check for Razorpay key
-  if (!RAZORPAY_KEY) {
+  // Check for Razorpay key (only for non-admin)
+  if (!RAZORPAY_KEY && !isAdmin) {
     console.error("[PaymentStep] Missing RAZORPAY_KEY");
     setError("Payment configuration missing. Please contact support.");
     return null;
@@ -51,40 +51,48 @@ export default function PaymentStep({
   const totalPassengers = travelerDetails.length;
   const userId = authState.user?.id;
 
-  // Fetch available seats
-useEffect(() => {
-  async function fetchSeats() {
-    try {
-      if (!bookingData.id || !/^\d{4}-\d{2}-\d{2}$/.test(bookingData.selectedDate)) {
-        throw new Error("Invalid schedule_id or bookDate");
-      }
-      const url = `${BASE_URL}/booked-seat/available-seats?schedule_id=${bookingData.id}&bookDate=${bookingData.selectedDate}`;
-      console.log('[PaymentStep] Fetching seats from:', url);
-      const resp = await fetch(url, { headers });
-      if (!resp.ok) {
-        const errorText = await resp.text();
-        throw new Error(`Failed to fetch seats: ${resp.status} ${resp.statusText} - ${errorText}`);
-      }
-      const data = await resp.json();
-      if (!Array.isArray(data.availableSeats)) {
-        throw new Error("Invalid seat data received");
-      }
-      console.log('[PaymentStep] Available seats:', data.availableSeats);
-      setAvailableSeats(data.availableSeats);
-      setSelectedSeats((prev) =>
-        prev.filter((seat) => data.availableSeats.includes(seat)).slice(0, totalPassengers)
-      );
-      setError(null);
-    } catch (err) {
-      console.error('[PaymentStep] Seat fetch error:', err.message);
-      setError(`Failed to load seats: ${err.message}. Please try again or select another flight.`);
-      setAvailableSeats([]);
-    }
+  // Validate userId early
+  if (!userId) {
+    console.error("[PaymentStep] Missing userId in authState:", authState);
+    setError("Authentication error: User ID missing. Please log in again.");
+    router.push("/sign-in");
+    return null;
   }
-  fetchSeats();
-}, [bookingData.id, bookingData.selectedDate, totalPassengers]);
 
-  // WebSocket for real-time seat updates
+  // Fetch available seats (unchanged)
+  useEffect(() => {
+    async function fetchSeats() {
+      try {
+        if (!bookingData.id || !/^\d{4}-\d{2}-\d{2}$/.test(bookingData.selectedDate)) {
+          throw new Error("Invalid schedule_id or bookDate");
+        }
+        const url = `${BASE_URL}/booked-seat/available-seats?schedule_id=${bookingData.id}&bookDate=${bookingData.selectedDate}`;
+        console.log('[PaymentStep] Fetching seats from:', url);
+        const resp = await fetch(url, { headers });
+        if (!resp.ok) {
+          const errorText = await resp.text();
+          throw new Error(`Failed to fetch seats: ${resp.status} ${resp.statusText} - ${errorText}`);
+        }
+        const data = await resp.json();
+        if (!Array.isArray(data.availableSeats)) {
+          throw new Error("Invalid seat data received");
+        }
+        console.log('[PaymentStep] Available seats:', data.availableSeats);
+        setAvailableSeats(data.availableSeats);
+        setSelectedSeats((prev) =>
+          prev.filter((seat) => data.availableSeats.includes(seat)).slice(0, totalPassengers)
+        );
+        setError(null);
+      } catch (err) {
+        console.error('[PaymentStep] Seat fetch error:', err.message);
+        setError(`Failed to load seats: ${err.message}. Please try again or select another flight.`);
+        setAvailableSeats([]);
+      }
+    }
+    fetchSeats();
+  }, [bookingData.id, bookingData.selectedDate, totalPassengers]);
+
+  // WebSocket for real-time seat updates (unchanged)
   useEffect(() => {
     let socket;
     let retryCount = 0;
@@ -97,6 +105,7 @@ useEffect(() => {
           socket = io(BASE_URL, {
             transports: ["websocket", "polling"],
             reconnectionAttempts: maxRetries,
+            auth: { token },
           });
           socket.on("connect", () => {
             console.log("[PaymentStep] WebSocket connected");
@@ -117,13 +126,17 @@ useEffect(() => {
             }
           });
           socket.on("connect_error", (err) => {
-            console.error("[PaymentStep] WebSocket error:", err.message);
+            console.error("[PaymentStep] WebSocket connect_error:", err.message);
             if (retryCount < maxRetries) {
               retryCount++;
               console.log(`[PaymentStep] Retrying WebSocket connection (${retryCount}/${maxRetries})`);
             } else {
               setError("Real-time seat updates unavailable. Please refresh to see latest seats.");
             }
+          });
+          socket.on("error", (err) => {
+            console.error("[PaymentStep] WebSocket error:", err.message);
+            setError("Real-time seat updates failed. Please refresh.");
           });
         })
         .catch((err) => {
@@ -137,9 +150,9 @@ useEffect(() => {
     return () => {
       if (socket) socket.disconnect();
     };
-  }, [bookingData.id, bookingData.selectedDate, totalPassengers]);
+  }, [bookingData.id, bookingData.selectedDate, totalPassengers, token]);
 
-  // Load Razorpay script
+  // Load Razorpay script (unchanged)
   async function loadRazorpay() {
     return new Promise((resolve) => {
       const script = document.createElement("script");
@@ -168,6 +181,20 @@ useEffect(() => {
       return;
     }
 
+    // Validate travelerDetails
+    if (!travelerDetails[0]?.phone || !travelerDetails[0]?.email || !travelerDetails[0]?.fullName) {
+      console.error("[PaymentStep] Invalid travelerDetails:", travelerDetails);
+      setError("Missing traveler information. Please go back and fill in all details.");
+      return;
+    }
+
+    // Validate bookingData
+    if (!bookingData.id || !bookingData.selectedDate) {
+      console.error("[PaymentStep] Invalid bookingData:", bookingData);
+      setError("Missing flight schedule or date. Please select a flight.");
+      return;
+    }
+
     setIsProcessing(true);
     try {
       const amountInPaise = Math.round(totalPrice * 1);
@@ -175,79 +202,94 @@ useEffect(() => {
         throw new Error("Invalid payment amount");
       }
 
-      // Prepare payload for booking
-     // In handleBooking function, update the payload creation
-const payload = {
-  bookedSeat: {
-    bookDate: bookingData.selectedDate,
-    schedule_id: Number(bookingData.id),
-    booked_seat: totalPassengers,
-    seat_labels: selectedSeats, // Changed from seatLabels to seat_labels
-  },
-  booking: {
-    pnr: await fetchPNR(), // Assume a function to fetch PNR
-    bookingNo: `BOOK${Date.now()}`,
-    contact_no: travelerDetails[0].phone,
-    email_id: travelerDetails[0].email,
-    noOfPassengers: totalPassengers,
-    bookDate: bookingData.selectedDate,
-    schedule_id: Number(bookingData.id),
-    totalFare: totalPrice.toString(),
-    bookedUserId: userId,
-    paymentStatus: isAdmin ? "SUCCESS" : "PENDING",
-    bookingStatus: isAdmin ? "CONFIRMED" : "PENDING",
-    agentId: null,
-  },
-  billing: {
-    billing_name: `${travelerDetails[0].title} ${travelerDetails[0].fullName}`,
-    billing_email: travelerDetails[0].email,
-    billing_number: travelerDetails[0].phone,
-    billing_address: travelerDetails[0].address || "N/A",
-    billing_country: "India",
-    billing_state: "N/A",
-    billing_pin_code: "000000",
-    GST_Number: travelerDetails[0].gstNumber || null,
-    user_id: userId,
-  },
-  payment: {
-    transaction_id: `TXN${Date.now()}`,
-    payment_id: isAdmin ? `ADMIN_${Date.now()}` : null,
-    order_id: isAdmin ? `ADMIN_${Date.now()}` : null,
-    razorpay_signature: null,
-    payment_status: isAdmin ? "SUCCESS" : "PENDING",
-    payment_mode: isAdmin ? "ADMIN" : "RAZORPAY",
-    payment_amount: totalPrice.toString(),
-    message: isAdmin ? "Admin booking (no payment required)" : "Initiating payment",
-    user_id: userId,
-  },
-  passengers: travelerDetails.map((t, i) => ({
-    title: t.title,
-    name: t.fullName,
-    type: i < bookingData.passengers.adults ? "Adult" : i < bookingData.passengers.adults + bookingData.passengers.children ? "Child" : "Infant",
-    dob: t.dateOfBirth || null,
-    age: t.dateOfBirth
-      ? Math.floor((Date.now() - new Date(t.dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25))
-      : 0,
-  })),
-};
+      // Fetch PNR with error handling
+      async function fetchPNR() {
+        try {
+          const response = await fetch(`${BASE_URL}/bookings/generate-pnr`, { headers });
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to generate PNR: ${response.status} ${errorText}`);
+          }
+          const { pnr } = await response.json();
+          if (!pnr) {
+            throw new Error("PNR not returned from server");
+          }
+          console.log("[PaymentStep] Generated PNR:", pnr);
+          return pnr;
+        } catch (err) {
+          console.error("[PaymentStep] fetchPNR error:", err.message);
+          throw err;
+        }
+      }
 
-// Helper function to fetch PNR
-async function fetchPNR() {
-  const response = await fetch(`${BASE_URL}/bookings/generate-pnr`, { headers });
-  if (!response.ok) throw new Error('Failed to generate PNR');
-  const { pnr } = await response.json();
-  return pnr;
-}
+      // Prepare payload for booking
+      const payload = {
+        bookedSeat: {
+          bookDate: bookingData.selectedDate,
+          schedule_id: Number(bookingData.id),
+          booked_seat: totalPassengers,
+          seat_labels: selectedSeats,
+        },
+        booking: {
+          pnr: await fetchPNR(),
+          bookingNo: `BOOK${Date.now()}`,
+          contact_no: travelerDetails[0].phone,
+          email_id: travelerDetails[0].email,
+          noOfPassengers: totalPassengers,
+          bookDate: bookingData.selectedDate,
+          schedule_id: Number(bookingData.id),
+          totalFare: totalPrice.toString(),
+          bookedUserId: userId,
+          paymentStatus: isAdmin ? "SUCCESS" : "PENDING",
+          bookingStatus: isAdmin ? "CONFIRMED" : "PENDING",
+          agentId: null,
+        },
+        billing: {
+          billing_name: `${travelerDetails[0].title} ${travelerDetails[0].fullName}`,
+          billing_email: travelerDetails[0].email,
+          billing_number: travelerDetails[0].phone,
+          billing_address: travelerDetails[0].address || "N/A",
+          billing_country: "India",
+          billing_state: "N/A",
+          billing_pin_code: "000000",
+          GST_Number: travelerDetails[0].gstNumber || null,
+          user_id: userId,
+        },
+        payment: {
+          transaction_id: `TXN${Date.now()}`,
+          payment_id: isAdmin ? `ADMIN_${Date.now()}` : null,
+          order_id: isAdmin ? `ADMIN_${Date.now()}` : null,
+          razorpay_signature: null,
+          payment_status: isAdmin ? "SUCCESS" : "PENDING",
+          payment_mode: isAdmin ? "ADMIN" : "RAZORPAY",
+          payment_amount: totalPrice.toString(),
+          message: isAdmin ? "Admin booking (no payment required)" : "Initiating payment",
+          user_id: userId,
+        },
+        passengers: travelerDetails.map((t, i) => ({
+          title: t.title,
+          name: t.fullName,
+          type: i < bookingData.passengers.adults ? "Adult" : i < bookingData.passengers.adults + bookingData.passengers.children ? "Child" : "Infant",
+          dob: t.dateOfBirth || null,
+          age: t.dateOfBirth
+            ? Math.floor((Date.now() - new Date(t.dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25))
+            : 0,
+        })),
+      };
+
+   
 
       if (isAdmin) {
         // Admin booking: Skip payment
-        const response = await fetch(`${BASE_URL}/bookings`, {
+        const response = await fetch(`${BASE_URL}/bookings/complete-booking`, {
           method: "POST",
           headers,
           body: JSON.stringify(payload),
         });
         if (!response.ok) {
-          throw new Error("Failed to create admin booking");
+          const errorText = await response.text();
+          console.error("[PaymentStep] Admin booking failed:", errorText);
+          throw new Error(`Failed to create admin booking: ${errorText}`);
         }
         const result = await response.json();
         setIsProcessing(false);
@@ -293,7 +335,7 @@ async function fetchPNR() {
               payload.booking.paymentStatus = "SUCCESS";
               payload.booking.bookingStatus = "CONFIRMED";
 
-              const bookingResponse = await fetch(`${BASE_URL}/bookings`, {
+              const bookingResponse = await fetch(`${BASE_URL}/bookings/complete-booking`, {
                 method: "POST",
                 headers,
                 body: JSON.stringify(payload),
@@ -326,7 +368,8 @@ async function fetchPNR() {
         });
       }
     } catch (err) {
-      setError(err.message);
+      console.error("[PaymentStep] handleBooking error:", err);
+      setError(`Booking error: ${err.message}`);
       setIsProcessing(false);
     }
   }
