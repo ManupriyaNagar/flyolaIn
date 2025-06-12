@@ -1,3 +1,4 @@
+
 "use client";
 
 import BASE_URL from "@/baseUrl/baseUrl";
@@ -10,6 +11,7 @@ import {
   PencilIcon,
   XMarkIcon,
   MagnifyingGlassIcon,
+  CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 import { Dialog, Transition } from "@headlessui/react";
 import { debounce } from "lodash";
@@ -18,6 +20,7 @@ const AddAirport = () => {
   const [city, setCity] = useState("");
   const [airportCode, setAirportCode] = useState("");
   const [airportName, setAirportName] = useState("");
+  const [status, setStatus] = useState(1); // Default to active
   const [airports, setAirports] = useState([]);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -26,6 +29,8 @@ const AddAirport = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const [bulkAction, setBulkAction] = useState(null); // For bulk operations
+  const isAdmin = true; // Replace with useAuth().isAdmin or similar
 
   // Fetch airports
   useEffect(() => {
@@ -36,7 +41,7 @@ const AddAirport = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${BASE_URL}/airport`);
+      const response = await fetch(`${BASE_URL}/airport?user=true`); // Only active airports
       if (!response.ok) throw new Error("Failed to fetch airports");
       const data = await response.json();
       console.log("Fetched airports:", data);
@@ -59,6 +64,20 @@ const AddAirport = () => {
     []
   );
 
+  // Validate airport code uniqueness
+  const validateAirportCode = async (code, currentId = null) => {
+    try {
+      const response = await fetch(`${BASE_URL}/airport`);
+      if (!response.ok) return false;
+      const data = await response.json();
+      return !data.some(
+        (airport) => airport.airport_code === code && airport.id !== currentId
+      );
+    } catch {
+      return false;
+    }
+  };
+
   // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -70,9 +89,18 @@ const AddAirport = () => {
       toast.error("Airport code must be exactly 3 characters.");
       return;
     }
+    if (!(await validateAirportCode(airportCode, editId))) {
+      toast.error("Airport code already exists.");
+      return;
+    }
 
     setLoading(true);
-    const airportData = { city, airport_code: airportCode, airport_name: airportName };
+    const airportData = {
+      city,
+      airport_code: airportCode,
+      airport_name: airportName,
+      status: Number(status),
+    };
 
     try {
       if (editMode) {
@@ -81,8 +109,8 @@ const AddAirport = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(airportData),
         });
-        if (!response.ok) throw new Error("Failed to update airport");
-        const updatedAirport = await response.json();
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Failed to update airport");
         setAirports((prev) =>
           prev.map((airport) =>
             airport.id === editId ? { ...airport, ...airportData, id: editId } : airport
@@ -95,11 +123,11 @@ const AddAirport = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(airportData),
         });
-        if (!response.ok) throw new Error("Failed to add airport");
-        const newAirport = await response.json();
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Failed to add airport");
         setAirports((prev) => [
           ...prev,
-          { ...airportData, id: newAirport.id || Date.now() },
+          { ...airportData, id: data.airport.id || Date.now() },
         ]);
         toast.success("Airport added successfully!");
       }
@@ -107,11 +135,12 @@ const AddAirport = () => {
       setCity("");
       setAirportCode("");
       setAirportName("");
+      setStatus(1);
       setEditMode(false);
       setEditId(null);
     } catch (err) {
       console.error("Error saving airport:", err);
-      toast.error(editMode ? "Failed to update airport." : "Failed to add airport.");
+      toast.error(err.message || (editMode ? "Failed to update airport." : "Failed to add airport."));
     } finally {
       setLoading(false);
     }
@@ -122,6 +151,7 @@ const AddAirport = () => {
     setCity(airport.city || "");
     setAirportCode(airport.airport_code || "");
     setAirportName(airport.airport_name || "");
+    setStatus(airport.status ?? 1);
     setEditMode(true);
     setEditId(airport.id);
   };
@@ -133,16 +163,61 @@ const AddAirport = () => {
       const response = await fetch(`${BASE_URL}/airport/${deleteId}`, {
         method: "DELETE",
       });
-      if (!response.ok) throw new Error("Failed to delete airport");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to delete airport");
       setAirports((prev) => prev.filter((airport) => airport.id !== deleteId));
       toast.success("Airport deleted successfully!");
     } catch (err) {
       console.error("Error deleting airport:", err);
-      toast.error("Failed to delete airport.");
+      toast.error(err.message || "Failed to delete airport.");
     } finally {
       setLoading(false);
       setShowConfirmModal(false);
       setDeleteId(null);
+    }
+  };
+
+  // Handle bulk actions
+  const handleBulkAction = async (action) => {
+    if (!isAdmin) {
+      toast.error("Admin access required for bulk operations.");
+      return;
+    }
+    setLoading(true);
+    try {
+      let response;
+      if (action === "activate") {
+        response = await fetch(`${BASE_URL}/airport/activate`, { method: "PUT" });
+      } else if (action === "delete") {
+        response = await fetch(`${BASE_URL}/airport`, { method: "DELETE" });
+      } else if (action === "edit") {
+        const updates = {};
+        if (city) updates.city = city;
+        if (airportCode) updates.airport_code = airportCode;
+        if (airportName) updates.airport_name = airportName;
+        if (!Object.keys(updates).length) {
+          toast.error("At least one field is required for bulk edit.");
+          setLoading(false);
+          setShowConfirmModal(false);
+          return;
+        }
+        response = await fetch(`${BASE_URL}/airport/edit`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates),
+        });
+      }
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `Failed to ${action} all airports`);
+      await fetchAirports(); // Refresh list
+      toast.success(`All airports ${action}d successfully!`);
+    } catch (err) {
+      console.error(`Error ${action}ing all airports:`, err);
+      toast.error(err.message || `Failed to ${action} all airports.`);
+    } finally {
+      setLoading(false);
+      setShowConfirmModal(false);
+      setBulkAction(null);
     }
   };
 
@@ -153,6 +228,7 @@ const AddAirport = () => {
         airport.city,
         airport.airport_code,
         airport.airport_name,
+        airport.status === 1 ? "active" : "inactive",
       ].some((field) => field?.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [airports, searchTerm]);
@@ -230,6 +306,25 @@ const AddAirport = () => {
               aria-required="true"
             />
           </div>
+          <div>
+            <label
+              htmlFor="status"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Status
+            </label>
+            <select
+              id="status"
+              value={status}
+              onChange={(e) => setStatus(Number(e.target.value))}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm disabled:opacity-50"
+              disabled={loading}
+              aria-required="true"
+            >
+              <option value={1}>Active</option>
+              <option value={0}>Inactive</option>
+            </select>
+          </div>
           <div className="flex gap-4">
             <button
               type="submit"
@@ -275,6 +370,7 @@ const AddAirport = () => {
                   setCity("");
                   setAirportCode("");
                   setAirportName("");
+                  setStatus(1);
                   setEditMode(false);
                   setEditId(null);
                 }}
@@ -285,6 +381,45 @@ const AddAirport = () => {
             )}
           </div>
         </form>
+
+        {/* Bulk Actions */}
+        {isAdmin && (
+          <div className="mt-6 flex gap-4">
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 disabled:opacity-50"
+              onClick={() => {
+                setBulkAction("activate");
+                setShowConfirmModal(true);
+              }}
+              disabled={loading}
+            >
+              <CheckCircleIcon className="w-5 h-5" />
+              Activate All
+            </button>
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all duration-200 disabled:opacity-50"
+              onClick={() => {
+                setBulkAction("edit");
+                setShowConfirmModal(true);
+              }}
+              disabled={loading}
+            >
+              <PencilIcon className="w-5 h-5" />
+              Edit All
+            </button>
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 disabled:opacity-50"
+              onClick={() => {
+                setBulkAction("delete");
+                setShowConfirmModal(true);
+              }}
+              disabled={loading}
+            >
+              <TrashIcon className="w-5 h-5" />
+              Delete All
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Airport List */}
@@ -358,6 +493,10 @@ const AddAirport = () => {
                     <span className="font-medium">Name:</span>
                     <span>{airport.airport_name || "N/A"}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Status:</span>
+                    <span>{airport.status === 1 ? "Active" : "Inactive"}</span>
+                  </div>
                   <div className="flex justify-end gap-2 mt-4">
                     <button
                       className="flex items-center gap-2 px-3 py-1 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-all duration-200 disabled:opacity-50"
@@ -395,7 +534,7 @@ const AddAirport = () => {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-gray-50">
-                  {["City", "Code", "Name", "Actions"].map((header) => (
+                  {["City", "Code", "Name", "Status", "Actions"].map((header) => (
                     <th
                       key={header}
                       className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
@@ -408,7 +547,7 @@ const AddAirport = () => {
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center">
+                    <td colSpan={5} className="px-6 py-8 text-center">
                       <div className="flex justify-center items-center gap-2">
                         <svg
                           className="animate-spin h-6 w-6 text-indigo-500"
@@ -448,6 +587,9 @@ const AddAirport = () => {
                       <td className="px-6 py-4 text-gray-900">
                         {airport.airport_name || "N/A"}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">
+                        {airport.status === 1 ? "Active" : "Inactive"}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap flex gap-2">
                         <button
                           className="flex items-center gap-2 px-3 py-1 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-all duration-200 disabled:opacity-50"
@@ -475,7 +617,7 @@ const AddAirport = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
                       {searchTerm ? "No airports match your search." : "No airports available."}
                     </td>
                   </tr>
@@ -517,25 +659,31 @@ const AddAirport = () => {
             >
               <Dialog.Panel className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
                 <Dialog.Title className="text-lg font-semibold text-gray-900 mb-4">
-                  Confirm Delete
+                  Confirm {bulkAction ? bulkAction.charAt(0).toUpperCase() + bulkAction.slice(1) : "Delete"}
                 </Dialog.Title>
                 <p className="text-gray-600 mb-6">
-                  Are you sure you want to delete this airport?
+                  {bulkAction
+                    ? `Are you sure you want to ${bulkAction} all airports?`
+                    : "Are you sure you want to delete this airport?"}
                 </p>
                 <div className="flex justify-end gap-3">
                   <button
                     className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all duration-200 disabled:opacity-50"
-                    onClick={() => setShowConfirmModal(false)}
+                    onClick={() => {
+                      setShowConfirmModal(false);
+                      setBulkAction(null);
+                      setDeleteId(null);
+                    }}
                     disabled={loading}
                   >
                     Cancel
                   </button>
                   <button
                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 disabled:opacity-50"
-                    onClick={handleDelete}
+                    onClick={bulkAction ? () => handleBulkAction(bulkAction) : handleDelete}
                     disabled={loading}
                   >
-                    Delete
+                    {bulkAction ? bulkAction.charAt(0).toUpperCase() + bulkAction.slice(1) : "Delete"}
                   </button>
                 </div>
               </Dialog.Panel>
