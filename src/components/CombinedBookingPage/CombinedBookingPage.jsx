@@ -1,10 +1,17 @@
 "use client";
+import dynamic from "next/dynamic";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import TourReviewStep from "./TourReviewStep";
 import TravelerInfoStep from "./TravelerInfoStep";
-import PaymentStep from "./PaymentStep";
+
+
 import { useAuth } from "../AuthContext";
+
+
+
+
+const PaymentStep = dynamic(() => import("./PaymentStep"), { ssr: false });
 
 const EMPTY_TRAVELLER = {
   title: "",
@@ -130,6 +137,8 @@ useEffect(() => {
           travelerDetails={travelerDetails}
           handlePreviousStep={handlePrev}
           onConfirm={handleConfirm}
+          isAdmin={authState.user?.role === "1"}
+          isAgent={authState.user?.role === "2"}
         />
       )}
     </div>

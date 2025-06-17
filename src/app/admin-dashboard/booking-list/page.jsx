@@ -26,7 +26,9 @@ export default function AllBookingsPage() {
   const [airportMap, setAirportMap] = useState({});
   const [paymentMap, setPaymentMap] = useState({});
   const [agentMap, setAgentMap] = useState({});
-  const [selectedAgent, setSelectedAgent] = useState("all"); 
+  const [userRoleMap, setUserRoleMap] = useState({});
+  const [selectedAgent, setSelectedAgent] = useState("all");
+  const [selectedRole, setSelectedRole] = useState("all");
   const [downloadRange, setDownloadRange] = useState("page");
   const [error, setError] = useState(null);
   const [bookingDateRange, setBookingDateRange] = useState([null, null]);
@@ -73,8 +75,8 @@ export default function AllBookingsPage() {
           `${BASE_URL}/airport`,
           `${BASE_URL}/agents`,
           `${BASE_URL}/payments`,
-
-            `${BASE_URL}/flights`,
+          `${BASE_URL}/flights`,
+          `${BASE_URL}/users`,
         ];
 
         const responses = await Promise.all(
@@ -89,7 +91,12 @@ export default function AllBookingsPage() {
           )
         );
 
-        const [bookingsData, seatData, paxData, airportData, agentData, paymentData, flightsData] = data;
+        const [bookingsData, seatData, paxData, airportData, agentData, paymentData, flightsData, usersData] = data;
+
+        // Build userRoleMap from usersData
+        const userRoleMap = Object.fromEntries(
+          (usersData || []).map((user) => [user.id, String(user.role)])
+        );
 
         // Create mappings
         const flightMap = Object.fromEntries(
@@ -108,6 +115,7 @@ export default function AllBookingsPage() {
         setAirportMap(airportMap);
         setPaymentMap(paymentMap);
         setAgentMap(agentMap);
+        setUserRoleMap(userRoleMap);
 
         const merged = (bookingsData || [])
           .map((booking) => {
@@ -131,7 +139,8 @@ export default function AllBookingsPage() {
               flightNumber: flightMap[booking.schedule_id] || "N/A",
               billingName: booking.billing?.billing_name || "N/A",
               paymentMode: booking.Payments?.[0]?.payment_mode || booking.pay_mode || "N/A",
-              agentId: booking.agentId ? agentMap[booking.agentId] || "FLYOLA" : "FLYOLA",
+              agentId: agentMap[booking.agentId] || "FLYOLA", // Revert to FLYOLA
+              userRole: userRoleMap[booking.bookedUserId] || "Unknown",
               transactionId: booking.transactionId || paymentMap[booking.id] || "N/A",
               departureAirportName: depId && airportMap[depId] ? airportMap[depId] : "N/A",
               arrivalAirportName: arrId && airportMap[arrId] ? airportMap[arrId] : "N/A",
@@ -180,6 +189,11 @@ export default function AllBookingsPage() {
       data = data.filter((item) => item.agentId === selectedAgent);
     }
 
+    // Role filter
+    if (selectedRole !== "all") {
+      data = data.filter((item) => item.userRole === selectedRole);
+    }
+
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       data = data.filter((item) =>
@@ -192,6 +206,7 @@ export default function AllBookingsPage() {
           item.billingName?.toLowerCase(),
           item.transactionId?.toLowerCase(),
           item.agentId?.toLowerCase(),
+          item.userRole?.toLowerCase(),
         ].some((field) => field?.includes(term))
       );
     }
@@ -221,7 +236,7 @@ export default function AllBookingsPage() {
     }
 
     return data;
-  }, [allData, searchTerm, downloadRange, startBookingDate, endBookingDate, selectedAgent]);
+  }, [allData, searchTerm, downloadRange, startBookingDate, endBookingDate, selectedAgent, selectedRole]);
 
   // Pagination
   const totalPages = Math.ceil(filteredData.length / BOOKINGS_PER_PAGE) || 1;
@@ -233,18 +248,18 @@ export default function AllBookingsPage() {
   // Excel export
   const exportToExcel = useCallback(() => {
     let exportData = downloadRange === "page" ? currentData : filteredData;
-    let filename = `AllBookings_${downloadRange === "page" ? `Page_${currentPage}` : downloadRange}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}.xlsx`;
+    let filename = `AllBookings_${downloadRange === "page" ? `Page_${currentPage}` : downloadRange}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}${selectedRole !== "all" ? `_Role_${selectedRole}` : ""}.xlsx`;
 
     if (["today", "tomorrow", "yesterday"].includes(downloadRange)) {
-      filename = `AllBookings_${downloadRange}_${new Date().toLocaleDateString().replace(/\//g, '-')}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}.xlsx`;
+      filename = `AllBookings_${downloadRange}_${new Date().toLocaleDateString().replace(/\//g, '-')}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}${selectedRole !== "all" ? `_Role_${selectedRole}` : ""}.xlsx`;
     } else if (downloadRange === "custom") {
-      filename = `AllBookings_${startBookingDate?.toLocaleDateString().replace(/\//g, '-')}_to_${endBookingDate?.toLocaleDateString().replace(/\//g, '-')}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}.xlsx`;
+      filename = `AllBookings_${startBookingDate?.toLocaleDateString().replace(/\//g, '-')}_to_${endBookingDate?.toLocaleDateString().replace(/\//g, '-')}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}${selectedRole !== "all" ? `_Role_${selectedRole}` : ""}.xlsx`;
     } else if (downloadRange.startsWith("month-")) {
       const [, year, month] = downloadRange.split("-");
-      filename = `AllBookings_${year}_${month}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}.xlsx`;
+      filename = `AllBookings_${year}_${month}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}${selectedRole !== "all" ? `_Role_${selectedRole}` : ""}.xlsx`;
     } else if (downloadRange.startsWith("year-")) {
       const [, year] = downloadRange.split("-");
-      filename = `AllBookings_${year}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}.xlsx`;
+      filename = `AllBookings_${year}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}${selectedRole !== "all" ? `_Role_${selectedRole}` : ""}.xlsx`;
     }
 
     if (!exportData.length) {
@@ -269,7 +284,8 @@ export default function AllBookingsPage() {
       BookingStatus: item.bookingStatus || "N/A",
       PaymentMode: item.paymentMode || "N/A",
       TransactionId: item.transactionId || "N/A",
-      AgentId: item.agentId || "FLYOLA",
+      AgentId: item.agentId || "FLYOLA", // Revert to FLYOLA
+      UserRole: item.userRole || "Unknown",
       DepartureTime: item.FlightSchedule?.departure_time || "N/A",
       ArrivalTime: item.FlightSchedule?.arrival_time || "N/A",
       DepartureAirport: item.departureAirportName || "N/A",
@@ -281,7 +297,7 @@ export default function AllBookingsPage() {
     XLSX.utils.book_append_sheet(wb, ws, "AllBookings");
     XLSX.writeFile(wb, filename);
     toast.success("Excel file downloaded successfully!");
-  }, [currentData, filteredData, downloadRange, startBookingDate, endBookingDate, selectedAgent]);
+  }, [currentData, filteredData, downloadRange, startBookingDate, endBookingDate, selectedAgent, selectedRole]);
 
   // Download options
   const downloadOptions = useMemo(() => {
@@ -323,6 +339,15 @@ export default function AllBookingsPage() {
     return options;
   }, [agentMap]);
 
+  // Role options
+  const roleOptions = useMemo(() => [
+    { value: "all", label: "All Roles" },
+    { value: "1", label: "Admin (Role 1)" },
+    { value: "2", label: "Booking Agent (Role 2)" },
+    { value: "3", label: "Regular User (Role 3)" },
+    { value: "Unknown", label: "Unknown Role" },
+  ], []);
+
   // Pagination UI
   const getPaginationItems = () => {
     const items = [];
@@ -361,6 +386,7 @@ export default function AllBookingsPage() {
               setStatus(filter);
               setSearchTerm("");
               setSelectedAgent("all");
+              setSelectedRole("all");
               setCurrentPage(1);
               setDownloadRange("page");
               setBookingDateRange([null, null]);
@@ -377,13 +403,13 @@ export default function AllBookingsPage() {
         ))}
       </div>
 
-      {/* Search and Agent Filter */}
+      {/* Search, Agent, and Role Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-8">
         <div className="relative flex-1 max-w-2xl">
           <input
             type="text"
             onChange={(e) => debouncedSearch(e.target.value)}
-            placeholder="Search by ID, PNR, email, phone, passenger name, billing name, transaction ID, or agent ID..."
+            placeholder="Search by ID, PNR, email, phone, passenger name, billing name, transaction ID, agent ID, or user role..."
             className="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow shadow-sm"
             aria-label="Search all bookings"
           />
@@ -410,6 +436,21 @@ export default function AllBookingsPage() {
           aria-label="Select agent"
         >
           {agentOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={selectedRole}
+          onChange={(e) => {
+            setSelectedRole(e.target.value);
+            setCurrentPage(1);
+          }}
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="Select user role"
+        >
+          {roleOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -522,6 +563,7 @@ export default function AllBookingsPage() {
                 { label: "Payment", width: "min-w-[120px]" },
                 { label: "Transaction ID", width: "min-w-[140px]" },
                 { label: "Agent ID", width: "min-w-[120px]" },
+                { label: "User Role", width: "min-w-[120px]" },
                 { label: "Dep Time", width: "min-w-[120px]" },
                 { label: "Arr Time", width: "min-w-[120px]" },
                 { label: "From", width: "min-w-[160px]" },
@@ -620,7 +662,22 @@ export default function AllBookingsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-2 whitespace-nowrap">{b.transactionId || "N/A"}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{b.agentId || "FLYOLA"}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{b.agentId}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        b.userRole === "1"
+                          ? "bg-purple-100 text-purple-800"
+                          : b.userRole === "2"
+                          ? "bg-blue-100 text-blue-800"
+                          : b.userRole === "3"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {b.userRole === "1" ? "Admin" : b.userRole === "2" ? "Booking Agent" : b.userRole === "3" ? "Regular User" : "Unknown"}
+                    </span>
+                  </td>
                   <td className="px-4 py-2 whitespace-nowrap">{b.FlightSchedule?.departure_time || "N/A"}</td>
                   <td className="px-4 py-2 whitespace-nowrap">{b.FlightSchedule?.arrival_time || "N/A"}</td>
                   <td className="px-4 py-2 whitespace-nowrap">{b.departureAirportName || "N/A"}</td>
@@ -639,7 +696,7 @@ export default function AllBookingsPage() {
             ) : (
               <tr>
                 <td colSpan={22} className="px-6 py-8 text-center text-gray-500">
-                  {searchTerm || downloadRange !== "page" || selectedAgent !== "all" ? "No records match your filters." : "No records available."}
+                  {searchTerm || downloadRange !== "page" || selectedAgent !== "all" || selectedRole !== "all" ? "No records match your filters." : "No records available."}
                 </td>
               </tr>
             )}

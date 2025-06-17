@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { FaPlaneDeparture, FaUser, FaSpinner, FaHelicopter, FaCalendarCheck } from "react-icons/fa";
+import { FaPlaneDeparture, FaUser, FaSpinner, FaHelicopter, FaCalendarCheck, FaPlane } from "react-icons/fa";
 import { MdErrorOutline } from "react-icons/md";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -17,8 +17,45 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+
+  FaHotel,
+  FaHome,
+  FaUmbrellaBeach,
+  FaTrain,
+  FaBus,
+  FaTaxi,
+  FaPassport,
+  FaMoneyBillWave,
+  FaShieldAlt,
+} from "react-icons/fa";
 
 export default function FlightBooking() {
+
+
+
+  const services = [
+    { label: "Flights",       value: "flights",    icon: FaPlane },
+    { label: "Hotels",        value: "hotels",     icon: FaHotel },
+    { label: "Homestays ", value: "homestays",  icon: FaHome },
+    { label: "Holiday ",  value: "packages",   icon: FaUmbrellaBeach },
+    { label: "Trains",        value: "trains",     icon: FaTrain },
+    { label: "Buses",         value: "buses",      icon: FaBus },
+    { label: "Cabs",          value: "cabs",       icon: FaTaxi },
+    { label: "Visa",          value: "visa",       icon: FaPassport },
+ 
+  ];
+  const [selectedService, setSelectedService] = useState("flights");
+
+
+
+
+
+
+
+
+
+
   const [departure, setDeparture] = useState("");
   const [arrival, setArrival] = useState("");
   const [date, setDate] = useState("");
@@ -126,10 +163,67 @@ export default function FlightBooking() {
         </video>
         <div className="absolute inset-0 " />
       </div>
+
+
+
+
+
+  <div className="overflow-x-auto hide-scrollbar bg-white py-3 max-w-xl w-auto absolute mb-[26rem] z-20  px-96 rounded-2xl mx-auto hidden md:block">
+          <ul className="flex space-x-10 mx-auto items-center justify-center">
+            {services.map(({ label, value, icon: Icon }) => {
+              const isActive = selectedService === value;
+              return (
+                <li
+                  key={value}
+                  className="flex flex-col items-center cursor-pointer"
+                  onClick={() => setSelectedService(value)}
+                >
+                  <Icon
+                    className={`text-2xl ${
+                      isActive ? "text-indigo-600" : "text-gray-500"
+                    }`}
+                  />
+                  <span
+                    className={`mt-1 text-xs whitespace-nowrap ${
+                      isActive ? "text-indigo-600 font-semibold" : "text-gray-600"
+                    }`}
+                  >
+                    {label}
+                  </span>
+                  {isActive && (
+                    <span className="w-2 h-1 bg-indigo-600 rounded-full mt-1" />
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+
+
+
+
+
       
       {/* Content */}
       <div className="relative z-10 w-full max-w-7xl mx-auto">
-        <Card className="bg-white/90 backdrop-blur-lg shadow-2xl rounded-3xl border border-gray-200/50 mx-4 sm:mx-6 md:mx-20 lg:mx-40 py-6 sm:py-8 px-4 sm:px-6">
+
+
+
+
+        {/* ← NEW: services nav */}
+      
+
+
+
+
+
+
+
+
+
+
+        <Card className="bg-white backdrop-blur-lg shadow-2xl rounded-3xl border border-gray-200/50 mx-4 sm:mx-6 md:mx-20 lg:mx-32 py-6 sm:py-8 px-4 sm:px-6">
           <CardContent className="p-4 sm:p-6 flex flex-col gap-6">
             <div className="text-center">
               <h1 className="text-2xl sm:text-3xl lg:text-4xl uppercase font-bold text-gray-800">

@@ -49,7 +49,12 @@ const SignIn = () => {
         setAuthState(newAuthState);
         localStorage.setItem("authState", JSON.stringify(newAuthState));
 
-        const redirectPath = user.role === 1 ? "/admin-dashboard" : "/scheduled-flight";
+      const redirectPath =
+          user.role === 1
+            ? "/admin-dashboard"
+            : user.role === 2
+            ? "/booking-agent-dashboard" // New dashboard for Booking Agents
+            : "/user-dashboard"; // Default for normal users
         console.log("[SignIn] Redirecting to:", redirectPath);
         router.push(redirectPath);
       } else {
