@@ -43,120 +43,142 @@ const Page = () => {
       return;
     }
 
-    async function fetchBookings() {
-      setIsLoading(true);
-      setError(null);
+const fetchAllData = async () => {
+  setIsLoading(true);
+  setError(null);
 
-      try {
-        const token = localStorage.getItem("token") || "";
-        if (!token) {
-          throw new Error("No authentication token found. Please log in again.");
-        }
-
-        const commonOpts = {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        };
-
-        // Fetch bookings and related data
-        const [
-          bookingsRes,
-          passengersRes,
-          bookedSeatRes,
-          billingsRes,
-          paymentsRes,
-          airportRes,
-        ] = await Promise.all([
-          fetch(`${BASE_URL}/bookings`, commonOpts),
-          fetch(`${BASE_URL}/passenger`, commonOpts),
-          fetch(`${BASE_URL}/booked-seat`, commonOpts).catch(() => ({ ok: false, status: 404 })),
-          fetch(`${BASE_URL}/billings`, commonOpts),
-          fetch(`${BASE_URL}/payments`, commonOpts),
-          fetch(`${BASE_URL}/airport`, commonOpts),
-        ]);
-
-        const [
-          bookingsData,
-          passengersData,
-          bookedSeatData,
-          billingsData,
-          paymentsData,
-          airportData,
-        ] = await Promise.all([
-          bookingsRes.ok ? bookingsRes.json() : [],
-          passengersRes.ok ? passengersRes.json() : [],
-          bookedSeatRes.ok ? bookedSeatRes.json() : [],
-          billingsRes.ok ? billingsRes.json() : [],
-          paymentsRes.ok ? paymentsRes.json() : [],
-          airportRes.ok ? airportRes.json() : [],
-        ]);
-
-        // Build airport map
-        const map = {};
-        (airportData || []).forEach((a) => {
-          if (a?.id && a?.airport_name) map[a.id] = a.airport_name;
-        });
-        setAirportMap(map);
-
-        // Merge & sort bookings with supporting data
-        const merged = (bookingsData || [])
-          .map((booking) => {
-            const matchingSeat = (bookedSeatData || []).find(
-              (seat) =>
-                seat?.schedule_id === booking?.schedule_id &&
-                seat?.bookDate === booking?.bookDate
-            ) || {};
-            const matchingPassengers = (passengersData || []).filter(
-              (p) => p?.bookingId === booking?.id
-            );
-            const matchingPayment = (paymentsData || []).find(
-              (p) => p?.booking_id === booking?.id
-            );
-            const matchingBilling = (billingsData || []).find(
-              (b) => b?.user_id === booking?.bookedUserId
-            );
-
-            const flightSchedule = booking.FlightSchedule || matchingSeat.FlightSchedule || {};
-            const depId = flightSchedule.departure_airport_id;
-            const arrId = flightSchedule.arrival_airport_id;
-
-            if (!flightSchedule.departure_airport_id) {
-              console.warn(`Booking ${booking.bookingNo} is missing FlightSchedule data.`);
-            }
-
-            return {
-              ...booking,
-              FlightSchedule: flightSchedule,
-              booked_seat: matchingSeat?.booked_seat || "N/A",
-              passengers: matchingPassengers,
-              payment: matchingPayment || {},
-              billing: matchingBilling || {},
-              departureAirportName: depId && map[depId] ? map[depId] : "Unknown Airport",
-              arrivalAirportName: arrId && map[arrId] ? map[arrId] : "Unknown Airport",
-            };
-          })
-          .sort(
-            (a, b) =>
-              new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime()
-          );
-
-        console.log("Merged Bookings:", merged);
-        setBookings(merged);
-      } catch (err) {
-        console.error("Error fetching bookings:", err);
-        if (err.message.includes("No authentication token")) {
-          setError("Please log in again to view bookings.");
-          router.push("/sign-in");
-        } else {
-          setError(`Failed to load bookings: ${err.message}`);
-          toast.error(`Failed to load bookings: ${err.message}`);
-        }
-      } finally {
-        setIsLoading(false);
-      }
+  try {
+    const token = localStorage.getItem("token") || "";
+    if (!token) {
+      throw new Error("No authentication token found. Please log in again.");
     }
+
+    const commonOpts = {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    };
+
+    const endpoints = [
+      `${BASE_URL}/bookings?status=${status}`,
+      `${BASE_URL}/booked-seat`,
+      `${BASE_URL}/passenger`,
+      `${BASE_URL}/airport`,
+      `${BASE_URL}/agents`,
+      `${BASE_URL}/payments`,
+      `${BASE_URL}/flights`,
+      `${BASE_URL}/users`,
+    ];
+
+    const responses = await Promise.all(
+      endpoints.map((url) =>
+        fetch(url, commonOpts).catch((err) => {
+          console.error(`Fetch error for ${url}:`, err);
+          return { ok: false, status: 404 };
+        })
+      )
+    );
+
+    const data = await Promise.all(
+      responses.map((res, index) =>
+        res.ok
+          ? index === 2
+            ? res.json().then((result) => result.data || []) // Extract .data for passengers
+            : res.json()
+          : [1, 2].includes(index)
+          ? []
+          : Promise.reject(new Error(`Fetch failed: ${endpoints[index]} - ${res.status}`))
+      )
+    );
+
+    console.log('Fetched passenger data:', data[2]); // Log passenger data
+    console.log('Fetched bookings data:', data[0]); // Log bookings data
+
+    const [bookingsData, seatData, paxData, airportData, agentData, paymentData, flightsData, usersData] = data;
+
+    // Build userRoleMap
+    const userRoleMap = Object.fromEntries(
+      (Array.isArray(usersData) ? usersData : []).map((user) => [user.id, String(user.role)])
+    );
+
+    // Create mappings with safety checks
+    const flightMap = Object.fromEntries(
+      (Array.isArray(flightsData) ? flightsData : [])
+        .filter((f) => f?.id && f?.flight_number && f?.status === 1)
+        .map((f) => [f.id, f.flight_number])
+    );
+    const airportMap = Object.fromEntries(
+      (Array.isArray(airportData) ? airportData : [])
+        .filter((a) => a?.id && a?.airport_name)
+        .map((a) => [a.id, a.airport_name])
+    );
+    const agentMap = Object.fromEntries(
+      (Array.isArray(agentData) ? agentData : [])
+        .filter((a) => a?.id && a?.agentId)
+        .map((a) => [a.id, a.agentId])
+    );
+    const paymentMap = Object.fromEntries(
+      (Array.isArray(paymentData) ? paymentData : [])
+        .filter((p) => p?.booking_id && p?.transaction_id)
+        .map((p) => [p.booking_id, p.transaction_id])
+    );
+
+    setAirportMap(airportMap);
+    setPaymentMap(paymentMap);
+    setAgentMap(agentMap);
+    setUserRoleMap(userRoleMap);
+
+    const merged = (Array.isArray(bookingsData) ? bookingsData : [])
+      .map((booking) => {
+        const matchSeat = (Array.isArray(seatData) ? seatData : []).find(
+          (s) => s?.schedule_id === booking?.schedule_id && s?.bookDate === booking?.bookDate
+        ) || {};
+        const passengers = Array.isArray(paxData)
+          ? paxData.filter((p) => {
+              const match = String(p?.bookingId) === String(booking?.id);
+              if (booking.id === 2405) {
+                console.log(`Booking ${booking.id} passenger match:`, { passenger: p, match });
+              }
+              return match;
+            })
+          : [];
+        const flightSchedule = booking.FlightSchedule || matchSeat.FlightSchedule || {};
+        const depId = flightSchedule.departure_airport_id;
+        const arrId = flightSchedule.arrival_airport_id;
+
+        const seatLabels = Array.isArray(booking.BookedSeats)
+          ? booking.BookedSeats.map((s) => s.seat_label).join(", ")
+          : "N/A";
+
+        return {
+          ...booking,
+          FlightSchedule: flightSchedule,
+          booked_seat: seatLabels,
+          passengers,
+          flightNumber: flightMap[booking.schedule_id] || "N/A",
+          billingName: booking.billing?.billing_name || "N/A",
+          paymentMode: booking.Payments?.[0]?.payment_mode || booking.pay_mode || "N/A",
+          agentId: agentMap[booking.agentId] || "FLYOLA",
+          userRole: userRoleMap[booking.bookedUserId] || "Unknown",
+          transactionId: booking.transactionId || paymentMap[booking.id] || "N/A",
+          departureAirportName: depId && airportMap[depId] ? airportMap[depId] : "N/A",
+          arrivalAirportName: arrId && airportMap[arrId] ? airportMap[arrId] : "N/A",
+        };
+      })
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    console.log("Merged bookings:", merged);
+    setAllData(merged);
+    setCurrentPage(1);
+  } catch (err) {
+    console.error("Error fetching data:", err.message);
+    setError("Failed to load data. Please try again.");
+    toast.error("Failed to load data. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
     fetchBookings();
   }, [authState.isLoggedIn, authState.userRole, authState.isLoading]);
