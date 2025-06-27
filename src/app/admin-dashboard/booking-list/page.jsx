@@ -147,44 +147,49 @@ export default function AllBookingsPage() {
     setAgentMap(agentMap);
     setUserRoleMap(userRoleMap);
 
-    const merged = (Array.isArray(bookingsData) ? bookingsData : [])
-      .map((booking) => {
-        const matchSeat = (Array.isArray(seatData) ? seatData : []).find(
-          (s) => s?.schedule_id === booking?.schedule_id && s?.bookDate === booking?.bookDate
-        ) || {};
-        // Use Passengers from bookingsData if available, otherwise fetch from paxData
-        const passengers = Array.isArray(booking.Passengers)
-          ? booking.Passengers
-          : (Array.isArray(paxData) ? paxData : []).filter((p) => String(p?.bookingId) === String(booking?.id));
-        const flightSchedule = booking.FlightSchedule || matchSeat.FlightSchedule || {};
-        const depId = flightSchedule.departure_airport_id;
-        const arrId = flightSchedule.arrival_airport_id;
+   
+      // In the fetchAllData function, enhance passenger handling
+const merged = (Array.isArray(bookingsData) ? bookingsData : [])
+  .map((booking) => {
+    const matchSeat = (Array.isArray(seatData) ? seatData : []).find(
+      (s) => s?.schedule_id === booking?.schedule_id && s?.bookDate === booking?.bookDate
+    ) || {};
+    const passengers = Array.isArray(booking.Passengers)
+      ? booking.Passengers.filter(p => p && p.name) // Filter valid passengers
+      : (Array.isArray(paxData) ? paxData : []).filter(
+          (p) => p && p.bookingId && String(p.bookingId) === String(booking.id)
+        );
 
-        // Debug specific booking
-        if (booking.id === 2407) {
-          console.log(`Booking 2407 details:`, { booking, passengers });
-        }
+    // Debug passenger data
+    if (booking.id === 2407 || !passengers.length) {
+      console.log(`Booking ${booking.id} passenger details:`, {
+        bookingId: booking.id,
+        bookingNo: booking.bookingNo,
+        passengers,
+        source: Array.isArray(booking.Passengers) ? "booking.Passengers" : "paxData",
+      });
+    }
 
-        const seatLabels = Array.isArray(booking.BookedSeats)
-          ? booking.BookedSeats.map((s) => s.seat_label).join(", ")
-          : "N/A";
+    const seatLabels = Array.isArray(booking.BookedSeats)
+      ? booking.BookedSeats.map((s) => s.seat_label).join(", ")
+      : "N/A";
 
-        return {
-          ...booking,
-          FlightSchedule: flightSchedule,
-          booked_seat: seatLabels,
-          passengers,
-          flightNumber: flightMap[booking.schedule_id] || "N/A",
-          billingName: booking.billing?.billing_name || "N/A",
-          paymentMode: booking.Payments?.[0]?.payment_mode || booking.pay_mode || "N/A",
-          agentId: agentMap[booking.agentId] || "FLYOLA",
-          userRole: userRoleMap[booking.bookedUserId] || "Unknown",
-          transactionId: booking.transactionId || paymentMap[booking.id] || "N/A",
-          departureAirportName: depId && airportMap[depId] ? airportMap[depId] : "N/A",
-          arrivalAirportName: arrId && airportMap[arrId] ? airportMap[arrId] : "N/A",
-        };
-      })
-      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return {
+      ...booking,
+      FlightSchedule: booking.FlightSchedule || matchSeat.FlightSchedule || {},
+      booked_seat: seatLabels,
+      passengers,
+      flightNumber: flightMap[booking.schedule_id] || "N/A",
+      billingName: booking.billing?.billing_name || "N/A",
+      paymentMode: booking.Payments?.[0]?.payment_mode || booking.pay_mode || "N/A",
+      agentId: agentMap[booking.agentId] || "FLYOLA",
+      userRole: userRoleMap[booking.bookedUserId] || "Unknown",
+      transactionId: booking.transactionId || paymentMap[booking.id] || "N/A",
+      departureAirportName: airportMap[booking.FlightSchedule?.departure_airport_id] || "N/A",
+      arrivalAirportName: airportMap[booking.FlightSchedule?.arrival_airport_id] || "N/A",
+    };
+  })
+  .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     console.log('Merged bookings:', merged);
     setAllData(merged);
@@ -283,29 +288,21 @@ export default function AllBookingsPage() {
     [filteredData, currentPage]
   );
 
-  // Excel export
-  const exportToExcel = useCallback(() => {
-    let exportData = downloadRange === "page" ? currentData : filteredData;
-    let filename = `AllBookings_${downloadRange === "page" ? `Page_${currentPage}` : downloadRange}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}${selectedRole !== "all" ? `_Role_${selectedRole}` : ""}.xlsx`;
+ const exportToExcel = useCallback(() => {
+  let exportData = downloadRange === "page" ? currentData : filteredData;
+  let filename = `AllBookings_${downloadRange === "page" ? `Page_${currentPage}` : downloadRange}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}${selectedRole !== "all" ? `_Role_${selectedRole}` : ""}.xlsx`;
 
-    if (["today", "tomorrow", "yesterday"].includes(downloadRange)) {
-      filename = `AllBookings_${downloadRange}_${new Date().toLocaleDateString().replace(/\//g, '-')}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}${selectedRole !== "all" ? `_Role_${selectedRole}` : ""}.xlsx`;
-    } else if (downloadRange === "custom") {
-      filename = `AllBookings_${startBookingDate?.toLocaleDateString().replace(/\//g, '-')}_to_${endBookingDate?.toLocaleDateString().replace(/\//g, '-')}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}${selectedRole !== "all" ? `_Role_${selectedRole}` : ""}.xlsx`;
-    } else if (downloadRange.startsWith("month-")) {
-      const [, year, month] = downloadRange.split("-");
-      filename = `AllBookings_${year}_${month}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}${selectedRole !== "all" ? `_Role_${selectedRole}` : ""}.xlsx`;
-    } else if (downloadRange.startsWith("year-")) {
-      const [, year] = downloadRange.split("-");
-      filename = `AllBookings_${year}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}${selectedRole !== "all" ? `_Role_${selectedRole}` : ""}.xlsx`;
-    }
+  if (!exportData.length) {
+    toast.warn("No data available for the selected range.");
+    return;
+  }
 
-    if (!exportData.length) {
-      toast.warn("No data available for the selected range.");
-      return;
-    }
-
-    const data = exportData.map((item) => ({
+  const data = exportData.map((item) => {
+    const passengerNames = item.passengers?.length
+      ? item.passengers.map((p) => p.name || "Unknown").join(", ")
+      : "N/A";
+    console.log(`Exporting Booking ${item.bookingNo}: PassengerNames = ${passengerNames}`);
+    return {
       BookingId: item.bookingNo || "N/A",
       PNR: item.pnr || "N/A",
       FlyDate: item.bookDate ? new Date(item.bookDate).toLocaleDateString() : "N/A",
@@ -313,7 +310,7 @@ export default function AllBookingsPage() {
       Email: item.email_id || "N/A",
       ContactNumber: item.contact_no || "N/A",
       Passengers: item.noOfPassengers || 0,
-      PassengerNames: item.passengers?.map((p) => p.name).join(", ") || "N/A",
+      PassengerNames: passengerNames,
       BillingName: item.billingName || "N/A",
       Sector: item.schedule_id || "N/A",
       FlightNumber: item.flightNumber || "N/A",
@@ -322,20 +319,21 @@ export default function AllBookingsPage() {
       BookingStatus: item.bookingStatus || "N/A",
       PaymentMode: item.paymentMode || "N/A",
       TransactionId: item.transactionId || "N/A",
-      AgentId: item.agentId || "FLYOLA", // Revert to FLYOLA
+      AgentId: item.agentId || "FLYOLA",
       UserRole: item.userRole || "Unknown",
       DepartureTime: item.FlightSchedule?.departure_time || "N/A",
       ArrivalTime: item.FlightSchedule?.arrival_time || "N/A",
-      DepartureAirport: item.departureAirportName || "N/A",
+      Departure : item.departureAirportName || "N/A",
       ArrivalAirport: item.arrivalAirportName || "N/A",
-    }));
+    };
+  });
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "AllBookings");
-    XLSX.writeFile(wb, filename);
-    toast.success("Excel file downloaded successfully!");
-  }, [currentData, filteredData, downloadRange, startBookingDate, endBookingDate, selectedAgent, selectedRole]);
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "AllBookings");
+  XLSX.writeFile(wb, filename);
+  toast.success("Excel file downloaded successfully!");
+}, [currentData, filteredData, downloadRange, startBookingDate, endBookingDate, selectedAgent, selectedRole]);
 
   // Download options
   const downloadOptions = useMemo(() => {
