@@ -184,6 +184,7 @@ const merged = (Array.isArray(bookingsData) ? bookingsData : [])
       paymentMode: booking.Payments?.[0]?.payment_mode || booking.pay_mode || "N/A",
       agentId: agentMap[booking.agentId] || "FLYOLA",
       userRole: userRoleMap[booking.bookedUserId] || "Unknown",
+      paymentId: booking.Payments?.[0]?.payment_id || booking.paymentId || "N/A",
       transactionId: booking.transactionId || paymentMap[booking.id] || "N/A",
       departureAirportName: airportMap[booking.FlightSchedule?.departure_airport_id] || "N/A",
       arrivalAirportName: airportMap[booking.FlightSchedule?.arrival_airport_id] || "N/A",
@@ -598,6 +599,7 @@ const merged = (Array.isArray(bookingsData) ? bookingsData : [])
                 { label: "Status", width: "min-w-[120px]" },
                 { label: "Payment", width: "min-w-[120px]" },
                 { label: "Transaction ID", width: "min-w-[140px]" },
+                { label: "Payment ID", width: "min-w-[140px]" },
                 { label: "Agent ID", width: "min-w-[120px]" },
                 { label: "User Role", width: "min-w-[120px]" },
                 { label: "Dep Time", width: "min-w-[120px]" },
@@ -698,6 +700,8 @@ const merged = (Array.isArray(bookingsData) ? bookingsData : [])
                     </span>
                   </td>
                   <td className="px-4 py-2 whitespace-nowrap">{b.transactionId || "N/A"}</td>
+                  
+<td className="px-4 py-2 whitespace-nowrap">{b.paymentId || "N/A"}</td>
                   <td className="px-4 py-2 whitespace-nowrap">{b.agentId}</td>
                   <td className="px-4 py-2 whitespace-nowrap">
                     <span
