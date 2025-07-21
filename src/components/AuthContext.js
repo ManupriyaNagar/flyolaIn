@@ -60,7 +60,28 @@ export function AuthProvider({ children }) {
     }
   }, [router]);
 
+  const login = (token, user) => {
+    console.log('[AuthContext] Login called with:', { token: token ? 'present' : 'missing', user });
+    
+    // Store token
+    localStorage.setItem("token", token);
+    
+    // Update auth state
+    const newState = {
+      isLoading: false,
+      isLoggedIn: true,
+      user: user,
+      userRole: String(user.role),
+    };
+    
+    setAuthState(newState);
+    localStorage.setItem("authState", JSON.stringify(newState));
+    
+    console.log('[AuthContext] Login successful, new state:', newState);
+  };
+
   const logout = () => {
+    console.log('[AuthContext] Logout called');
     localStorage.removeItem("token");
     localStorage.removeItem("authState");
     setAuthState({ ...INITIAL, isLoading: false });
@@ -72,7 +93,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ authState, setAuthState, logout }}>
+    <AuthContext.Provider value={{ authState, setAuthState, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

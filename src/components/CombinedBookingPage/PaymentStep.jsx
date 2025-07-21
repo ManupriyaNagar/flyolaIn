@@ -2,9 +2,24 @@
 
 import React, { useState, useEffect } from "react";
 import BASE_URL from "@/baseUrl/baseUrl";
-import { FaPlane, FaClock, FaUserFriends } from "react-icons/fa";
+import { 
+  FaPlane, 
+  FaClock, 
+  FaUserFriends, 
+  FaCreditCard, 
+  FaShieldAlt, 
+  FaExclamationTriangle,
+  FaSpinner
+} from "react-icons/fa";
 import { useAuth } from "../AuthContext";
 import { useRouter } from "next/navigation";
+
+// Add missing chair icon as a simple component
+const FaChair = ({ className }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 20 20">
+    <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v4a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6z"/>
+  </svg>
+);
 
 const RAZORPAY_KEY = process.env.NEXT_PUBLIC_RAZORPAY_KEY;
 
@@ -417,68 +432,175 @@ async function handleBooking() {
   }
 }
   return (
-    <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow">
-      <h2 className="text-2xl font-semibold text-indigo-600 mb-4">Payment</h2>
-      {error && <div className="text-red-500 mb-4">{error}</div>}
-      {isProcessing && <div className="text-gray-600 mb-4">Processing...</div>}
-
-      <div className="mb-6">
-        <h3 className="text-lg font-medium mb-2">Select Seats ({selectedSeats.length}/{totalPassengers})</h3>
-        <div className="grid grid-cols-6 gap-2">
-          {availableSeats.map((seat) => (
-            <button
-              key={seat}
-              className={`p-2 border rounded ${
-                selectedSeats.includes(seat)
-                  ? "bg-indigo-600 text-white"
-                  : "bg-gray-100 hover:bg-gray-200"
-              }`}
-              disabled={selectedSeats.length >= totalPassengers && !selectedSeats.includes(seat)}
-              onClick={() =>
-                setSelectedSeats((prev) =>
-                  prev.includes(seat)
-                    ? prev.filter((s) => s !== seat)
-                    : [...prev, seat]
-                )
-              }
-            >
-              {seat}
-            </button>
-          ))}
+    <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+      <div className="flex items-center mb-6">
+        <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
+          <FaCreditCard className="text-green-600 text-xl" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">Complete Payment</h2>
+          <p className="text-gray-600">Secure your booking with our encrypted payment system</p>
         </div>
       </div>
 
-      <div className="mb-6">
-        <h3 className="text-lg font-medium mb-2">Booking Details</h3>
-        <p>
-          <FaPlane className="inline mr-2" /> {bookingData.departure} → {bookingData.arrival}
-        </p>
-        <p>
-          <FaClock className="inline mr-2" /> {bookingData.selectedDate}
-        </p>
-        <p>
-          <FaUserFriends className="inline mr-2" /> {totalPassengers} Passengers
-        </p>
-        <p>Selected Seats: {selectedSeats.join(", ") || "None"}</p>
-        <p className="mt-2 text-lg">
-          Total: <span className="font-bold">₹{bookingData.totalPrice}</span>
-        </p>
+      {/* Error and Processing States */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <FaExclamationTriangle className="text-red-600 mr-3" />
+            <div className="text-red-800">{error}</div>
+          </div>
+        </div>
+      )}
+
+      {isProcessing && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
+            <div className="text-blue-800">Processing your booking...</div>
+          </div>
+        </div>
+      )}
+
+      {/* Seat Selection */}
+      <div className="bg-gray-50 rounded-xl p-6 mb-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+          <FaChair className="mr-2 text-blue-600" />
+          Select Your Seats ({selectedSeats.length}/{totalPassengers})
+        </h3>
+        
+        {availableSeats.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <FaSpinner className="animate-spin mx-auto mb-2 text-2xl" />
+            Loading available seats...
+          </div>
+        ) : (
+          <>
+            <div className="mb-4 text-sm text-gray-600">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-gray-200 rounded mr-2"></div>
+                  Available
+                </div>
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-blue-600 rounded mr-2"></div>
+                  Selected
+                </div>
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-red-400 rounded mr-2"></div>
+                  Occupied
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2">
+              {availableSeats.map((seat) => (
+                <button
+                  key={seat}
+                  className={`p-3 border-2 rounded-lg font-medium transition-all duration-200 ${
+                    selectedSeats.includes(seat)
+                      ? "bg-blue-600 text-white border-blue-600 shadow-lg"
+                      : "bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50"
+                  }`}
+                  disabled={selectedSeats.length >= totalPassengers && !selectedSeats.includes(seat)}
+                  onClick={() =>
+                    setSelectedSeats((prev) =>
+                      prev.includes(seat)
+                        ? prev.filter((s) => s !== seat)
+                        : prev.length < totalPassengers
+                        ? [...prev, seat]
+                        : prev
+                    )
+                  }
+                >
+                  {seat}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      <div className="flex justify-between">
+      {/* Booking Summary */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-6 border border-blue-100">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Booking Summary</h3>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center text-gray-700">
+              <FaPlane className="mr-2 text-blue-600" />
+              Route
+            </span>
+            <span className="font-medium">{bookingData.departure} → {bookingData.arrival}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="flex items-center text-gray-700">
+              <FaClock className="mr-2 text-green-600" />
+              Date & Time
+            </span>
+            <span className="font-medium">{bookingData.selectedDate}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="flex items-center text-gray-700">
+              <FaUserFriends className="mr-2 text-purple-600" />
+              Passengers
+            </span>
+            <span className="font-medium">{totalPassengers}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="flex items-center text-gray-700">
+              <FaChair className="mr-2 text-orange-600" />
+              Selected Seats
+            </span>
+            <span className="font-medium">{selectedSeats.join(", ") || "None selected"}</span>
+          </div>
+          <div className="border-t pt-3 flex items-center justify-between">
+            <span className="text-lg font-semibold text-gray-800">Total Amount</span>
+            <span className="text-2xl font-bold text-blue-600">₹{bookingData.totalPrice}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Payment Security */}
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center">
+          <FaShieldAlt className="text-green-600 mr-3" />
+          <div>
+            <div className="font-semibold text-green-800">Secure Payment</div>
+            <div className="text-sm text-green-700">Your payment is protected by 256-bit SSL encryption</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row justify-between gap-4">
         <button
           onClick={handlePreviousStep}
-          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+          className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50"
           disabled={isProcessing}
         >
-          Back
+          ← Back to Traveler Info
         </button>
         <button
           onClick={handleBooking}
-          className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+          className={`px-8 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
+            isAdmin 
+              ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700"
+              : isAgent
+              ? "bg-gradient-to-r from-orange-600 to-red-600 text-white hover:from-orange-700 hover:to-red-700"
+              : "bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700"
+          }`}
           disabled={isProcessing || selectedSeats.length !== totalPassengers}
         >
-          {isAdmin ? "Confirm Booking" : isAgent ? "Agent Booking" : "Pay Now"}
+          {isProcessing ? (
+            <div className="flex items-center">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+              Processing...
+            </div>
+          ) : (
+            <>
+              {isAdmin ? "Confirm Admin Booking" : isAgent ? "Process Agent Booking" : "Complete Payment"}
+              {!isAdmin && " →"}
+            </>
+          )}
         </button>
       </div>
     </div>

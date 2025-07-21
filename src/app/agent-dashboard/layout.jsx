@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthContext";
+import RouteGuard from "@/components/RouteGuard";
 import {
   FaBars,
   FaHome,
@@ -27,27 +28,6 @@ export default function AgentDashboardLayout({ children }) {
   const { authState } = useAuth();
   const router = useRouter();
 
-  useEffect(() => {
-    console.log("[AgentDashboardLayout] Current pathname:", normalizedPathname);
-    console.log("[AgentDashboardLayout] Current authState:", authState);
-  }, [normalizedPathname, authState]);
-
-  useEffect(() => {
-    if (authState.isLoading) return;
-  
-    const token = localStorage.getItem("token");
-    if (!authState.isLoggedIn || !token) {
-      console.warn("User not authenticated. Redirecting...");
-      router.push("/sign-in");
-      return;
-    }
-  
-    if (authState.userRole !== "2") {
-      console.warn("User is not booking agent. Redirecting...");
-      router.push("/");
-    }
-  }, [authState, router]);
-
   const isActive = (href) => {
     const normalizedHref = normalizePath(href);
     if (normalizedHref === "/agent-dashboard") {
@@ -58,19 +38,9 @@ export default function AgentDashboardLayout({ children }) {
 
   const activeClass = "bg-indigo-700 text-white";
 
-  if (authState.isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-500">Loading authentication...</div>
-      </div>
-    );
-  }
-  if (!authState.isLoggedIn || authState.userRole !== "2") {
-    return null;
-  }
-
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-indigo-100">
+    <RouteGuard>
+      <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-indigo-100">
       <aside
         className={`fixed top-0 left-0 h-full z-20 w-72 p-6 flex flex-col overflow-y-auto transition-transform duration-300 ${
           isSidebarVisible ? "translate-x-0" : "-translate-x-full"
@@ -173,5 +143,6 @@ export default function AgentDashboardLayout({ children }) {
         </div>
       </main>
     </div>
+    </RouteGuard>
   );
 }

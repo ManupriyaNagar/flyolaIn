@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { FaPlane, FaClock, FaUserFriends, FaCheckCircle } from "react-icons/fa";
-import BookingPopup from "./BookingPopup";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import BASE_URL from "@/baseUrl/baseUrl";
 
@@ -42,7 +42,7 @@ const generateSeatLabels = (seatLimit) => {
 };
 
 const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selectedDate, passengers }) => {
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const router = useRouter();
   const [availableSeats, setAvailableSeats] = useState([]);
   const [isBookingDisabled, setIsBookingDisabled] = useState(false);
   const [isDeparted, setIsDeparted] = useState(false);
@@ -182,104 +182,157 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
       alert(isDeparted ? "This flight has departed." : "Booking is closed after 9 AM IST on the departure date.");
       return;
     }
-    setIsPopupOpen(true);
-  }, [authState.isLoggedIn, isSoldOut, availableSeats, passengers, isBookingDisabled, isDeparted]);
+    
+    // Redirect to booking page with flight details
+    const bookingParams = new URLSearchParams({
+      departure: departureAirport.city,
+      arrival: arrivalAirport.city,
+      date: flightSchedule.departure_date || selectedDate,
+      scheduleId: flightSchedule.id.toString(),
+      price: flightSchedule.price.toString(),
+      departureTime: flightSchedule.departure_time,
+      arrivalTime: flightSchedule.arrival_time,
+      passengers: passengers.toString(),
+    });
+    
+    router.push(`/booking?${bookingParams.toString()}`);
+  }, [authState.isLoggedIn, isSoldOut, availableSeats, passengers, isBookingDisabled, isDeparted, departureAirport.city, arrivalAirport.city, flightSchedule, selectedDate, router]);
 
-  const closePopup = useCallback(() => {
-    setIsPopupOpen(false);
-  }, []);
+
 
   return (
     <motion.div
-      className={`w-full max-w-6xl mx-auto rounded-xl shadow-md border border-blue-100 bg-white p-6 transition-all ${
-        isSoldOut || isBookingDisabled ? "opacity-80" : "hover:shadow-lg"
-      }`}
+      className={`w-full max-w-6xl mx-auto rounded-2xl shadow-lg border border-gray-200 bg-white overflow-hidden transition-all duration-300 ${isSoldOut || isBookingDisabled
+        ? "opacity-75 bg-gray-50"
+        : "hover:shadow-xl hover:border-blue-300 hover:-translate-y-1"
+        }`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      transition={{ duration: 0.4 }}
+      whileHover={{ scale: isSoldOut || isBookingDisabled ? 1 : 1.02 }}
     >
-      <div className="flex flex-col md:flex-row md:items-center space-y-6 md:space-y-0 md:gap-6">
-        <div className="flex items-center gap-4">
-          <img
-            src="./pp.svg"
-            alt="Flyola Logo"
-            className="w-16 h-auto object-contain"
-          />
-          <div className="text-center md:text-left">
-            <p className="text-base font-bold text-gray-800 flex items-center gap-2">
-              <FaPlane className="text-green-500" /> {flight.flight_number}
-            </p>
-            <p className="text-sm text-gray-600 mt-1">
-              Departs: <span className="font-medium text-green-700">{fmtDateLong(selectedDate)}</span>
-            </p>
-          </div>
-        </div>
-        <div className="flex-1 text-center space-y-3">
-          <p className="flex items-center justify-center gap-3 bg-blue-50 px-4 py-2 rounded-lg text-gray-900 font-semibold text-lg">
-            <FaClock className="text-gray-600" />
-            {fmtTime(flightSchedule.departure_time)} - {fmtTime(flightSchedule.arrival_time)}
-            <span className="text-sm text-green-700 bg-green-100 px-2 py-1 rounded-full ml-3 font-medium">
-              {isDeparted ? "Departed" : "Scheduled"}
-            </span>
-          </p>
-          <div className="flex items-center justify-center gap-2 text-gray-800">
-            <span className="font-medium text-base">
-              {departureAirport.city} ({departureAirport.airport_code})
-            </span>
-            <span className="text-gray-400 text-lg">→</span>
-            <span className="text-green-600 font-medium text-base">{stopText}</span>
-            <span className="text-gray-400 text-lg">→</span>
-            <span className="font-medium text-base">
-              {arrivalAirport.city} ({arrivalAirport.airport_code})
-            </span>
-          </div>
-          {flightSchedule.isMultiStop && (
-            <p className="text-sm text-gray-600 italic bg-white p-1 rounded">
-              Route: {flightSchedule.routeCities.join(" → ")}
-            </p>
-          )}
-          <p className="text-sm text-green-700 font-medium flex items-center justify-center gap-1 bg-blue-50 p-1 rounded">
-            <FaCheckCircle /> {stopText}
-          </p>
-        </div>
-        <div className="text-right space-y-4">
-          <div className="bg-white p-3 rounded-lg">
-            <p className="text-sm text-gray-600 flex items-center justify-end gap-2">
-              <FaUserFriends className="text-gray-500" />
-              {isSoldOut ? (
-                <span className="text-red-600 font-medium">Sold Out</span>
-              ) : (
-                `Seats left: ${availableSeats.length}`
+      {/* Status Banner */}
+      <div className={`h-1 w-full ${isDeparted ? "bg-red-500" :
+        isSoldOut ? "bg-gray-400" :
+          "bg-gradient-to-r from-green-400 to-blue-500"
+        }`} />
+
+      <div className="p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center space-y-6 lg:space-y-0 lg:gap-8">
+          {/* Airline Info */}
+          <div className="flex items-center gap-4 lg:min-w-[200px]">
+            <div className="relative">
+              <img
+                src="./pp.svg"
+                alt="Flyola Logo"
+                className="w-16 h-16 object-contain rounded-full bg-blue-50 p-2"
+              />
+              {!isSoldOut && !isDeparted && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full animate-pulse" />
               )}
-            </p>
-            <p className="text-xl font-bold text-gray-900 flex items-center justify-end gap-2">
-              INR {parseFloat(flightSchedule.price || 0).toFixed(2)}
-              <span className="text-sm text-gray-500">Refundable</span>
-            </p>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <FaPlane className="text-blue-600" size={16} />
+                <span className="text-lg font-bold text-gray-800">{flight.flight_number}</span>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${isDeparted ? "bg-red-100 text-red-700" :
+                  isSoldOut ? "bg-gray-100 text-gray-700" :
+                    "bg-green-100 text-green-700"
+                  }`}>
+                  {isDeparted ? "Departed" : isSoldOut ? "Sold Out" : "Available"}
+                </span>
+              </div>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium text-blue-700">{fmtDateLong(selectedDate)}</span>
+              </p>
+            </div>
           </div>
-          <button
-            onClick={handleBookNowClick}
-            className={`w-full md:w-auto px-4 py-3 text-white rounded-lg text-base font-semibold transition-colors ${
-              isSoldOut || isBookingDisabled
-                ? "bg-gray-500 cursor-not-allowed"
-                : "bg-green-600 hover:bg-green-700"
-            }`}
-            disabled={isSoldOut || isBookingDisabled}
-          >
-            {isDeparted ? "Departed" : isSoldOut ? "Sold Out" : "Book Now"}
-          </button>
+
+          {/* Flight Route & Time */}
+          <div className="flex-1 space-y-4">
+            {/* Time Display */}
+            <div className="flex items-center justify-center gap-4 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 rounded-xl">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-gray-800">{fmtTime(flightSchedule.departure_time)}</div>
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Departure</div>
+              </div>
+              <div className="flex-1 flex items-center justify-center relative">
+                <div className="w-full h-0.5 bg-gradient-to-r from-blue-300 to-indigo-300"></div>
+                <FaPlane className="absolute text-blue-600 bg-white p-1 rounded-full" size={20} />
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-gray-800">{fmtTime(flightSchedule.arrival_time)}</div>
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Arrival</div>
+              </div>
+            </div>
+
+            {/* Route Information */}
+            <div className="text-center space-y-2">
+              <div className="flex items-center justify-center gap-3 text-gray-700">
+                <span className="font-semibold text-base bg-blue-100 px-3 py-1 rounded-full">
+                  {departureAirport.city} ({departureAirport.airport_code})
+                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400">→</span>
+                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${isNonStop ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                    }`}>
+                    {stopText}
+                  </span>
+                  <span className="text-gray-400">→</span>
+                </div>
+                <span className="font-semibold text-base bg-green-100 px-3 py-1 rounded-full">
+                  {arrivalAirport.city} ({arrivalAirport.airport_code})
+                </span>
+              </div>
+
+              {flightSchedule.isMultiStop && (
+                <div className="text-sm text-gray-600 bg-yellow-50 px-3 py-2 rounded-lg border border-yellow-200">
+                  <span className="font-medium">Route:</span> {flightSchedule.routeCities.join(" → ")}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Pricing & Booking */}
+          <div className="lg:min-w-[220px] space-y-4">
+            <div className="bg-gradient-to-br from-green-50 to-blue-50 p-4 rounded-xl border border-green-200">
+              <div className="flex items-center justify-between mb-2">
+                <FaUserFriends className="text-gray-500" size={16} />
+                <span className={`text-sm font-medium ${isSoldOut ? "text-red-600" : "text-green-600"
+                  }`}>
+                  {isSoldOut ? "Sold Out" : `${availableSeats.length} seats left`}
+                </span>
+              </div>
+
+              <div className="text-right">
+                <div className="text-3xl font-bold text-gray-900">
+                  ₹{parseFloat(flightSchedule.price || 0).toLocaleString('en-IN')}
+                </div>
+                <div className="text-sm text-gray-500 flex items-center justify-end gap-1">
+                  <FaCheckCircle className="text-green-500" size={12} />
+                  Refundable
+                </div>
+              </div>
+            </div>
+
+            <motion.button
+              onClick={handleBookNowClick}
+              className={`w-full py-4 px-6 rounded-xl text-base font-semibold transition-all duration-200 ${isSoldOut || isBookingDisabled
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-gradient-to-r from-green-600 to-blue-600 text-white hover:from-green-700 hover:to-blue-700 shadow-lg hover:shadow-xl"
+                }`}
+              disabled={isSoldOut || isBookingDisabled}
+              whileHover={!isSoldOut && !isBookingDisabled ? { scale: 1.05 } : {}}
+              whileTap={!isSoldOut && !isBookingDisabled ? { scale: 0.95 } : {}}
+            >
+              {isDeparted ? "✈️ Departed" :
+                isSoldOut ? "❌ Sold Out" :
+                  "🎫 Book Now"}
+            </motion.button>
+          </div>
         </div>
       </div>
-      {isPopupOpen && (
-        <BookingPopup
-          closePopup={closePopup}
-          passengerData={{ adults: passengers, children: 0, infants: 0 }}
-          departure={departureAirport.city}
-          arrival={arrivalAirport.city}
-          selectedDate={flightSchedule.departure_date || selectedDate}
-          flightSchedule={{ ...flightSchedule, availableSeats: availableSeats.length, allSeats }}
-        />
-      )}
+
     </motion.div>
   );
 };

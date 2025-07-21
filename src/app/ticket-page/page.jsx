@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import TicketComponent from "./../../components/CombinedBookingPage/TicketComponent";
+import ProfessionalTicket from "./../../components/SingleTicket/ProfessionalTicket";
 
 const TicketPage = () => {
   const [ticketData, setTicketData] = useState(null);
@@ -56,8 +56,8 @@ const TicketPage = () => {
   }
 
   return (
-    <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "32px 16px", marginTop: "80px", backgroundColor: "#ffffff", color: "#1f2937" }}>
-      <TicketComponent
+    <div style={{ margin: "0 auto", marginTop: "80px" }}>
+      <ProfessionalTicket
         bookingData={ticketData.bookingData}
         travelerDetails={ticketData.travelerDetails}
         bookingResult={ticketData.bookingResult}

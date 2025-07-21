@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Suspense, lazy } from "react";
 import "./globals.css";
 import Loader from "@/components/Loader";
@@ -8,6 +7,11 @@ import Loader from "@/components/Loader";
 // Correct lazy imports with fallback to handle non-default exports
 const FlightBooking = lazy(() =>
   import("@/components/Home/FlightBooking").then((module) => ({
+    default: module.default || module,
+  }))
+);
+const MobileFlightBooking = lazy(() =>
+  import("@/components/Home/MobileFlightBooking").then((module) => ({
     default: module.default || module,
   }))
 );
@@ -67,7 +71,12 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Suspense fallback={<Loader onLoadingComplete={() => {}} />}>
-        <FlightBooking />
+        {/* Desktop Flight Booking - Hidden on mobile */}
+        <div className="hidden md:block">
+          <FlightBooking />
+        </div>
+        {/* Mobile Flight Booking - Visible only on mobile */}
+        <MobileFlightBooking />
         <FeatureCards />
         <PrivateJetRental />
         <AviationHighlights />

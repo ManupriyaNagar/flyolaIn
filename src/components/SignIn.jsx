@@ -49,12 +49,12 @@ const SignIn = () => {
         setAuthState(newAuthState);
         localStorage.setItem("authState", JSON.stringify(newAuthState));
 
-      const redirectPath =
+        const redirectPath =
           user.role === 1
             ? "/admin-dashboard"
             : user.role === 2
-            ? "/booking-agent-dashboard" // New dashboard for Booking Agents
-            : "/user-dashboard"; // Default for normal users
+              ? "/booking-agent-dashboard" // New dashboard for Booking Agents
+              : "/user-dashboard"; // Default for normal users
         console.log("[SignIn] Redirecting to:", redirectPath);
         router.push(redirectPath);
       } else {
@@ -130,7 +130,7 @@ const SignIn = () => {
       >
         <source src="/signin.mp4" type="video/mp4" />
       </video>
-      
+
       <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 z-10"></div>
 
       <Card className="w-96 p-6 shadow-lg rounded-2xl z-20 bg-white bg-opacity-90 backdrop-blur-sm">

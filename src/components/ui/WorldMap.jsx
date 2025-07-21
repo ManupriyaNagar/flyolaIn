@@ -51,7 +51,7 @@ export function WorldMap({
 
   return (
     <div
-      className="w-full aspect-[2/1] dark:bg-black bg-white rounded-lg relative font-sans"
+      className="w-full aspect-[2/1] dark:bg-black bg-white  relative font-sans px-4"
       style={{ position: "relative" }} // Ensure stacking context
     >
       <Image

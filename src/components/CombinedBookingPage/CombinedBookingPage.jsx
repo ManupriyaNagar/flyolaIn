@@ -4,12 +4,19 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import TourReviewStep from "./TourReviewStep";
 import TravelerInfoStep from "./TravelerInfoStep";
+import BookingProgress from "./BookingProgress";
+import BookingSummary from "./BookingSummary";
+import BookingHeader from "./BookingHeader";
+import FlightInsights from "./FlightInsights";
+import WeatherInfo from "./WeatherInfo";
+import FlightSafetyInfo from "./FlightSafetyInfo";
+import TravelDocuments from "./TravelDocuments";
+import AirportServices from "./AirportServices";
+
+import FlightRecommendations from "./FlightRecommendations";
 
 
 import { useAuth } from "../AuthContext";
-
-
-
 
 const PaymentStep = dynamic(() => import("./PaymentStep"), { ssr: false });
 
@@ -113,34 +120,92 @@ useEffect(() => {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      {step === 1 && (
-        <TourReviewStep
-          bookingData={bookingData}
-          handleNextStep={handleNext}
-          handlePreviousStep={null}
-          step={step}
-        />
-      )}
-      {step === 2 && (
-        <TravelerInfoStep
-          travelerDetails={travelerDetails}
-          setTravelerDetails={setTravelerDetails}
-          handleNextStep={handleNext}
-          handlePreviousStep={handlePrev}
-          bookingData={bookingData}
-        />
-      )}
-      {step === 3 && (
-        <PaymentStep
-          bookingData={bookingData}
-          travelerDetails={travelerDetails}
-          handlePreviousStep={handlePrev}
-          onConfirm={handleConfirm}
-          isAdmin={authState.user?.role === "1"}
-          isAgent={authState.user?.role === "2"}
-        />
-      )}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      <div className="container mx-auto py-8 px-4 max-w-7xl">
+        {/* Enhanced Header */}
+        <BookingHeader bookingData={bookingData} currentStep={step} />
+
+        {/* Progress Indicator */}
+        <BookingProgress currentStep={step} />
+
+        {/* Enhanced Flight Information Section */}
+        {step === 1 && (
+          <div className="mb-8 space-y-6">
+            {/* Flight Status & Insights */}
+            <div className="grid gap-6">
+
+              <TourReviewStep
+                  bookingData={bookingData}
+                  handleNextStep={handleNext}
+                  handlePreviousStep={null}
+                  step={step}
+                />
+     
+            </div>
+            
+            {/* Travel Services */}
+            {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <FlightComparison bookingData={bookingData} />
+              <TravelInsurance bookingData={bookingData} />
+            </div>
+             */}
+            {/* Safety & Documentation */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <FlightSafetyInfo />
+              <TravelDocuments bookingData={bookingData} />
+            </div>
+            
+            {/* Airport Services */}
+            <AirportServices bookingData={bookingData} />
+            
+            {/* Travel Guide */}
+ 
+            
+            {/* Flight Recommendations */}
+            <FlightRecommendations currentBooking={bookingData} />
+          </div>
+        )}
+
+        <div className="flex flex-col lg:flex-row gap-8 mt-8">
+          {/* Main Content */}
+          <div className="flex-1 space-y-6">
+            {step === 1 && (
+              <>
+                      <FlightInsights bookingData={bookingData} />
+                <WeatherInfo bookingData={bookingData} />
+              </>
+            )}
+            {step === 2 && (
+              <TravelerInfoStep
+                travelerDetails={travelerDetails}
+                setTravelerDetails={setTravelerDetails}
+                handleNextStep={handleNext}
+                handlePreviousStep={handlePrev}
+                bookingData={bookingData}
+              />
+            )}
+            {step === 3 && (
+              <PaymentStep
+                bookingData={bookingData}
+                travelerDetails={travelerDetails}
+                handlePreviousStep={handlePrev}
+                onConfirm={handleConfirm}
+                isAdmin={authState.user?.role === "1"}
+                isAgent={authState.user?.role === "2"}
+              />
+            )}
+          </div>
+
+          {/* Enhanced Sidebar */}
+          <div className="lg:w-96">
+            <BookingSummary 
+              bookingData={bookingData}
+              travelerDetails={travelerDetails}
+              currentStep={step}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

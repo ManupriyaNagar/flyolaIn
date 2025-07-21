@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -6,11 +5,20 @@ import { useAuth } from "@/components/AuthContext";
 import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import TicketView from "./../../../components/Ticket/TicketView"; // Adjust path as needed
+import TicketView from "./../../../components/Ticket/TicketView";
 import BASE_URL from "@/baseUrl/baseUrl";
-import { FaPlane } from "react-icons/fa";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import {
+  TicketIcon,
+  CalendarDaysIcon,
+  UserGroupIcon,
+  EyeIcon, 
+  ExclamationTriangleIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  ArrowsUpDownIcon,
+} from "@heroicons/react/24/outline";
 
 const Page = () => {
   const { authState } = useAuth();
@@ -21,8 +29,10 @@ const Page = () => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [airportMap, setAirportMap] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
-  const [dateFilter, setDateFilter] = useState("all"); // New state for date filter
-  const [dateRange, setDateRange] = useState([null, null]); // New state for custom date range
+  const [dateFilter, setDateFilter] = useState("all");
+  const [dateRange, setDateRange] = useState([null, null]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [startDate, endDate] = dateRange;
   const itemsPerPage = 10;
 
@@ -43,125 +53,114 @@ const Page = () => {
       return;
     }
 
-   async function fetchBookings() {
-  setIsLoading(true);
-  setError(null);
+    async function fetchBookings() {
+      setIsLoading(true);
+      setError(null);
 
-  try {
-    const token = localStorage.getItem("token") || "";
-    if (!token) {
-      throw new Error("No authentication token found. Please log in again.");
-    }
-
-    const commonOpts = {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    };
-
-    const [
-      bookingsRes,
-      passengersRes,
-      bookedSeatRes,
-      billingsRes,
-      paymentsRes,
-      airportRes,
-    ] = await Promise.all([
-      fetch(`${BASE_URL}/bookings`, commonOpts).catch(() => ({ ok: false, status: 404 })),
-      fetch(`${BASE_URL}/passenger`, commonOpts).catch(() => ({ ok: false, status: 404 })),
-      fetch(`${BASE_URL}/booked-seat`, commonOpts).catch(() => ({ ok: false, status: 404 })),
-      fetch(`${BASE_URL}/billings`, commonOpts).catch(() => ({ ok: false, status: 404 })),
-      fetch(`${BASE_URL}/payments`, commonOpts).catch(() => ({ ok: false, status: 404 })),
-      fetch(`${BASE_URL}/airport`, commonOpts).catch(() => ({ ok: false, status: 404 })),
-    ]);
-
-const [
-  bookingsData,
-  passengersData,
-  bookedSeatData,
-  billingsData,
-  paymentsData,
-  airportData,
-] = await Promise.all([
-  bookingsRes.ok ? bookingsRes.json() : [],
-  passengersRes.ok ? (await passengersRes.json()).data || [] : [], // Extract .data
-  bookedSeatRes.ok ? bookedSeatRes.json() : [],
-  billingsRes.ok ? billingsRes.json() : [],
-  paymentsRes.ok ? paymentsRes.json() : [],
-  airportRes.ok ? airportRes.json() : [],
-]);
-    console.log('Passengers data:', passengersData);
-    console.log('Bookings data:', bookingsData);
-    console.log('Booked seat data:', bookedSeatData);
-    console.log('Billings data:', billingsData);
-    console.log('Payments data:', paymentsData);
-    console.log('Airport data:', airportData);
-
-    // Build airport map
-    const map = {};
-    (Array.isArray(airportData) ? airportData : []).forEach((a) => {
-      if (a?.id && a?.airport_name) map[a.id] = a.airport_name;
-    });
-    setAirportMap(map);
-
-    // Merge & sort bookings with supporting data
-    const merged = (Array.isArray(bookingsData) ? bookingsData : [])
-      .map((booking) => {
-        const matchingSeat = (Array.isArray(bookedSeatData) ? bookedSeatData : []).find(
-          (seat) =>
-            seat?.schedule_id === booking?.schedule_id &&
-            seat?.bookDate === booking?.bookDate
-        ) || {};
-        const matchingPassengers = Array.isArray(passengersData)
-          ? passengersData.filter((p) => p?.bookingId === booking?.id)
-          : [];
-        const matchingPayment = (Array.isArray(paymentsData) ? paymentsData : []).find(
-          (p) => p?.booking_id === booking?.id
-        );
-        const matchingBilling = (Array.isArray(billingsData) ? billingsData : []).find(
-          (b) => b?.user_id === booking?.bookedUserId
-        );
-
-        const flightSchedule = booking.FlightSchedule || matchingSeat.FlightSchedule || {};
-        const depId = flightSchedule.departure_airport_id;
-        const arrId = flightSchedule.arrival_airport_id;
-
-        if (!flightSchedule.departure_airport_id) {
-          console.warn(`Booking ${booking.bookingNo} is missing FlightSchedule data.`);
+      try {
+        const token = localStorage.getItem("token") || "";
+        if (!token) {
+          throw new Error("No authentication token found. Please log in again.");
         }
 
-        return {
-          ...booking,
-          FlightSchedule: flightSchedule,
-          booked_seat: matchingSeat?.booked_seat || "N/A",
-          passengers: matchingPassengers,
-          payment: matchingPayment || {},
-          billing: matchingBilling || {},
-          departureAirportName: depId && map[depId] ? map[depId] : "Unknown Airport",
-          arrivalAirportName: arrId && map[arrId] ? map[arrId] : "Unknown Airport",
+        const commonOpts = {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         };
-      })
-      .sort(
-        (a, b) =>
-          new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime()
-      );
 
-    console.log("Merged Bookings:", merged);
-    setBookings(merged);
-  } catch (err) {
-    console.error("Error fetching bookings:", err);
-    if (err.message.includes("No authentication token")) {
-      setError("Please log in again to view bookings.");
-      router.push("/sign-in");
-    } else {
-      setError(`Failed to load bookings: ${err.message}`);
-      toast.error(`Failed to load bookings: ${err.message}`);
+        const [
+          bookingsRes,
+          passengersRes,
+          bookedSeatRes,
+          billingsRes,
+          paymentsRes,
+          airportRes,
+        ] = await Promise.all([
+          fetch(`${BASE_URL}/bookings`, commonOpts).catch(() => ({ ok: false, status: 404 })),
+          fetch(`${BASE_URL}/passenger`, commonOpts).catch(() => ({ ok: false, status: 404 })),
+          fetch(`${BASE_URL}/booked-seat`, commonOpts).catch(() => ({ ok: false, status: 404 })),
+          fetch(`${BASE_URL}/billings`, commonOpts).catch(() => ({ ok: false, status: 404 })),
+          fetch(`${BASE_URL}/payments`, commonOpts).catch(() => ({ ok: false, status: 404 })),
+          fetch(`${BASE_URL}/airport`, commonOpts).catch(() => ({ ok: false, status: 404 })),
+        ]);
+
+        const [
+          bookingsData,
+          passengersData,
+          bookedSeatData,
+          billingsData,
+          paymentsData,
+          airportData,
+        ] = await Promise.all([
+          bookingsRes.ok ? bookingsRes.json() : [],
+          passengersRes.ok ? (await passengersRes.json()).data || [] : [],
+          bookedSeatRes.ok ? bookedSeatRes.json() : [],
+          billingsRes.ok ? billingsRes.json() : [],
+          paymentsRes.ok ? paymentsRes.json() : [],
+          airportRes.ok ? airportRes.json() : [],
+        ]);
+
+        // Build airport map
+        const map = {};
+        (Array.isArray(airportData) ? airportData : []).forEach((a) => {
+          if (a?.id && a?.airport_name) map[a.id] = a.airport_name;
+        });
+        setAirportMap(map);
+
+        // Merge & sort bookings with supporting data
+        const merged = (Array.isArray(bookingsData) ? bookingsData : [])
+          .map((booking) => {
+            const matchingSeat = (Array.isArray(bookedSeatData) ? bookedSeatData : []).find(
+              (seat) =>
+                seat?.schedule_id === booking?.schedule_id &&
+                seat?.bookDate === booking?.bookDate
+            ) || {};
+            const matchingPassengers = Array.isArray(passengersData)
+              ? passengersData.filter((p) => p?.bookingId === booking?.id)
+              : [];
+            const matchingPayment = (Array.isArray(paymentsData) ? paymentsData : []).find(
+              (p) => p?.booking_id === booking?.id
+            );
+            const matchingBilling = (Array.isArray(billingsData) ? billingsData : []).find(
+              (b) => b?.user_id === booking?.bookedUserId
+            );
+
+            const flightSchedule = booking.FlightSchedule || matchingSeat.FlightSchedule || {};
+            const depId = flightSchedule.departure_airport_id;
+            const arrId = flightSchedule.arrival_airport_id;
+
+            return {
+              ...booking,
+              FlightSchedule: flightSchedule,
+              booked_seat: matchingSeat?.booked_seat || "N/A",
+              passengers: matchingPassengers,
+              payment: matchingPayment || {},
+              billing: matchingBilling || {},
+              departureAirportName: depId && map[depId] ? map[depId] : "Unknown Airport",
+              arrivalAirportName: arrId && map[arrId] ? map[arrId] : "Unknown Airport",
+            };
+          })
+          .sort(
+            (a, b) =>
+              new Date(b.bookDate).getTime() - new Date(a.bookDate).getTime()
+          );
+
+        setBookings(merged);
+      } catch (err) {
+        console.error("Error fetching bookings:", err);
+        if (err.message.includes("No authentication token")) {
+          setError("Please log in again to view bookings.");
+          router.push("/sign-in");
+        } else {
+          setError(`Failed to load bookings: ${err.message}`);
+          toast.error(`Failed to load bookings: ${err.message}`);
+        }
+      } finally {
+        setIsLoading(false);
+      }
     }
-  } finally {
-    setIsLoading(false);
-  }
-}
 
     fetchBookings();
   }, [authState.isLoggedIn, authState.userRole, authState.isLoading]);
@@ -189,10 +188,34 @@ const [
     }
   };
 
-  // Filter bookings by date
+  // Handle sorting
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Filter bookings by date and search
   const filteredBookings = React.useMemo(() => {
     let data = bookings;
 
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      data = data.filter((booking) =>
+        [
+          booking.bookingNo?.toString().toLowerCase(),
+          booking.pnr?.toLowerCase(),
+          booking.passengers?.map((p) => p.name?.toLowerCase()).join(" "),
+          booking.departureAirportName?.toLowerCase(),
+          booking.arrivalAirportName?.toLowerCase(),
+        ].some((field) => field?.includes(term))
+      );
+    }
+
+    // Apply date filter
     if (["today", "tomorrow", "yesterday", "custom"].includes(dateFilter)) {
       const dateRange = getDateFilterRange(dateFilter);
       if (dateRange) {
@@ -207,8 +230,32 @@ const [
       }
     }
 
+    // Apply sorting
+    if (sortConfig.key) {
+      data.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+        
+        if (sortConfig.key === 'bookDate') {
+          aValue = new Date(aValue).getTime();
+          bValue = new Date(bValue).getTime();
+        } else if (typeof aValue === 'string') {
+          aValue = aValue.toLowerCase();
+          bValue = bValue.toLowerCase();
+        }
+        
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
     return data;
-  }, [bookings, dateFilter, startDate, endDate]);
+  }, [bookings, dateFilter, startDate, endDate, searchTerm, sortConfig]);
 
   // Calculate paginated bookings
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -222,242 +269,273 @@ const [
     }
   };
 
-  return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#f3f4f6", padding: "24px" }}>
-      <ToastContainer position="top-right" autoClose={3000} />
-      <h1 style={{ fontSize: "24px", fontWeight: "600", color: "#1f2937", marginBottom: "24px", textAlign: "center" }}>
-        Booking List
-      </h1>
+  const getSortIcon = (columnKey) => {
+    if (sortConfig.key !== columnKey) {
+      return <ArrowsUpDownIcon className="w-4 h-4 text-slate-400" />;
+    }
+    return sortConfig.direction === 'asc' ? 
+      <ArrowsUpDownIcon className="w-4 h-4 text-blue-500 rotate-180" /> :
+      <ArrowsUpDownIcon className="w-4 h-4 text-blue-500" />;
+  };
 
-      {/* Date Filter */}
-      <div style={{ marginBottom: "24px", display: "flex", flexWrap: "wrap", gap: "16px", alignItems: "center" }}>
-        <select
-          value={dateFilter}
-          onChange={(e) => {
-            setDateFilter(e.target.value);
-            setCurrentPage(1);
-            if (e.target.value !== "custom") {
-              setDateRange([null, null]);
-            }
-          }}
-          style={{
-            padding: "8px 16px",
-            border: "1px solid #d1d5db",
-            borderRadius: "8px",
-            fontSize: "14px",
-            backgroundColor: "#ffffff",
-            cursor: "pointer",
-          }}
-          aria-label="Select date filter"
-        >
-          <option value="all">All Dates</option>
-          <option value="today">Today</option>
-          <option value="tomorrow">Tomorrow</option>
-          <option value="yesterday">Yesterday</option>
-          <option value="custom">Custom Date Range</option>
-        </select>
-        {dateFilter === "custom" && (
-          <div style={{ display: "flex", gap: "8px" }}>
-            <DatePicker
-              selected={startDate}
-              onChange={(date) => {
-                setDateRange([date, endDate]);
+  return (
+    <div className="space-y-8">
+      <ToastContainer position="top-right" autoClose={3000} />
+      
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-r from-pink-500 to-rose-500 rounded-xl">
+              <TicketIcon className="w-8 h-8 text-white" />
+            </div>
+            Ticket Management
+          </h1>
+          <p className="text-slate-600 mt-2">View and manage flight tickets</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="relative flex-1 max-w-md">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              selectsStart
-              startDate={startDate}
-              endDate={endDate}
-              maxDate={endDate || new Date()}
-              placeholderText="Start Date"
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              style={{
-                padding: "8px 16px",
-                border: "1px solid #d1d5db",
-                borderRadius: "8px",
-                fontSize: "14px",
-                backgroundColor: "#ffffff",
-              }}
-              aria-label="Select start date"
+              placeholder="Search by booking ID, PNR, passenger name..."
+              className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             />
-            <DatePicker
-              selected={endDate}
-              onChange={(date) => {
-                setDateRange([startDate, date]);
-                setCurrentPage(1);
-              }}
-              selectsEnd
-              startDate={startDate}
-              endDate={endDate}
-              minDate={startDate}
-              maxDate={new Date()}
-              placeholderText="End Date"
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              style={{
-                padding: "8px 16px",
-                border: "1px solid #d1d5db",
-                borderRadius: "8px",
-                fontSize: "14px",
-                backgroundColor: "#ffffff",
-              }}
-              aria-label="Select end date"
-            />
+          </div>
+          
+          <select
+            value={dateFilter}
+            onChange={(e) => {
+              setDateFilter(e.target.value);
+              setCurrentPage(1);
+              if (e.target.value !== "custom") {
+                setDateRange([null, null]);
+              }
+            }}
+            className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+          >
+            <option value="all">All Dates</option>
+            <option value="today">Today</option>
+            <option value="tomorrow">Tomorrow</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="custom">Custom Date Range</option>
+          </select>
+          
+          {dateFilter === "custom" && (
+            <div className="flex gap-2">
+              <DatePicker
+                selected={startDate}
+                onChange={(date) => {
+                  setDateRange([date, endDate]);
+                  setCurrentPage(1);
+                }}
+                selectsStart
+                startDate={startDate}
+                endDate={endDate}
+                maxDate={endDate || new Date()}
+                placeholderText="Start Date"
+                className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              />
+              <DatePicker
+                selected={endDate}
+                onChange={(date) => {
+                  setDateRange([startDate, date]);
+                  setCurrentPage(1);
+                }}
+                selectsEnd
+                startDate={startDate}
+                endDate={endDate}
+                minDate={startDate}
+                maxDate={new Date()}
+                placeholderText="End Date"
+                className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+          <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {/* Tickets Table */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-50 to-pink-50 px-6 py-4 border-b border-slate-200">
+          <h3 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+            <TicketIcon className="w-6 h-6 text-pink-600" />
+            Flight Tickets ({filteredBookings.length})
+          </h3>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                {[
+                  { key: 'bookingNo', label: 'Booking ID', sortable: true },
+                  { key: 'pnr', label: 'PNR', sortable: true },
+                  { key: 'passengers', label: 'Passenger Names', sortable: false },
+                  { key: 'bookDate', label: 'Flight Date', sortable: true },
+                  { key: 'departureAirportName', label: 'Route', sortable: false },
+                  { key: 'actions', label: 'Actions', sortable: false },
+                ].map((column) => (
+                  <th
+                    key={column.key}
+                    className={`px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider ${
+                      column.sortable ? 'cursor-pointer hover:bg-slate-100 transition-colors' : ''
+                    }`}
+                    onClick={column.sortable ? () => handleSort(column.key) : undefined}
+                  >
+                    <div className="flex items-center gap-2">
+                      {column.label}
+                      {column.sortable && getSortIcon(column.key)}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-slate-500">Loading tickets...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : currentBookings.length === 0 && !error ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <TicketIcon className="w-12 h-12 text-slate-300" />
+                      <div>
+                        <p className="text-slate-500 font-medium">No tickets found</p>
+                        <p className="text-slate-400 text-sm">
+                          {dateFilter !== "all" || searchTerm ? "Try adjusting your filters" : "No tickets available"}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                currentBookings.map((booking) => (
+                  <tr key={booking.bookingNo} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap font-semibold text-slate-900">
+                      {booking.bookingNo || "N/A"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-slate-700">
+                      {booking.pnr || "N/A"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2 max-w-[250px]">
+                        <UserGroupIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        <span 
+                          className="text-slate-700 truncate" 
+                          title={booking.passengers?.map((p) => p.name).join(", ") || "N/A"}
+                        >
+                          {booking.passengers?.map((p) => p.name).join(", ") || "N/A"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <CalendarDaysIcon className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-700">
+                          {booking.bookDate ? new Date(booking.bookDate).toLocaleDateString() : "N/A"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-slate-700 max-w-[200px]">
+                        <div className="font-medium truncate" title={booking.departureAirportName}>
+                          {booking.departureAirportName}
+                        </div>
+                        <div className="text-sm text-slate-500 truncate" title={`to ${booking.arrivalAirportName}`}>
+                          to {booking.arrivalAirportName}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => setSelectedBooking(booking)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-lg hover:from-pink-600 hover:to-rose-600 transition-all duration-200 shadow-sm font-medium"
+                      >
+                        <EyeIcon className="w-4 h-4" />
+                        View Ticket
+                      </button>
+                      
+                      {/* Render TicketView off-screen for download */}
+                      <TicketView
+                        isOpen={false}
+                        onClose={() => {}}
+                        booking={booking}
+                        isDownload={true}
+                      />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 p-6 border-t border-slate-200">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 transition-colors"
+            >
+              Previous
+            </button>
+            
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const page = i + 1;
+                return (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    className={`px-3 py-2 rounded-lg transition-colors ${
+                      currentPage === page
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+            </div>
+            
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 transition-colors"
+            >
+              Next
+            </button>
           </div>
         )}
       </div>
 
-      {/* Error Message and Retry Button */}
-      {error && (
-        <div style={{ textAlign: "center", padding: "16px", marginBottom: "16px", backgroundColor: "#fee2e2", borderRadius: "8px" }}>
-          <p style={{ color: "#dc2626" }}>{error}</p>
-          {error.includes("Failed to load bookings") && (
-            <button
-              onClick={() => fetchBookings()}
-              style={{
-                marginTop: "8px",
-                padding: "8px 16px",
-                backgroundColor: "#4f46e5",
-                color: "#ffffff",
-                borderRadius: "8px",
-                cursor: "pointer",
-                border: "none",
-              }}
-            >
-              Retry
-            </button>
-          )}
-        </div>
-      )}
-
-      <div style={{ backgroundColor: "#ffffff", borderRadius: "12px", boxShadow: "0 10px 15px rgba(0,0,0,0.1)", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead style={{ backgroundColor: "#f9fafb" }}>
-            <tr>
-              <th style={{ padding: "16px", textAlign: "left", fontSize: "14px", fontWeight: "600", color: "#374151" }}>Passenger Name</th>
-              <th style={{ padding: "16px", textAlign: "left", fontSize: "14px", fontWeight: "600", color: "#374151" }}>Date of Flight</th>
-              <th style={{ padding: "16px", textAlign: "left", fontSize: "14px", fontWeight: "600", color: "#374151" }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr>
-                <td colSpan={3} style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>
-                  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px" }}>
-                    <svg
-                      className="animate-spin h-5 w-5 text-blue-500"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
-                      />
-                    </svg>
-                    Loading bookings...
-                  </div>
-                </td>
-              </tr>
-            ) : currentBookings.length === 0 && !error ? (
-              <tr>
-                <td colSpan={3} style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>
-                  {dateFilter !== "all" ? "No bookings match your date filter." : "No bookings found."}
-                </td>
-              </tr>
-            ) : (
-              currentBookings.map((booking) => (
-                <tr key={booking.bookingNo} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                  <td style={{ padding: "16px", fontSize: "14px", color: "#374151" }}>
-                    {booking.passengers?.map((p) => p.name).join(", ") || "N/A"}
-                  </td>
-                  <td style={{ padding: "16px", fontSize: "14px", color: "#374151" }}>
-                    {booking.bookDate ? new Date(booking.bookDate).toLocaleDateString() : "N/A"}
-                  </td>
-                  <td style={{ padding: "16px" }}>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <button
-                        onClick={() => setSelectedBooking(booking)}
-                        style={{
-                          backgroundColor: "#4f46e5",
-                          color: "#ffffff",
-                          padding: "8px 16px",
-                          borderRadius: "8px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          cursor: "pointer",
-                          fontSize: "14px",
-                          fontWeight: "500",
-                          border: "none",
-                        }}
-                        onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#4338ca")}
-                        onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#4f46e5")}
-                        aria-label={`View ticket for booking ${booking.bookingNo || "N/A"}`}
-                      >
-                        <FaPlane /> View Ticket
-                      </button>
-                    </div>
-                    {/* Render TicketView off-screen for download */}
-                    <TicketView
-                      isOpen={false}
-                      onClose={() => {}}
-                      booking={booking}
-                      isDownload={true}
-                    />
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination controls */}
-      {totalPages > 1 && (
-        <div style={{ textAlign: "center", marginTop: "24px", display: "flex", justifyContent: "center", alignItems: "center", gap: "8px" }}>
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: currentPage === 1 ? "#e5e7eb" : "#4f46e5",
-              color: currentPage === 1 ? "#6b7280" : "#ffffff",
-              borderRadius: "8px",
-              cursor: currentPage === 1 ? "not-allowed" : "pointer",
-              border: "none",
-            }}
-            aria-label="Previous page"
-          >
-            Previous
-          </button>
-          <span style={{ fontSize: "16px", fontWeight: "500", color: "#374151" }}>
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: currentPage === totalPages ? "#e5e7eb" : "#4f46e5",
-              color: currentPage === totalPages ? "#6b7280" : "#ffffff",
-              borderRadius: "8px",
-              cursor: currentPage === totalPages ? "not-allowed" : "pointer",
-              border: "none",
-            }}
-            aria-label="Next page"
-          >
-            Next
-          </button>
-        </div>
-      )}
-
+      {/* Ticket Modal */}
       {selectedBooking && (
         <TicketView
           isOpen={true}

@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
@@ -11,788 +10,1034 @@ import { debounce } from "lodash";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import BASE_URL from "@/baseUrl/baseUrl";
+import {
+    MagnifyingGlassIcon,
+    ArrowDownTrayIcon,
+    EyeIcon,
+    CalendarDaysIcon,
+    UserGroupIcon,
+    CreditCardIcon,
+    ExclamationTriangleIcon,
+    CheckCircleIcon,
+    XCircleIcon,
+    ClockIcon,
+    ArrowsUpDownIcon,
+    ChartBarIcon,
+    BanknotesIcon,
+} from "@heroicons/react/24/outline";
 
 const BOOKINGS_PER_PAGE = 50;
 
 export default function AllBookingsPage() {
-  const { authState } = useAuth();
-  const router = useRouter();
+    const { authState } = useAuth();
+    const router = useRouter();
 
-  const [allData, setAllData] = useState([]);
-  const [status, setStatus] = useState("Confirmed");
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [airportMap, setAirportMap] = useState({});
-  const [paymentMap, setPaymentMap] = useState({});
-  const [agentMap, setAgentMap] = useState({});
-  const [userRoleMap, setUserRoleMap] = useState({});
-  const [selectedAgent, setSelectedAgent] = useState("all");
-  const [selectedRole, setSelectedRole] = useState("all");
-  const [downloadRange, setDownloadRange] = useState("page");
-  const [error, setError] = useState(null);
-  const [bookingDateRange, setBookingDateRange] = useState([null, null]);
+    const [allData, setAllData] = useState([]);
+    const [status, setStatus] = useState("Confirmed");
+    const [isLoading, setIsLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [airportMap, setAirportMap] = useState({});
+    const [paymentMap, setPaymentMap] = useState({});
+    const [agentMap, setAgentMap] = useState({});
+    const [userRoleMap, setUserRoleMap] = useState({});
+    const [selectedAgent, setSelectedAgent] = useState("all");
+    const [selectedRole, setSelectedRole] = useState("all");
+    const [downloadRange, setDownloadRange] = useState("page");
+    const [error, setError] = useState(null);
+    const [bookingDateRange, setBookingDateRange] = useState([null, null]);
+    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
-  const [startBookingDate, endBookingDate] = bookingDateRange;
+    const [startBookingDate, endBookingDate] = bookingDateRange;
 
-  // Redirect if not admin
-  useEffect(() => {
-    if (!authState.isLoading && (!authState.isLoggedIn || authState.userRole !== "1")) {
-      router.push("/sign-in");
-    }
-  }, [authState.isLoading, authState.isLoggedIn, authState.userRole]);
+    // Redirect if not admin
+    useEffect(() => {
+        if (!authState.isLoading && (!authState.isLoggedIn || authState.userRole !== "1")) {
+            router.push("/sign-in");
+        }
+    }, [authState.isLoading, authState.isLoggedIn, authState.userRole]);
 
-  // Debounced search handler
-  const debouncedSearch = useCallback(
-    debounce((value) => {
-      setSearchTerm(value);
-      setCurrentPage(1);
-    }, 300),
-    []
-  );
-
-  // Fetch data
-  useEffect(() => {
-    if (authState.isLoading || !authState.isLoggedIn || authState.userRole !== "1") return;
-
-   const fetchAllData = async () => {
-  setIsLoading(true);
-  setError(null);
-
-  try {
-    const token = localStorage.getItem("token") || "";
-    if (!token) {
-      throw new Error("No authentication token found. Please log in again.");
-    }
-
-    const commonOpts = {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    };
-
-    const endpoints = [
-      `${BASE_URL}/bookings?status=${status}`,
-      `${BASE_URL}/booked-seat`,
-      `${BASE_URL}/passenger`,
-      `${BASE_URL}/airport`,
-      `${BASE_URL}/agents`,
-      `${BASE_URL}/payments`,
-      `${BASE_URL}/flights`,
-      `${BASE_URL}/users`,
-    ];
-
-    const responses = await Promise.all(
-      endpoints.map((url) =>
-        fetch(url, commonOpts).catch((err) => {
-          console.error(`Fetch error for ${url}:`, err);
-          return { ok: false, status: 404 };
-        })
-      )
+    // Debounced search handler
+    const debouncedSearch = useCallback(
+        debounce((value) => {
+            setSearchTerm(value);
+            setCurrentPage(1);
+        }, 300),
+        []
     );
 
-    const data = await Promise.all(
-      responses.map((res, index) =>
-        res.ok
-          ? index === 2
-            ? res.json().then((result) => result.data || []) // Extract .data for passengers
-            : res.json()
-          : [1, 2].includes(index)
-          ? []
-          : Promise.reject(new Error(`Fetch failed: ${endpoints[index]} - ${res.status}`))
-      )
-    );
 
-    console.log('Fetched bookings data:', data[0]);
-    console.log('Fetched passenger data:', data[2]);
-    console.log('Fetched booked-seat data:', data[1]);
-    console.log('Fetched airport data:', data[3]);
-    console.log('Fetched agent data:', data[4]);
-    console.log('Fetched payment data:', data[5]);
-    console.log('Fetched flights data:', data[6]);
-    console.log('Fetched users data:', data[7]);
+    useEffect(() => {
+        // only run when fully authenticated & admin
+        if (
+            authState.isLoading ||
+            !authState.isLoggedIn ||
+            authState.userRole !== "1"
+        ) {
+            return;
+        }
 
-    const [bookingsData, seatData, paxData, airportData, agentData, paymentData, flightsData, usersData] = data;
+        const fetchAllData = async () => {
+            setIsLoading(true);
+            setError(null);
 
-    // Build userRoleMap
-    const userRoleMap = Object.fromEntries(
-      (Array.isArray(usersData) ? usersData : []).map((user) => [user.id, String(user.role)])
-    );
+            try {
+                // grab token
+                const token = localStorage.getItem("token");
+                if (!token) {
+                    throw new Error("No authentication token found. Please log in again.");
+                }
 
-    // Create mappings with safety checks
-    const flightMap = Object.fromEntries(
-      (Array.isArray(flightsData) ? flightsData : [])
-        .filter((f) => f?.id && f?.flight_number && f?.status === 1)
-        .map((f) => [f.id, f.flight_number])
-    );
-    const airportMap = Object.fromEntries(
-      (Array.isArray(airportData) ? airportData : [])
-        .filter((a) => a?.id && a?.airport_name)
-        .map((a) => [a.id, a.airport_name])
-    );
-    const agentMap = Object.fromEntries(
-      (Array.isArray(agentData) ? agentData : [])
-        .filter((a) => a?.id && a?.agentId)
-        .map((a) => [a.id, a.agentId])
-    );
-    const paymentMap = Object.fromEntries(
-      (Array.isArray(paymentData) ? paymentData : [])
-        .filter((p) => p?.booking_id && p?.transaction_id)
-        .map((p) => [p.booking_id, p.transaction_id])
-    );
+                const commonOpts = {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                };
 
-    setAirportMap(airportMap);
-    setPaymentMap(paymentMap);
-    setAgentMap(agentMap);
-    setUserRoleMap(userRoleMap);
+                const endpoints = [
+                    `${BASE_URL}/bookings?status=${status}`, // 0
+                    `${BASE_URL}/booked-seat`,               // 1
+                    `${BASE_URL}/passenger`,                 // 2
+                    `${BASE_URL}/airport`,                   // 3
+                    `${BASE_URL}/agents`,                    // 4
+                    `${BASE_URL}/payments`,                  // 5
+                    `${BASE_URL}/flights`,                   // 6
+                    `${BASE_URL}/users/all`,                 // 7
+                ];
 
-   
-      // In the fetchAllData function, enhance passenger handling
-const merged = (Array.isArray(bookingsData) ? bookingsData : [])
-  .map((booking) => {
-    const matchSeat = (Array.isArray(seatData) ? seatData : []).find(
-      (s) => s?.schedule_id === booking?.schedule_id && s?.bookDate === booking?.bookDate
-    ) || {};
-    const passengers = Array.isArray(booking.Passengers)
-      ? booking.Passengers.filter(p => p && p.name) // Filter valid passengers
-      : (Array.isArray(paxData) ? paxData : []).filter(
-          (p) => p && p.bookingId && String(p.bookingId) === String(booking.id)
-        );
+                // 1) fetch all
+                const responses = await Promise.all(
+                    endpoints.map((url) =>
+                        fetch(url, commonOpts).catch((err) => ({
+                            ok: false,
+                            status: 500,
+                            statusText: err.message,
+                        }))
+                    )
+                );
 
-    // Debug passenger data
-    if (booking.id === 2407 || !passengers.length) {
-      console.log(`Booking ${booking.id} passenger details:`, {
-        bookingId: booking.id,
-        bookingNo: booking.bookingNo,
-        passengers,
-        source: Array.isArray(booking.Passengers) ? "booking.Passengers" : "paxData",
-      });
-    }
+                // 2) parse all, handle 401/403 specially
+                const data = await Promise.all(
+                    responses.map(async (res, idx) => {
+                        if (!res.ok) {
+                            // auth errors
+                            if (res.status === 401) {
+                                throw new Error("Authentication failed. Please log in again.");
+                            }
+                            if (res.status === 403) {
+                                throw new Error("Access denied. Admin privileges required.");
+                            }
+                            // non­critical endpoints return empty array
+                            if ([1, 2, 4, 5].includes(idx)) {
+                                return [];
+                            }
+                            // critical endpoints everything else
+                            throw new Error(
+                                `Failed to fetch ${endpoints[idx]}: ${res.status} ${res.statusText}`
+                            );
+                        }
 
-    const seatLabels = Array.isArray(booking.BookedSeats)
-      ? booking.BookedSeats.map((s) => s.seat_label).join(", ")
-      : "N/A";
+                        // parse JSON
+                        try {
+                            const json = await res.json();
+                            // passenger endpoint wraps in .data
+                            if (idx === 2) {
+                                return json.data || json || [];
+                            }
+                            return Array.isArray(json) ? json : [];
+                        } catch {
+                            return [];
+                        }
+                    })
+                );
 
-    return {
-      ...booking,
-      FlightSchedule: booking.FlightSchedule || matchSeat.FlightSchedule || {},
-      booked_seat: seatLabels,
-      passengers,
-      flightNumber: flightMap[booking.schedule_id] || "N/A",
-      billingName: booking.billing?.billing_name || "N/A",
-      paymentMode: booking.Payments?.[0]?.payment_mode || booking.pay_mode || "N/A",
-      agentId: agentMap[booking.agentId] || "FLYOLA",
-      userRole: userRoleMap[booking.bookedUserId] || "Unknown",
-      paymentId: booking.Payments?.[0]?.payment_id || booking.paymentId || "N/A",
-      transactionId: booking.transactionId || paymentMap[booking.id] || "N/A",
-      departureAirportName: airportMap[booking.FlightSchedule?.departure_airport_id] || "N/A",
-      arrivalAirportName: airportMap[booking.FlightSchedule?.arrival_airport_id] || "N/A",
-    };
-  })
-  .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                // 3) destructure
+                const [
+                    bookingsData,
+                    seatData,
+                    paxData,
+                    airportData,
+                    agentData,
+                    paymentData,
+                    flightsData,
+                    usersData,
+                ] = data;
 
-    console.log('Merged bookings:', merged);
-    setAllData(merged);
-    setCurrentPage(1);
-  } catch (err) {
-    console.error("Error fetching data:", err.message);
-    setError("Failed to load data. Please try again.");
-    toast.error("Failed to load data. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
-    fetchAllData();
-  }, [status, authState.isLoggedIn, authState.userRole]);
+                // 4) build maps
+                const userRoleMap = Object.fromEntries(
+                    usersData.map((u) => [u.id, String(u.role)])
+                );
+                const flightMap = Object.fromEntries(
+                    flightsData
+                        .filter((f) => f.id && f.flight_number && f.status === 1)
+                        .map((f) => [f.id, f.flight_number])
+                );
+                const airportMap = Object.fromEntries(
+                    airportData
+                        .filter((a) => a.id && a.airport_name)
+                        .map((a) => [a.id, a.airport_name])
+                );
+                const agentMap = Object.fromEntries(
+                    agentData
+                        .filter((a) => a.id && a.agentId)
+                        .map((a) => [a.id, a.agentId])
+                );
+                const paymentMap = Object.fromEntries(
+                    paymentData
+                        .filter((p) => p.booking_id && p.transaction_id)
+                        .map((p) => [p.booking_id, p.transaction_id])
+                );
 
-  // Date filter helper
-  const getDateFilterRange = (filter) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
+                // stash maps if you need them elsewhere
+                setAirportMap(airportMap);
+                setPaymentMap(paymentMap);
+                setAgentMap(agentMap);
+                setUserRoleMap(userRoleMap);
 
-    switch (filter) {
-      case "today": return { start: today, end: today };
-      case "tomorrow": return { start: tomorrow, end: tomorrow };
-      case "yesterday": return { start: yesterday, end: yesterday };
-      case "custom": return startBookingDate && endBookingDate ? { start: startBookingDate, end: endBookingDate } : null;
-      default: return null;
-    }
-  };
+                // 5) merge
+                const merged = bookingsData
+                    .map((booking) => {
+                        // find matching seat
+                        const matchSeat =
+                            seatData.find(
+                                (s) =>
+                                    s?.schedule_id === booking?.schedule_id &&
+                                    s?.bookDate === booking?.bookDate
+                            ) || {};
 
-  // Filtered data
-  const filteredData = useMemo(() => {
-    let data = allData;
+                        // passengers list
+                        const passengers = Array.isArray(booking.Passengers)
+                            ? booking.Passengers.filter((p) => p?.name)
+                            : paxData.filter(
+                                (p) =>
+                                    p?.bookingId &&
+                                    String(p.bookingId) === String(booking.id)
+                            );
 
-    // Agent filter
-    if (selectedAgent !== "all") {
-      data = data.filter((item) => item.agentId === selectedAgent);
-    }
+                        // seat labels
+                        const seatLabels = Array.isArray(booking.BookedSeats)
+                            ? booking.BookedSeats.map((s) => s.seat_label).join(", ")
+                            : "N/A";
 
-    // Role filter
-    if (selectedRole !== "all") {
-      data = data.filter((item) => item.userRole === selectedRole);
-    }
+                        return {
+                            ...booking,
+                            FlightSchedule:
+                                booking.FlightSchedule || matchSeat.FlightSchedule || {},
+                            booked_seat: seatLabels,
+                            passengers,
+                            flightNumber: flightMap[booking.schedule_id] || "N/A",
+                            billingName:
+                                booking.billing?.billing_name || "N/A",
+                            paymentMode:
+                                booking.Payments?.[0]?.payment_mode ||
+                                booking.pay_mode ||
+                                "N/A",
+                            agentId: agentMap[booking.agentId] || "FLYOLA",
+                            userRole:
+                                userRoleMap[booking.bookedUserId] || "Unknown",
+                            paymentId:
+                                booking.Payments?.[0]?.payment_id ||
+                                booking.paymentId ||
+                                "N/A",
+                            transactionId:
+                                booking.transactionId ||
+                                paymentMap[booking.id] ||
+                                "N/A",
+                            departureAirportName:
+                                airportMap[
+                                booking.FlightSchedule?.departure_airport_id
+                                ] || "N/A",
+                            arrivalAirportName:
+                                airportMap[
+                                booking.FlightSchedule?.arrival_airport_id
+                                ] || "N/A",
+                        };
+                    })
+                    .sort(
+                        (a, b) =>
+                            new Date(b.created_at) - new Date(a.created_at)
+                    );
 
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      data = data.filter((item) =>
-        [
-          item.bookingNo?.toString().toLowerCase(),
-          item.pnr?.toLowerCase(),
-          item.email_id?.toLowerCase(),
-          item.contact_no?.toString().toLowerCase(),
-          item.passengers?.map((p) => p.name?.toLowerCase()).join(" "),
-          item.billingName?.toLowerCase(),
-          item.transactionId?.toLowerCase(),
-          item.agentId?.toLowerCase(),
-          item.userRole?.toLowerCase(),
-        ].some((field) => field?.includes(term))
-      );
-    }
-
-    if (["today", "tomorrow", "yesterday", "custom"].includes(downloadRange)) {
-      const dateRange = getDateFilterRange(downloadRange);
-      if (dateRange) {
-        data = data.filter((item) => {
-          const createdAt = new Date(item.created_at);
-          createdAt.setHours(0, 0, 0, 0);
-          return (
-            createdAt.getTime() >= dateRange.start.getTime() &&
-            createdAt.getTime() <= dateRange.end.getTime()
-          );
-        });
-      }
-    } else if (downloadRange.startsWith("month-")) {
-      const [, year, month] = downloadRange.split("-");
-      data = data.filter(
-        (item) =>
-          new Date(item.created_at).getFullYear() === parseInt(year) &&
-          new Date(item.created_at).getMonth() === parseInt(month) - 1
-      );
-    } else if (downloadRange.startsWith("year-")) {
-      const [, year] = downloadRange.split("-");
-      data = data.filter((item) => new Date(item.created_at).getFullYear() === parseInt(year));
-    }
-
-    return data;
-  }, [allData, searchTerm, downloadRange, startBookingDate, endBookingDate, selectedAgent, selectedRole]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredData.length / BOOKINGS_PER_PAGE) || 1;
-  const currentData = useMemo(
-    () => filteredData.slice((currentPage - 1) * BOOKINGS_PER_PAGE, currentPage * BOOKINGS_PER_PAGE),
-    [filteredData, currentPage]
-  );
-
- const exportToExcel = useCallback(() => {
-  let exportData = downloadRange === "page" ? currentData : filteredData;
-  let filename = `AllBookings_${downloadRange === "page" ? `Page_${currentPage}` : downloadRange}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}${selectedRole !== "all" ? `_Role_${selectedRole}` : ""}.xlsx`;
-
-  if (!exportData.length) {
-    toast.warn("No data available for the selected range.");
-    return;
-  }
-
-  const data = exportData.map((item) => {
-    const passengerNames = item.passengers?.length
-      ? item.passengers.map((p) => p.name || "Unknown").join(", ")
-      : "N/A";
-    console.log(`Exporting Booking ${item.bookingNo}: PassengerNames = ${passengerNames}`);
-    return {
-      BookingId: item.bookingNo || "N/A",
-      PNR: item.pnr || "N/A",
-      FlyDate: item.bookDate ? new Date(item.bookDate).toLocaleDateString() : "N/A",
-      BookingDate: item.created_at ? new Date(item.created_at).toLocaleString() : "N/A",
-      Email: item.email_id || "N/A",
-      ContactNumber: item.contact_no || "N/A",
-      Passengers: item.noOfPassengers || 0,
-      PassengerNames: passengerNames,
-      BillingName: item.billingName || "N/A",
-      Sector: item.schedule_id || "N/A",
-      FlightNumber: item.flightNumber || "N/A",
-      BookedSeats: item.booked_seat || "N/A",
-      TotalFare: item.totalFare ? parseFloat(item.totalFare).toFixed(2) : "N/A",
-      BookingStatus: item.bookingStatus || "N/A",
-      PaymentMode: item.paymentMode || "N/A",
-      TransactionId: item.transactionId || "N/A",
-      AgentId: item.agentId || "FLYOLA",
-      UserRole: item.userRole || "Unknown",
-      DepartureTime: item.FlightSchedule?.departure_time || "N/A",
-      ArrivalTime: item.FlightSchedule?.arrival_time || "N/A",
-      Departure : item.departureAirportName || "N/A",
-      ArrivalAirport: item.arrivalAirportName || "N/A",
-    };
-  });
-
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "AllBookings");
-  XLSX.writeFile(wb, filename);
-  toast.success("Excel file downloaded successfully!");
-}, [currentData, filteredData, downloadRange, startBookingDate, endBookingDate, selectedAgent, selectedRole]);
-
-  // Download options
-  const downloadOptions = useMemo(() => {
-    const options = [
-      { value: "page", label: "Current Page" },
-      { value: "all", label: "All Data" },
-      { value: "today", label: "Today" },
-      { value: "tomorrow", label: "Tomorrow" },
-      { value: "yesterday", label: "Yesterday" },
-      { value: "custom", label: "Custom Date Range" },
-    ];
-
-    const yearMonthMap = new Map();
-    filteredData.forEach((item) => {
-      const date = new Date(item.created_at);
-      const year = date.getFullYear();
-      const month = date.getMonth() + 1;
-      if (!yearMonthMap.has(year)) yearMonthMap.set(year, new Set());
-      yearMonthMap.get(year).add(month);
-    });
-
-    yearMonthMap.forEach((months, year) => {
-      options.push({ value: `year-${year}`, label: `Year ${year}` });
-      months.forEach((month) => {
-        const monthName = new Date(0, month - 1).toLocaleString("default", { month: "long" });
-        options.push({ value: `month-${year}-${month}`, label: `${monthName} ${year}` });
-      });
-    });
-
-    return options;
-  }, [filteredData]);
-
-  // Agent options
-  const agentOptions = useMemo(() => {
-    const options = [{ value: "all", label: "All Agents" }];
-    Object.entries(agentMap).forEach(([id, agentId]) => {
-      options.push({ value: agentId, label: agentId });
-    });
-    return options;
-  }, [agentMap]);
-
-  // Role options
-  const roleOptions = useMemo(() => [
-    { value: "all", label: "All Roles" },
-    { value: "1", label: "Admin (Role 1)" },
-    { value: "2", label: "Booking Agent (Role 2)" },
-    { value: "3", label: "Regular User (Role 3)" },
-    { value: "Unknown", label: "Unknown Role" },
-  ], []);
-
-  // Pagination UI
-  const getPaginationItems = () => {
-    const items = [];
-    const maxButtons = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
-    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
-    if (endPage - startPage + 1 < maxButtons) {
-      startPage = Math.max(1, endPage - maxButtons + 1);
-    }
-    if (startPage > 1) items.push(1);
-    if (startPage > 2) items.push("...");
-    for (let i = startPage; i <= endPage; i++) items.push(i);
-    if (endPage < totalPages) {
-      if (endPage < totalPages - 1) items.push("...");
-      items.push(totalPages);
-    }
-    return items;
-  };
-
-  // View booking handler
-  const handleViewBooking = (bookingId) => {
-    router.push(`/booking-details/${bookingId}`);
-  };
-
-  return (
-    <div className="px-4 py-8 max-w-[100vw] overflow-x-auto">
-      <ToastContainer position="top-right" autoClose={3000} />
-      <h2 className="text-3xl font-bold mb-8 text-gray-900">All Bookings Data</h2>
-
-      {/* Status Filters */}
-      <div className="flex flex-wrap gap-3 mb-8">
-        {["Confirmed", "Pending", "Cancelled", "All Booking"].map((filter) => (
-          <button
-            key={filter}
-            onClick={() => {
-              setStatus(filter);
-              setSearchTerm("");
-              setSelectedAgent("all");
-              setSelectedRole("all");
-              setCurrentPage(1);
-              setDownloadRange("page");
-              setBookingDateRange([null, null]);
-            }}
-            className={`px-5 py-2 rounded-full font-medium transition-all duration-200 ${
-              status === filter
-                ? "bg-blue-600 text-white shadow-md"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-            aria-pressed={status === filter}
-          >
-            {filter}
-          </button>
-        ))}
-      </div>
-
-      {/* Search, Agent, and Role Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-8">
-        <div className="relative flex-1 max-w-2xl">
-          <input
-            type="text"
-            onChange={(e) => debouncedSearch(e.target.value)}
-            placeholder="Search by ID, PNR, email, phone, passenger name, billing name, transaction ID, agent ID, or user role..."
-            className="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow shadow-sm"
-            aria-label="Search all bookings"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => {
-                setSearchTerm("");
+                // 6) commit
+                setAllData(merged);
                 setCurrentPage(1);
-              }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              aria-label="Clear search"
-            >
-              ✕
-            </button>
-          )}
-        </div>
-        <select
-          value={selectedAgent}
-          onChange={(e) => {
-            setSelectedAgent(e.target.value);
-            setCurrentPage(1);
-          }}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          aria-label="Select agent"
-        >
-          {agentOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={selectedRole}
-          onChange={(e) => {
-            setSelectedRole(e.target.value);
-            setCurrentPage(1);
-          }}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          aria-label="Select user role"
-        >
-          {roleOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
+                toast.success(`Successfully loaded ${merged.length} bookings`);
+            } catch (err) {
+                console.error("[BookingList] Error fetching data:", err);
+                const msg = err.message || "Failed to load data. Please try again.";
+                setError(msg);
 
-      {/* Date Range Picker and Export */}
-      <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <select
-            value={downloadRange}
-            onChange={(e) => {
-              setDownloadRange(e.target.value);
-              setCurrentPage(1);
-              if (e.target.value !== "custom") setBookingDateRange([null, null]);
-            }}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label="Select download range"
-          >
-            {downloadOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          {downloadRange === "custom" && (
-            <div className="flex gap-2">
-              <DatePicker
-                selected={startBookingDate}
-                onChange={(date) => setBookingDateRange([date, endBookingDate])}
-                selectsStart
-                startDate={startBookingDate}
-                endDate={endBookingDate}
-                maxDate={endBookingDate || new Date()}
-                placeholderText="Start Booking Date"
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                aria-label="Select start booking date"
-              />
-              <DatePicker
-                selected={endBookingDate}
-                onChange={(date) => setBookingDateRange([startBookingDate, date])}
-                selectsEnd
-                startDate={startBookingDate}
-                endDate={endBookingDate}
-                minDate={startBookingDate}
-                maxDate={new Date()}
-                placeholderText="End Booking Date"
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                aria-label="Select end booking date"
-              />
+                // auth redirect
+                if (
+                    msg.includes("Authentication") ||
+                    msg.includes("Access denied")
+                ) {
+                    toast.error("Session expired. Redirecting to sign‑in…");
+                    setTimeout(() => router.push("/sign-in"), 2000);
+                } else {
+                    toast.error(msg);
+                }
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchAllData();
+    }, [status, authState.isLoggedIn, authState.userRole, router]);
+
+
+    // Date filter helper
+    const getDateFilterRange = (filter) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+
+        switch (filter) {
+            case "today": return { start: today, end: today };
+            case "tomorrow": return { start: tomorrow, end: tomorrow };
+            case "yesterday": return { start: yesterday, end: yesterday };
+            case "custom": return startBookingDate && endBookingDate ? { start: startBookingDate, end: endBookingDate } : null;
+            default: return null;
+        }
+    };
+
+    // Handle sorting
+    const handleSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    // Filtered data
+    const filteredData = useMemo(() => {
+        let data = allData;
+
+        // Agent filter
+        if (selectedAgent !== "all") {
+            data = data.filter((item) => item.agentId === selectedAgent);
+        }
+
+        // Role filter
+        if (selectedRole !== "all") {
+            data = data.filter((item) => item.userRole === selectedRole);
+        }
+
+        if (searchTerm.trim()) {
+            const term = searchTerm.toLowerCase();
+            data = data.filter((item) =>
+                [
+                    item.bookingNo?.toString().toLowerCase(),
+                    item.pnr?.toLowerCase(),
+                    item.email_id?.toLowerCase(),
+                    item.contact_no?.toString().toLowerCase(),
+                    item.passengers?.map((p) => p.name?.toLowerCase()).join(" "),
+                    item.billingName?.toLowerCase(),
+                    item.transactionId?.toLowerCase(),
+                    item.agentId?.toLowerCase(),
+                    item.userRole?.toLowerCase(),
+                ].some((field) => field?.includes(term))
+            );
+        }
+
+        if (["today", "tomorrow", "yesterday", "custom"].includes(downloadRange)) {
+            const dateRange = getDateFilterRange(downloadRange);
+            if (dateRange) {
+                data = data.filter((item) => {
+                    const createdAt = new Date(item.created_at);
+                    createdAt.setHours(0, 0, 0, 0);
+                    return (
+                        createdAt.getTime() >= dateRange.start.getTime() &&
+                        createdAt.getTime() <= dateRange.end.getTime()
+                    );
+                });
+            }
+        } else if (downloadRange.startsWith("month-")) {
+            const [, year, month] = downloadRange.split("-");
+            data = data.filter(
+                (item) =>
+                    new Date(item.created_at).getFullYear() === parseInt(year) &&
+                    new Date(item.created_at).getMonth() === parseInt(month) - 1
+            );
+        } else if (downloadRange.startsWith("year-")) {
+            const [, year] = downloadRange.split("-");
+            data = data.filter((item) => new Date(item.created_at).getFullYear() === parseInt(year));
+        }
+
+        // Apply sorting
+        if (sortConfig.key) {
+            data.sort((a, b) => {
+                let aValue = a[sortConfig.key];
+                let bValue = b[sortConfig.key];
+
+                if (typeof aValue === 'string') {
+                    aValue = aValue.toLowerCase();
+                    bValue = bValue.toLowerCase();
+                }
+
+                if (aValue < bValue) {
+                    return sortConfig.direction === 'asc' ? -1 : 1;
+                }
+                if (aValue > bValue) {
+                    return sortConfig.direction === 'asc' ? 1 : -1;
+                }
+                return 0;
+            });
+        }
+
+        return data;
+    }, [allData, searchTerm, downloadRange, startBookingDate, endBookingDate, selectedAgent, selectedRole, sortConfig]);
+
+    // Pagination
+    const totalPages = Math.ceil(filteredData.length / BOOKINGS_PER_PAGE) || 1;
+    const currentData = useMemo(
+        () => filteredData.slice((currentPage - 1) * BOOKINGS_PER_PAGE, currentPage * BOOKINGS_PER_PAGE),
+        [filteredData, currentPage]
+    ); const
+        exportToExcel = useCallback(() => {
+            let exportData = downloadRange === "page" ? currentData : filteredData;
+            let filename = `AllBookings_${downloadRange === "page" ? `Page_${currentPage}` : downloadRange}${selectedAgent !== "all" ? `_Agent_${selectedAgent}` : ""}${selectedRole !== "all" ? `_Role_${selectedRole}` : ""}.xlsx`;
+
+            if (!exportData.length) {
+                toast.warn("No data available for the selected range.");
+                return;
+            }
+
+            const data = exportData.map((item) => {
+                const passengerNames = item.passengers?.length
+                    ? item.passengers.map((p) => p.name || "Unknown").join(", ")
+                    : "N/A";
+
+                return {
+                    BookingId: item.bookingNo || "N/A",
+                    PNR: item.pnr || "N/A",
+                    FlyDate: item.bookDate ? new Date(item.bookDate).toLocaleDateString() : "N/A",
+                    BookingDate: item.created_at ? new Date(item.created_at).toLocaleString() : "N/A",
+                    Email: item.email_id || "N/A",
+                    ContactNumber: item.contact_no || "N/A",
+                    Passengers: item.noOfPassengers || 0,
+                    PassengerNames: passengerNames,
+                    BillingName: item.billingName || "N/A",
+                    Sector: item.schedule_id || "N/A",
+                    FlightNumber: item.flightNumber || "N/A",
+                    BookedSeats: item.booked_seat || "N/A",
+                    TotalFare: item.totalFare ? parseFloat(item.totalFare).toFixed(2) : "N/A",
+                    BookingStatus: item.bookingStatus || "N/A",
+                    PaymentMode: item.paymentMode || "N/A",
+                    TransactionId: item.transactionId || "N/A",
+                    PaymentId: item.paymentId || "N/A",
+                    AgentId: item.agentId || "FLYOLA",
+                    UserRole: item.userRole === "1" ? "Admin" : item.userRole === "2" ? "Booking Agent" : item.userRole === "3" ? "Regular User" : "Unknown",
+                    DepartureTime: item.FlightSchedule?.departure_time || "N/A",
+                    ArrivalTime: item.FlightSchedule?.arrival_time || "N/A",
+                    DepartureAirport: item.departureAirportName || "N/A",
+                    ArrivalAirport: item.arrivalAirportName || "N/A",
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "AllBookings");
+            XLSX.writeFile(wb, filename);
+            toast.success("Excel file downloaded successfully!");
+        }, [currentData, filteredData, downloadRange, currentPage, selectedAgent, selectedRole]);
+
+    // Download options
+    const downloadOptions = useMemo(() => {
+        const options = [
+            { value: "page", label: "Current Page" },
+            { value: "all", label: "All Data" },
+            { value: "today", label: "Today" },
+            { value: "tomorrow", label: "Tomorrow" },
+            { value: "yesterday", label: "Yesterday" },
+            { value: "custom", label: "Custom Date Range" },
+        ];
+
+        const yearMonthMap = new Map();
+        filteredData.forEach((item) => {
+            const date = new Date(item.created_at);
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            if (!yearMonthMap.has(year)) yearMonthMap.set(year, new Set());
+            yearMonthMap.get(year).add(month);
+        });
+
+        yearMonthMap.forEach((months, year) => {
+            options.push({ value: `year-${year}`, label: `Year ${year}` });
+            months.forEach((month) => {
+                const monthName = new Date(0, month - 1).toLocaleString("default", { month: "long" });
+                options.push({ value: `month-${year}-${month}`, label: `${monthName} ${year}` });
+            });
+        });
+
+        return options;
+    }, [filteredData]);
+
+    // Agent options
+    const agentOptions = useMemo(() => {
+        const options = [{ value: "all", label: "All Agents" }];
+        Object.entries(agentMap).forEach(([id, agentId]) => {
+            options.push({ value: agentId, label: agentId });
+        });
+        return options;
+    }, [agentMap]);
+
+    // Role options
+    const roleOptions = useMemo(() => [
+        { value: "all", label: "All Roles" },
+        { value: "1", label: "Admin (Role 1)" },
+        { value: "2", label: "Booking Agent (Role 2)" },
+        { value: "3", label: "Regular User (Role 3)" },
+        { value: "Unknown", label: "Unknown Role" },
+    ], []);
+
+    const getSortIcon = (columnKey) => {
+        if (sortConfig.key !== columnKey) {
+            return <ArrowsUpDownIcon className="w-4 h-4 text-slate-400" />;
+        }
+        return sortConfig.direction === 'asc' ?
+            <ArrowsUpDownIcon className="w-4 h-4 text-blue-500 rotate-180" /> :
+            <ArrowsUpDownIcon className="w-4 h-4 text-blue-500" />;
+    };
+
+    const getStatusBadge = (status) => {
+        const statusConfig = {
+            "Confirmed": { bg: "bg-emerald-100", text: "text-emerald-800", icon: CheckCircleIcon },
+            "Pending": { bg: "bg-yellow-100", text: "text-yellow-800", icon: ClockIcon },
+            "Cancelled": { bg: "bg-red-100", text: "text-red-800", icon: XCircleIcon },
+        };
+
+        const config = statusConfig[status] || { bg: "bg-gray-100", text: "text-gray-800", icon: ExclamationTriangleIcon };
+        const IconComponent = config.icon;
+
+        return (
+            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+                <IconComponent className="w-3 h-3" />
+                {status || "N/A"}
+            </span>
+        );
+    };
+
+    const getPaymentBadge = (mode) => {
+        const modeConfig = {
+            "ADMIN": { bg: "bg-emerald-100", text: "text-emerald-800" },
+            "DUMMY": { bg: "bg-yellow-100", text: "text-yellow-800" },
+            "RAZORPAY": { bg: "bg-blue-100", text: "text-blue-800" },
+        };
+
+        const config = modeConfig[mode] || { bg: "bg-gray-100", text: "text-gray-800" };
+
+        return (
+            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+                <CreditCardIcon className="w-3 h-3" />
+                {mode || "N/A"}
+            </span>
+        );
+    };
+
+    const getRoleBadge = (role) => {
+        const roleConfig = {
+            "1": { bg: "bg-purple-100", text: "text-purple-800", label: "Admin" },
+            "2": { bg: "bg-blue-100", text: "text-blue-800", label: "Booking Agent" },
+            "3": { bg: "bg-green-100", text: "text-green-800", label: "Regular User" },
+        };
+
+        const config = roleConfig[role] || { bg: "bg-gray-100", text: "text-gray-800", label: "Unknown" };
+
+        return (
+            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+                <UserGroupIcon className="w-3 h-3" />
+                {config.label}
+            </span>
+        );
+    };
+
+    // Analytics calculations
+    const analytics = useMemo(() => {
+        const totalBookings = filteredData.length;
+        const totalRevenue = filteredData.reduce((sum, booking) => sum + (parseFloat(booking.totalFare) || 0), 0);
+        const confirmedBookings = filteredData.filter(b => b.bookingStatus === "Confirmed").length;
+        const pendingBookings = filteredData.filter(b => b.bookingStatus === "Pending").length;
+        const cancelledBookings = filteredData.filter(b => b.bookingStatus === "Cancelled").length;
+        const totalPassengers = filteredData.reduce((sum, booking) => sum + (parseInt(booking.noOfPassengers) || 0), 0);
+
+        const paymentModes = filteredData.reduce((acc, booking) => {
+            const mode = booking.paymentMode || "Unknown";
+            acc[mode] = (acc[mode] || 0) + 1;
+            return acc;
+        }, {});
+
+        const agentStats = filteredData.reduce((acc, booking) => {
+            const agent = booking.agentId || "FLYOLA";
+            acc[agent] = (acc[agent] || 0) + 1;
+            return acc;
+        }, {});
+
+        return {
+            totalBookings,
+            totalRevenue,
+            confirmedBookings,
+            pendingBookings,
+            cancelledBookings,
+            totalPassengers,
+            paymentModes,
+            agentStats,
+            averageBookingValue: totalBookings > 0 ? totalRevenue / totalBookings : 0,
+            confirmationRate: totalBookings > 0 ? (confirmedBookings / totalBookings) * 100 : 0,
+        };
+    }, [filteredData]);
+    return (
+        <div className="space-y-8">
+            <ToastContainer position="top-right" autoClose={3000} />
+
+            {/* Header */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
+                        <div className="p-2 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl">
+                            <CalendarDaysIcon className="w-8 h-8 text-white" />
+                        </div>
+                        Booking Management
+                    </h1>
+                    <p className="text-slate-600 mt-2">Monitor and manage all flight bookings with analytics</p>
+                </div>
             </div>
-          )}
-          <button
-            onClick={exportToExcel}
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 shadow-sm flex items-center gap-2"
-            aria-label="Download as Excel"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H3a2 2 0 01-2-2V3a2 2 0 012-2h18a2 2 0 012 2v16a2 2 0 01-2 2z"
-              />
-            </svg>
-            Download Excel
-          </button>
-        </div>
-        <span className="text-sm text-gray-600">
-          Showing {(currentPage - 1) * BOOKINGS_PER_PAGE + 1}–
-          {Math.min(currentPage * BOOKINGS_PER_PAGE, filteredData.length)} of {filteredData.length} records
-        </span>
-      </div>
 
-      {/* Error Message and Retry Button */}
-      {error && (
-        <div className="text-center py-4">
-          <p className="text-red-600">{error}</p>
-          {error.includes("Failed to load data") && (
-            <button
-              onClick={() => fetchAllData()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mt-2"
-            >
-              Retry
-            </button>
-          )}
-        </div>
-      )}
+            {/* Analytics Dashboard */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-6 text-white">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-blue-100 text-sm font-medium">Total Bookings</p>
+                            <p className="text-3xl font-bold">{analytics.totalBookings.toLocaleString()}</p>
+                        </div>
+                        <ChartBarIcon className="w-12 h-12 text-blue-200" />
+                    </div>
+                </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto bg-white rounded-xl shadow-lg">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              {[
-                { label: "Booking ID", width: "min-w-[120px]" },
-                { label: "PNR", width: "min-w-[100px]" },
-                { label: "Fly Date", width: "min-w-[120px]" },
-                { label: "Booking Date", width: "min-w-[160px]" },
-                { label: "Email", width: "min-w-[200px]" },
-                { label: "Phone", width: "min-w-[120px]" },
-                { label: "Passengers", width: "min-w-[100px]" },
-                { label: "Names", width: "min-w-[320px]" },
-                { label: "Billing Name", width: "min-w-[200px]" },
-                { label: "Sector", width: "min-w-[100px]" },
-                { label: "Seats", width: "min-w-[120px]" },
-                { label: "Price", width: "min-w-[100px]" },
-                { label: "Status", width: "min-w-[120px]" },
-                { label: "Payment", width: "min-w-[120px]" },
-                { label: "Transaction ID", width: "min-w-[140px]" },
-                { label: "Payment ID", width: "min-w-[140px]" },
-                { label: "Agent ID", width: "min-w-[120px]" },
-                { label: "User Role", width: "min-w-[120px]" },
-                { label: "Dep Time", width: "min-w-[120px]" },
-                { label: "Arr Time", width: "min-w-[120px]" },
-                { label: "From", width: "min-w-[160px]" },
-                { label: "To", width: "min-w-[160px]" },
-                { label: "Action", width: "min-w-[100px]" },
-              ].map((h) => (
-                <th
-                  key={h.label}
-                  className={`px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider ${h.width}`}
-                >
-                  {h.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {!error && isLoading ? (
-              <tr>
-                <td colSpan={22} className="px-6 py-8 text-center">
-                  <div className="flex justify-center items-center gap-2">
-                    <svg
-                      className="animate-spin h-6 w-6 text-blue-500"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
-                      />
-                    </svg>
-                    <span className="text-gray-500">Loading data...</span>
-                  </div>
-                </td>
-              </tr>
-            ) : currentData.length ? (
-              currentData.map((b) => (
-                <tr key={b.id} className="hover:bg-gray-50 transition-colors">
-                  <th
-                    scope="row"
-                    className="px-4 py-2 font-medium text-gray-900 whitespace-nowrap"
-                  >
-                    {b.bookingNo || "N/A"}
-                  </th>
-                  <td className="px-4 py-2 whitespace-nowrap">{b.pnr || "N/A"}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    {b.bookDate ? new Date(b.bookDate).toLocaleDateString() : "N/A"}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    {b.created_at ? new Date(b.created_at).toLocaleString() : "N/A"}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap">{b.email_id || "N/A"}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{b.contact_no || "N/A"}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{b.noOfPassengers || "0"}</td>
-                  <td className="px-4 py-2 whitespace-nowrap w-80">{b.passengers?.map((p) => p.name).join(", ") || "N/A"}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{b.billingName || "N/A"}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{b.schedule_id || "N/A"}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{b.booked_seat || "N/A"}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    {b.totalFare ? `₹${parseFloat(b.totalFare).toFixed(2)}` : "N/A"}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        b.bookingStatus === "Confirmed"
-                          ? "bg-green-100 text-green-800"
-                          : b.bookingStatus === "Pending"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : b.bookingStatus === "Cancelled"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {b.bookingStatus || "N/A"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        b.paymentMode === "ADMIN"
-                          ? "bg-green-100 text-green-800"
-                          : b.paymentMode === "DUMMY"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
-                    >
-                      {b.paymentMode || "N/A"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap">{b.transactionId || "N/A"}</td>
-                  
-<td className="px-4 py-2 whitespace-nowrap">{b.paymentId || "N/A"}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{b.agentId}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        b.userRole === "1"
-                          ? "bg-purple-100 text-purple-800"
-                          : b.userRole === "2"
-                          ? "bg-blue-100 text-blue-800"
-                          : b.userRole === "3"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {b.userRole === "1" ? "Admin" : b.userRole === "2" ? "Booking Agent" : b.userRole === "3" ? "Regular User" : "Unknown"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap">{b.FlightSchedule?.departure_time || "N/A"}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{b.FlightSchedule?.arrival_time || "N/A"}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{b.departureAirportName || "N/A"}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{b.arrivalAirportName || "N/A"}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    <button
-                      onClick={() => handleViewBooking(b.id)}
-                      className="px-2 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
-                      aria-label={`View booking ${b.bookingNo || "N/A"}`}
-                    >
-                      View
-                    </button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={22} className="px-6 py-8 text-center text-gray-500">
-                  {searchTerm || downloadRange !== "page" || selectedAgent !== "all" || selectedRole !== "all" ? "No records match your filters." : "No records available."}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-emerald-100 text-sm font-medium">Total Revenue</p>
+                            <p className="text-3xl font-bold">₹{analytics.totalRevenue.toLocaleString()}</p>
+                        </div>
+                        <BanknotesIcon className="w-12 h-12 text-emerald-200" />
+                    </div>
+                </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-2 mt-8">
-          <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-            className={`px-4 py-2 rounded-lg transition-all duration-200 ${
-              currentPage === 1
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-            aria-label="Previous page"
-          >
-            Previous
-          </button>
-          {getPaginationItems().map((item, idx) =>
-            item === "..." ? (
-              <span key={`ellipsis-${idx}`} className="px-4 py-2 text-gray-500">
-                …
-              </span>
-            ) : (
-              <button
-                key={item}
-                onClick={() => setCurrentPage(item)}
-                className={`px-4 py-2 rounded-lg transition-all duration-200 ${
-                  currentPage === item
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-                aria-label={`Page ${item}`}
-              >
-                {item}
-              </button>
-            )
-          )}
-          <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
-            className={`px-4 py-2 rounded-lg transition-all duration-200 ${
-              currentPage === totalPages
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-            aria-label="Next page"
-          >
-            Next
-          </button>
+                <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl p-6 text-white">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-purple-100 text-sm font-medium">Total Passengers</p>
+                            <p className="text-3xl font-bold">{analytics.totalPassengers.toLocaleString()}</p>
+                        </div>
+                        <UserGroupIcon className="w-12 h-12 text-purple-200" />
+                    </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-6 text-white">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-orange-100 text-sm font-medium">Confirmation Rate</p>
+                            <p className="text-3xl font-bold">{analytics.confirmationRate.toFixed(1)}%</p>
+                        </div>
+                        <CheckCircleIcon className="w-12 h-12 text-orange-200" />
+                    </div>
+                </div>
+            </div>
+
+            {/* Status Analytics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <CheckCircleIcon className="w-6 h-6 text-emerald-600" />
+                        <h3 className="text-lg font-semibold text-slate-800">Confirmed</h3>
+                    </div>
+                    <p className="text-3xl font-bold text-emerald-600">{analytics.confirmedBookings}</p>
+                    <p className="text-sm text-slate-600 mt-1">
+                        {analytics.totalBookings > 0 ? ((analytics.confirmedBookings / analytics.totalBookings) * 100).toFixed(1) : 0}% of total
+                    </p>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <ClockIcon className="w-6 h-6 text-yellow-600" />
+                        <h3 className="text-lg font-semibold text-slate-800">Pending</h3>
+                    </div>
+                    <p className="text-3xl font-bold text-yellow-600">{analytics.pendingBookings}</p>
+                    <p className="text-sm text-slate-600 mt-1">
+                        {analytics.totalBookings > 0 ? ((analytics.pendingBookings / analytics.totalBookings) * 100).toFixed(1) : 0}% of total
+                    </p>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <XCircleIcon className="w-6 h-6 text-red-600" />
+                        <h3 className="text-lg font-semibold text-slate-800">Cancelled</h3>
+                    </div>
+                    <p className="text-3xl font-bold text-red-600">{analytics.cancelledBookings}</p>
+                    <p className="text-sm text-slate-600 mt-1">
+                        {analytics.totalBookings > 0 ? ((analytics.cancelledBookings / analytics.totalBookings) * 100).toFixed(1) : 0}% of total
+                    </p>
+                </div>
+            </div>
+
+            {/* Status Filters */}
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+                <div className="flex flex-wrap gap-3">
+                    {["Confirmed", "Pending", "Cancelled", "All Booking"].map((filter) => (
+                        <button
+                            key={filter}
+                            onClick={() => {
+                                setStatus(filter);
+                                setSearchTerm("");
+                                setSelectedAgent("all");
+                                setSelectedRole("all");
+                                setCurrentPage(1);
+                                setDownloadRange("page");
+                                setBookingDateRange([null, null]);
+                            }}
+                            className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${status === filter
+                                ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg"
+                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                                }`}
+                        >
+                            {filter}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Search and Filters */}
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+                <div className="flex flex-col lg:flex-row gap-4">
+                    <div className="relative flex-1">
+                        <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <input
+                            type="text"
+                            onChange={(e) => debouncedSearch(e.target.value)}
+                            placeholder="Search by ID, PNR, email, phone, passenger name, billing name, transaction ID, agent ID, or user role..."
+                            className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        />
+                    </div>
+
+                    <select
+                        value={selectedAgent}
+                        onChange={(e) => {
+                            setSelectedAgent(e.target.value);
+                            setCurrentPage(1);
+                        }}
+                        className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    >
+                        {agentOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={selectedRole}
+                        onChange={(e) => {
+                            setSelectedRole(e.target.value);
+                            setCurrentPage(1);
+                        }}
+                        className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    >
+                        {roleOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
+            {/* Date Range and Export */}
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                        <select
+                            value={downloadRange}
+                            onChange={(e) => {
+                                setDownloadRange(e.target.value);
+                                setCurrentPage(1);
+                                if (e.target.value !== "custom") setBookingDateRange([null, null]);
+                            }}
+                            className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        >
+                            {downloadOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+
+                        {downloadRange === "custom" && (
+                            <div className="flex gap-2">
+                                <DatePicker
+                                    selected={startBookingDate}
+                                    onChange={(date) => setBookingDateRange([date, endBookingDate])}
+                                    selectsStart
+                                    startDate={startBookingDate}
+                                    endDate={endBookingDate}
+                                    maxDate={endBookingDate || new Date()}
+                                    placeholderText="Start Date"
+                                    className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                />
+                                <DatePicker
+                                    selected={endBookingDate}
+                                    onChange={(date) => setBookingDateRange([startBookingDate, date])}
+                                    selectsEnd
+                                    startDate={startBookingDate}
+                                    endDate={endBookingDate}
+                                    minDate={startBookingDate}
+                                    maxDate={new Date()}
+                                    placeholderText="End Date"
+                                    className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={exportToExcel}
+                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:from-emerald-600 hover:to-teal-600 transition-all duration-200 shadow-lg font-semibold"
+                        >
+                            <ArrowDownTrayIcon className="w-5 h-5" />
+                            Download Excel
+                        </button>
+
+                        <span className="text-sm text-slate-600">
+                            Showing {(currentPage - 1) * BOOKINGS_PER_PAGE + 1}–
+                            {Math.min(currentPage * BOOKINGS_PER_PAGE, filteredData.length)} of {filteredData.length} records
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+                <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+                    <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0" />
+                    {error}
+                </div>
+            )}      {/* B
+ookings Table */}
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+                <div className="bg-gradient-to-r from-slate-50 to-orange-50 px-6 py-4 border-b border-slate-200">
+                    <h3 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+                        <CalendarDaysIcon className="w-6 h-6 text-orange-600" />
+                        Booking Records ({filteredData.length})
+                    </h3>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                {[
+                                    { key: 'bookingNo', label: 'Booking ID', sortable: true, width: 'min-w-[120px]' },
+                                    { key: 'pnr', label: 'PNR', sortable: true, width: 'min-w-[100px]' },
+                                    { key: 'bookDate', label: 'Fly Date', sortable: true, width: 'min-w-[120px]' },
+                                    { key: 'created_at', label: 'Booking Date', sortable: true, width: 'min-w-[160px]' },
+                                    { key: 'email_id', label: 'Email', sortable: false, width: 'min-w-[200px]' },
+                                    { key: 'contact_no', label: 'Phone', sortable: false, width: 'min-w-[120px]' },
+                                    { key: 'noOfPassengers', label: 'Passengers', sortable: true, width: 'min-w-[100px]' },
+                                    { key: 'passengers', label: 'Names', sortable: false, width: 'min-w-[320px]' },
+                                    { key: 'billingName', label: 'Billing Name', sortable: false, width: 'min-w-[200px]' },
+                                    { key: 'schedule_id', label: 'Sector', sortable: false, width: 'min-w-[100px]' },
+                                    { key: 'flightNumber', label: 'Flight', sortable: false, width: 'min-w-[100px]' },
+                                    { key: 'booked_seat', label: 'Seats', sortable: false, width: 'min-w-[120px]' },
+                                    { key: 'totalFare', label: 'Price', sortable: true, width: 'min-w-[100px]' },
+                                    { key: 'bookingStatus', label: 'Status', sortable: true, width: 'min-w-[120px]' },
+                                    { key: 'paymentMode', label: 'Payment', sortable: true, width: 'min-w-[120px]' },
+                                    { key: 'transactionId', label: 'Transaction ID', sortable: false, width: 'min-w-[140px]' },
+                                    { key: 'paymentId', label: 'Payment ID', sortable: false, width: 'min-w-[140px]' },
+                                    { key: 'agentId', label: 'Agent ID', sortable: true, width: 'min-w-[120px]' },
+                                    { key: 'userRole', label: 'User Role', sortable: true, width: 'min-w-[120px]' },
+                                    { key: 'departure_time', label: 'Dep Time', sortable: false, width: 'min-w-[120px]' },
+                                    { key: 'arrival_time', label: 'Arr Time', sortable: false, width: 'min-w-[120px]' },
+                                    { key: 'departureAirportName', label: 'From', sortable: false, width: 'min-w-[160px]' },
+                                    { key: 'arrivalAirportName', label: 'To', sortable: false, width: 'min-w-[160px]' },
+                                    { key: 'actions', label: 'Action', sortable: false, width: 'min-w-[100px]' },
+                                ].map((column) => (
+                                    <th
+                                        key={column.key}
+                                        className={`px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider ${column.width} ${column.sortable ? 'cursor-pointer hover:bg-slate-100 transition-colors' : ''
+                                            }`}
+                                        onClick={column.sortable ? () => handleSort(column.key) : undefined}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            {column.label}
+                                            {column.sortable && getSortIcon(column.key)}
+                                        </div>
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan={24} className="px-6 py-12 text-center">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                            <span className="text-slate-500">Loading bookings...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : currentData.length ? (
+                                currentData.map((booking) => (
+                                    <tr key={booking.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-4 py-2 whitespace-nowrap font-semibold text-slate-900">
+                                            {booking.bookingNo || "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.pnr || "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.bookDate ? new Date(booking.bookDate).toLocaleDateString() : "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.created_at ? new Date(booking.created_at).toLocaleString() : "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.email_id || "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.contact_no || "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.noOfPassengers || "0"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap w-80">
+                                            <div className="max-w-[320px] truncate text-slate-700" title={booking.passengers?.map((p) => p.name).join(", ") || "N/A"}>
+                                                {booking.passengers?.map((p) => p.name).join(", ") || "N/A"}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.billingName || "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.schedule_id || "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.flightNumber || "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.booked_seat || "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap font-semibold text-slate-900">
+                                            {booking.totalFare ? `₹${parseFloat(booking.totalFare).toFixed(2)}` : "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap">
+                                            {getStatusBadge(booking.bookingStatus)}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap">
+                                            {getPaymentBadge(booking.paymentMode)}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.transactionId || "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.paymentId || "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.agentId}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap">
+                                            {getRoleBadge(booking.userRole)}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.FlightSchedule?.departure_time || "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.FlightSchedule?.arrival_time || "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.departureAirportName || "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
+                                            {booking.arrivalAirportName || "N/A"}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap">
+                                            <button
+                                                onClick={() => router.push(`/booking-details/${booking.id}`)}
+                                                className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                                            >
+                                                <EyeIcon className="w-4 h-4" />
+                                                View
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={24} className="px-6 py-12 text-center">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <CalendarDaysIcon className="w-12 h-12 text-slate-300" />
+                                            <div>
+                                                <p className="text-slate-500 font-medium">No bookings found</p>
+                                                <p className="text-slate-400 text-sm">
+                                                    {searchTerm ? "Try adjusting your search terms" : "No bookings match your current filters"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="flex justify-center items-center gap-2 p-6 border-t border-slate-200">
+                        <button
+                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                            disabled={currentPage === 1 || isLoading}
+                            className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 transition-colors"
+                        >
+                            Previous
+                        </button>
+
+                        <div className="flex items-center gap-1">
+                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                const page = i + 1;
+                                return (
+                                    <button
+                                        key={page}
+                                        onClick={() => setCurrentPage(page)}
+                                        disabled={isLoading}
+                                        className={`px-3 py-2 rounded-lg transition-colors ${currentPage === page
+                                            ? "bg-blue-600 text-white"
+                                            : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                                            } disabled:opacity-50`}
+                                    >
+                                        {page}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <button
+                            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages || isLoading}
+                            className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 transition-colors"
+                        >
+                            Next
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
-      )}
-    </div>
-  );
+    );
 }
+

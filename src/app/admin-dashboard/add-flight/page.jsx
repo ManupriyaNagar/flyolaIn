@@ -4,16 +4,31 @@ import BASE_URL from "@/baseUrl/baseUrl";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { PlusIcon, TrashIcon, PencilIcon, XMarkIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import {
+  PlusIcon,
+  TrashIcon,
+  PencilIcon,
+  XMarkIcon,
+  MagnifyingGlassIcon,
+  ExclamationTriangleIcon,
+  PaperAirplaneIcon,
+  CalendarDaysIcon,
+  MapPinIcon,
+  UsersIcon,
+  ClockIcon,
+  FunnelIcon,
+  ArrowsUpDownIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+} from "@heroicons/react/24/outline";
+import { Dialog, Transition } from "@headlessui/react";
 import { debounce } from "lodash";
 
-// ✱ helpers ----------------------------------------------------------- //
+// Helper functions
 const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-// Return a clean array of stop-ids (unique, numbers, no 0 / '')
 function normaliseStops(raw) {
   try {
-    // Handle string "[]" explicitly as an empty array
     if (raw === '"[]"') return [];
     const arr = Array.isArray(raw) ? raw : JSON.parse(raw || "[]");
     return [...new Set(arr.map(Number).filter((id) => Number.isInteger(id) && id > 0))];
@@ -27,13 +42,13 @@ function validateFlightBody(fd) {
   const errors = [];
   if (!fd.flight_number.trim()) errors.push("Flight number is required");
   if (!fd.start_airport_id || !fd.end_airport_id) errors.push("Start & End airport required");
-  // Allow same start and end airports only if there are stops
+
   const stops = normaliseStops(fd.airport_stop_ids);
   if (fd.start_airport_id === fd.end_airport_id && stops.length === 0) {
     errors.push("For flights starting and ending at the same airport, at least one stop is required");
   }
   if (!WEEK_DAYS.includes(fd.departure_day)) errors.push("Invalid departure day");
-  if (!Number.isInteger(fd.seat_limit) || fd.seat_limit < 1) errors.push("Seat-limit must be ≥1");
+  if (!Number.isInteger(fd.seat_limit) || fd.seat_limit < 1) errors.push("Seat limit must be ≥1");
 
   if (stops.includes(fd.start_airport_id) || stops.includes(fd.end_airport_id)) {
     errors.push("Stops may not include start/end airports");
@@ -41,8 +56,6 @@ function validateFlightBody(fd) {
 
   return { errors, clean: { ...fd, airport_stop_ids: stops } };
 }
-
-const ENTRIES_PER_PAGE = [10, 25, 50, 100];
 
 const FlightsPage = () => {
   const [flights, setFlights] = useState([]);
@@ -61,13 +74,14 @@ const FlightsPage = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [entries, setEntries] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [dayFilter, setDayFilter] = useState("ALL DAYS");
   const [statusFilter, setStatusFilter] = useState("All");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
-  // Fetch flights and airports with validation
+  // Fetch flights and airports
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
@@ -82,26 +96,12 @@ const FlightsPage = () => {
           airportsRes.json(),
         ]);
 
-        // Validate airport IDs and normalize stop IDs
         const airportIds = new Set(airportsData.map((a) => a.id));
         const normalizedFlights = flightsData.map((flight) => {
-          if (!airportIds.has(flight.start_airport_id)) {
-            console.warn(`Invalid start_airport_id ${flight.start_airport_id} in flight ${flight.id}`);
-          }
-          if (!airportIds.has(flight.end_airport_id)) {
-            console.warn(`Invalid end_airport_id ${flight.end_airport_id} in flight ${flight.id}`);
-          }
           const stops = normaliseStops(flight.airport_stop_ids);
-          stops.forEach((id) => {
-            if (!airportIds.has(id)) {
-              console.warn(`Invalid stop_airport_id ${id} in flight ${flight.id}`);
-            }
-          });
           return { ...flight, airport_stop_ids: stops };
         });
 
-        console.log("Flights:", normalizedFlights);
-        console.log("Airports:", airportsData);
         setFlights(normalizedFlights);
         setAirports(airportsData);
       } catch (error) {
@@ -132,7 +132,7 @@ const FlightsPage = () => {
     });
   };
 
-  // Handle airport stops change (for multi-select)
+  // Handle airport stops change
   const handleStopsChange = (e) => {
     const { value, checked } = e.target;
     const currentStops = normaliseStops(formData.airport_stop_ids);
@@ -153,7 +153,6 @@ const FlightsPage = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Validate body
     const { errors, clean } = validateFlightBody(formData);
     if (errors.length) {
       toast.error(errors[0]);
@@ -163,19 +162,19 @@ const FlightsPage = () => {
 
     const method = isEdit ? "PUT" : "POST";
     const url = isEdit ? `${BASE_URL}/flights/${currentFlight.id}` : `${BASE_URL}/flights`;
+
     try {
       const payload = {
         ...clean,
         airport_stop_ids: normaliseStops(clean.airport_stop_ids),
       };
 
-      console.log("Sending payload:", payload);
-
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
       if (response.ok) {
         setShowModal(false);
         setFormData({
@@ -189,24 +188,25 @@ const FlightsPage = () => {
         });
         setIsEdit(false);
         toast.success(isEdit ? "Flight updated!" : "Flight added!");
+
+        // Refresh flights
         const flightsRes = await fetch(`${BASE_URL}/flights`);
-        setFlights(await flightsRes.json());
+        const flightsData = await flightsRes.json();
+        const normalizedFlights = flightsData.map((flight) => ({
+          ...flight,
+          airport_stop_ids: normaliseStops(flight.airport_stop_ids),
+        }));
+        setFlights(normalizedFlights);
       } else {
         const errorText = await response.text();
-        console.error("Server error:", response.status, errorText);
-        throw new Error(`Error saving ${isEdit ? "flight" : "flight"}: ${errorText}`);
+        throw new Error(`Error saving flight: ${errorText}`);
       }
     } catch (error) {
       console.error("Error:", error);
-      toast.error(`Failed to save ${isEdit ? "flight" : "flight"}: ${error.message}`);
+      toast.error(`Failed to save flight: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Handle delete initiation
-  const handleDelete = (id) => {
-    setShowDeleteConfirm(id);
   };
 
   // Handle delete confirmation
@@ -216,14 +216,12 @@ const FlightsPage = () => {
     try {
       const response = await fetch(`${BASE_URL}/flights/${showDeleteConfirm}`, {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to delete flight (Status: ${response.status})`);
+        throw new Error(errorData.error || `Failed to delete flight`);
       }
 
       setFlights(flights.filter((f) => f.id !== showDeleteConfirm));
@@ -277,97 +275,100 @@ const FlightsPage = () => {
     }
   };
 
-  // Get airport name by ID with improved error handling
+  // Get airport name by ID
   const getAirportName = (id) => {
     const airport = airports.find((a) => a.id === id);
     if (!airport) {
-      console.warn(`Airport ID ${id} not found`);
       return `Invalid ID: ${id}`;
     }
     return airport.airport_name;
   };
 
-  // Filtered and paginated flights
+  // Handle sorting
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Filtered and sorted flights
   const filteredFlights = useMemo(() => {
-    return flights.filter((flight) => {
+    let filtered = flights.filter((flight) => {
       const lower = searchTerm.toLowerCase();
       const matchesSearch =
         flight.flight_number.toLowerCase().includes(lower) ||
         getAirportName(flight.start_airport_id).toLowerCase().includes(lower) ||
-        getAirportName(flight.end_airport_id).toLowerCase().includes(lower) ||
-        normaliseStops(flight.airport_stop_ids).some((id) => getAirportName(id).toLowerCase().includes(lower));
+        getAirportName(flight.end_airport_id).toLowerCase().includes(lower);
+
       const matchesDay = dayFilter === "ALL DAYS" || flight.departure_day === dayFilter;
       const matchesStatus =
         statusFilter === "All" ||
         (statusFilter === "Active" && flight.status === 1) ||
         (statusFilter === "Inactive" && flight.status === 0);
+
       return matchesSearch && matchesDay && matchesStatus;
     });
-  }, [flights, searchTerm, dayFilter, statusFilter]);
 
-  const totalPages = Math.ceil(filteredFlights.length / entries) || 1;
+    // Apply sorting
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        if (typeof aValue === 'string') {
+          aValue = aValue.toLowerCase();
+          bValue = bValue.toLowerCase();
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [flights, searchTerm, dayFilter, statusFilter, sortConfig]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredFlights.length / entriesPerPage) || 1;
   const paginatedFlights = useMemo(() => {
-    const start = (currentPage - 1) * entries;
-    return filteredFlights.slice(start, start + entries);
-  }, [filteredFlights, currentPage, entries]);
+    const start = (currentPage - 1) * entriesPerPage;
+    return filteredFlights.slice(start, start + entriesPerPage);
+  }, [filteredFlights, currentPage, entriesPerPage]);
 
-  // Pagination items
-  const getPaginationItems = () => {
-    const items = [];
-    const maxButtons = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
-    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
-    if (endPage - startPage + 1 < maxButtons) startPage = Math.max(1, endPage - maxButtons + 1);
-    if (startPage > 1) {
-      items.push(1);
-      if (startPage > 2) items.push("...");
+  const getSortIcon = (columnKey) => {
+    if (sortConfig.key !== columnKey) {
+      return <ArrowsUpDownIcon className="w-4 h-4 text-slate-400" />;
     }
-    for (let i = startPage; i <= endPage; i++) items.push(i);
-    if (endPage < totalPages) {
-      if (endPage < totalPages - 1) items.push("...");
-      items.push(totalPages);
-    }
-    return items;
+    return sortConfig.direction === 'asc' ?
+      <ArrowsUpDownIcon className="w-4 h-4 text-blue-500 rotate-180" /> :
+      <ArrowsUpDownIcon className="w-4 h-4 text-blue-500" />;
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="space-y-8">
       <ToastContainer position="top-right" autoClose={3000} />
-      <h2 className="text-3xl font-bold mb-8 text-gray-900">Flight Management</h2>
 
-      {/* Filters and Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-          <select
-            value={dayFilter}
-            onChange={(e) => {
-              setDayFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            aria-label="Filter by day"
-          >
-            <option>ALL DAYS</option>
-            {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => (
-              <option key={day}>{day}</option>
-            ))}
-          </select>
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            aria-label="Filter by status"
-          >
-            <option>All</option>
-            <option>Active</option>
-            <option>Inactive</option>
-          </select>
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-r from-sky-500 to-blue-500 rounded-xl">
+              <PaperAirplaneIcon className="w-8 h-8 text-white" />
+            </div>
+            Flight Management
+          </h1>
+          <p className="text-slate-600 mt-2">Manage flight schedules, routes, and capacity</p>
         </div>
+
         <button
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:from-emerald-600 hover:to-teal-600 transition-all duration-200 shadow-lg font-semibold"
           onClick={() => {
             setIsEdit(false);
             setFormData({
@@ -382,433 +383,553 @@ const FlightsPage = () => {
             setShowModal(true);
           }}
           disabled={isLoading}
-          aria-label="Add new flight"
         >
           <PlusIcon className="w-5 h-5" />
-          Add Flight
+          Add New Flight
         </button>
       </div>
 
-      {/* Table Controls */}
-      <div className="bg-white rounded-xl shadow-lg mb-8">
-        <div className="p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-600">Show</span>
-              <select
-                value={entries}
-                onChange={(e) => {
-                  setEntries(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                aria-label="Select number of entries"
-              >
-                {ENTRIES_PER_PAGE.map((num) => (
-                  <option key={num}>{num}</option>
-                ))}
-              </select>
-              <span className="text-gray-600">entries</span>
-            </div>
-            <div className="relative w-full sm:w-64">
+      {/* Filters */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row gap-4 flex-1">
+            <div className="relative flex-1 max-w-md">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
                 type="text"
                 onChange={(e) => debouncedSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Search flights..."
-                aria-label="Search flights"
               />
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             </div>
+
+            <select
+              value={dayFilter}
+              onChange={(e) => {
+                setDayFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            >
+              <option>ALL DAYS</option>
+              {WEEK_DAYS.map((day) => (
+                <option key={day}>{day}</option>
+              ))}
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            >
+              <option>All</option>
+              <option>Active</option>
+              <option>Inactive</option>
+            </select>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse min-w-[800px]">
-              <thead>
-                <tr className="bg-gray-50">
-                  {[
-                    "S#",
-                    "Number",
-                    "Day",
-                    "Start Airport",
-                    "End Airport",
-                    "Stops",
-                    "Seats",
-                    "Status",
-                    "Action",
-                  ].map((header) => (
-                    <th
-                      key={header}
-                      className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase"
-                    >
-                      {header}
-                    </th>
-                  ))}
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-slate-600">Show</span>
+            <select
+              value={entriesPerPage}
+              onChange={(e) => {
+                setEntriesPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {[10, 25, 50, 100].map((num) => (
+                <option key={num}>{num}</option>
+              ))}
+            </select>
+            <span className="text-sm text-slate-600">entries</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Flight List */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-50 to-blue-50 px-6 py-4 border-b border-slate-200">
+          <h3 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+            <PaperAirplaneIcon className="w-6 h-6 text-blue-600" />
+            Flight Directory ({filteredFlights.length})
+          </h3>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                {[
+                  { key: 'flight_number', label: 'Flight Number' },
+                  { key: 'departure_day', label: 'Day' },
+                  { key: 'start_airport_id', label: 'From' },
+                  { key: 'end_airport_id', label: 'To' },
+                  { key: 'seat_limit', label: 'Seats' },
+                  { key: 'status', label: 'Status' },
+                ].map((column) => (
+                  <th
+                    key={column.key}
+                    className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort(column.key)}
+                  >
+                    <div className="flex items-center gap-2">
+                      {column.label}
+                      {getSortIcon(column.key)}
+                    </div>
+                  </th>
+                ))}
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-slate-500">Loading flights...</span>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
-                      Loading...
+              ) : paginatedFlights.length ? (
+                paginatedFlights.map((flight) => (
+                  <tr key={flight.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <PaperAirplaneIcon className="w-4 h-4 text-slate-400" />
+                        <span className="font-semibold text-slate-900">{flight.flight_number}</span>
+                      </div>
                     </td>
-                  </tr>
-                ) : paginatedFlights.length ? (
-                  paginatedFlights.map((flight, index) => (
-                    <tr key={flight.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {(currentPage - 1) * entries + index + 1}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {flight.flight_number || "N/A"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {flight.departure_day || "Unknown"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">
-                        <span title={getAirportName(flight.start_airport_id)}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <CalendarDaysIcon className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-700">{flight.departure_day}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2 max-w-[200px]">
+                        <MapPinIcon className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                        <span className="text-slate-900 truncate" title={getAirportName(flight.start_airport_id)}>
                           {getAirportName(flight.start_airport_id)}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">
-                        <span title={getAirportName(flight.end_airport_id)}>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2 max-w-[200px]">
+                        <MapPinIcon className="w-4 h-4 text-red-500 flex-shrink-0" />
+                        <span className="text-slate-900 truncate" title={getAirportName(flight.end_airport_id)}>
                           {getAirportName(flight.end_airport_id)}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">
-                        <span
-                          title={
-                            normaliseStops(flight.airport_stop_ids)
-                              .map((id) => getAirportName(id))
-                              .join(", ") || "No stops"
-                          }
-                        >
-                          {normaliseStops(flight.airport_stop_ids)
-                            .map((id) => getAirportName(id))
-                            .join(", ") || "No stops"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">{flight.seat_limit}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="checkbox"
-                          className="form-checkbox h-5 w-5 text-blue-600"
-                          checked={flight.status === 1}
-                          onChange={() => handleStatusToggle(flight)}
-                          disabled={isLoading}
-                        />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap flex gap-2">
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <UsersIcon className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-700">{flight.seat_limit}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => handleStatusToggle(flight)}
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors ${flight.status === 1
+                            ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                            : "bg-red-100 text-red-800 hover:bg-red-200"
+                          }`}
+                        disabled={isLoading}
+                      >
+                        {flight.status === 1 ? (
+                          <CheckCircleIcon className="w-3 h-3" />
+                        ) : (
+                          <XCircleIcon className="w-3 h-3" />
+                        )}
+                        {flight.status === 1 ? "Active" : "Inactive"}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
                         <button
-                          className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                           onClick={() => handleEdit(flight)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           disabled={isLoading}
-                          aria-label="Edit flight"
+                          title="Edit flight"
                         >
                           <PencilIcon className="w-4 h-4" />
                         </button>
                         <button
-                          className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
-                          onClick={() => handleDelete(flight.id)}
+                          onClick={() => setShowDeleteConfirm(flight.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           disabled={isLoading}
-                          aria-label="Delete flight"
+                          title="Delete flight"
                         >
-                          {isLoading && showDeleteConfirm === flight.id ? (
-                            <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              />
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
-                              />
-                            </svg>
-                          ) : (
-                            <TrashIcon className="w-4 h-4" />
-                          )}
+                          <TrashIcon className="w-4 h-4" />
                         </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
-                      No flights available.
+                      </div>
                     </td>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <PaperAirplaneIcon className="w-12 h-12 text-slate-300" />
+                      <div>
+                        <p className="text-slate-500 font-medium">No flights found</p>
+                        <p className="text-slate-400 text-sm">
+                          {searchTerm ? "Try adjusting your search terms" : "Add your first flight to get started"}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 p-6 border-t border-slate-200">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1 || isLoading}
+              className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 transition-colors"
+            >
+              Previous
+            </button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const page = i + 1;
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    disabled={isLoading}
+                    className={`px-3 py-2 rounded-lg transition-colors ${currentPage === page
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      } disabled:opacity-50`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages || isLoading}
+              className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-sm">
-            <h5 className="text-lg font-semibold mb-4">Confirm Delete</h5>
-            <p className="text-gray-600 mb-6">Are you sure you want to delete this flight?</p>
-            <div className="flex justify-end gap-2">
-              <button
-                className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400"
-                onClick={() => setShowDeleteConfirm(null)}
-                disabled={isLoading}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
-                onClick={confirmDelete}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
-                    />
-                  </svg>
-                ) : (
-                  "Delete"
-                )}
-                {isLoading ? "Deleting..." : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-2 mt-8">
-          <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage === 1 || isLoading}
-            className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
-          >
-            Previous
-          </button>
-          {getPaginationItems().map((item, index) =>
-            item === "..." ? (
-              <span key={`ellipsis-${index}`} className="px-4 py-2 text-gray-500">
-                ...
-              </span>
-            ) : (
-              <button
-                key={item}
-                onClick={() => setCurrentPage(item)}
-                disabled={isLoading}
-                className={`px-4 py-2 rounded-lg ${
-                  currentPage === item
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                } disabled:opacity-50`}
-              >
-                {item}
-              </button>
-            )
-          )}
-          <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages || isLoading}
-            className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-      )}
-
       {/* Add/Edit Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-6">
-              <h5 className="text-xl font-semibold">{isEdit ? "Edit Flight" : "Add Flight"}</h5>
-              <button
-                className="text-gray-400 hover:text-gray-600"
-                onClick={() => setShowModal(false)}
-                disabled={isLoading}
-                aria-label="Close modal"
-              >
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Flight Number</label>
-                <input
-                  type="text"
-                  name="flight_number"
-                  value={formData.flight_number}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Departure Day</label>
-                <select
-                  name="departure_day"
-                  value={formData.departure_day}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                  required
-                  disabled={isLoading}
-                >
-                  {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(
-                    (day) => (
-                      <option key={day} value={day}>
-                        {day}
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Start Airport</label>
-                <select
-                  name="start_airport_id"
-                  value={formData.start_airport_id}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                  required
-                  disabled={isLoading}
-                >
-                  <option value="">Select Airport</option>
-                  {airports.map((airport) => (
-                    <option key={airport.id} value={airport.id}>
-                      {airport.airport_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">End Airport</label>
-                <select
-                  name="end_airport_id"
-                  value={formData.end_airport_id}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                  required
-                  disabled={isLoading}
-                >
-                  <option value="">Select Airport</option>
-                  {airports.map((airport) => (
-                    <option key={airport.id} value={airport.id}>
-                      {airport.airport_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Stop Airports</label>
-                <div className="max-h-40 overflow-y-auto border rounded-lg px-4 py-2 bg-gray-50">
-                  {airports.length > 0 ? (
-                    airports.map((airport) => (
-                      <div key={airport.id} className="flex items-center py-1">
-                        <input
-                          type="checkbox"
-                          id={`stop-airport-${airport.id}`}
-                          value={airport.id}
-                          checked={normaliseStops(formData.airport_stop_ids).includes(airport.id)}
-                          onChange={handleStopsChange}
-                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
-                          disabled={isLoading || airport.id === formData.start_airport_id || airport.id === formData.end_airport_id}
-                        />
-                        <label
-                          htmlFor={`stop-airport-${airport.id}`}
-                          className={`ml-2 text-sm text-gray-700 cursor-pointer ${isLoading || airport.id === formData.start_airport_id || airport.id === formData.end_airport_id ? "text-gray-400" : ""}`}
-                        >
-                          {airport.airport_name}
-                        </label>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-500">No airports available</p>
-                  )}
+      <Transition show={showModal} as={React.Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowModal(false)}>
+          <Transition.Child
+            as={React.Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <Transition.Child
+              as={React.Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <PaperAirplaneIcon className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <Dialog.Title className="text-xl font-semibold text-slate-900">
+                      {isEdit ? "Edit Flight" : "Add New Flight"}
+                    </Dialog.Title>
+                  </div>
+                  <button
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                    onClick={() => setShowModal(false)}
+                    disabled={isLoading}
+                  >
+                    <XMarkIcon className="w-6 h-6" />
+                  </button>
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Seat Limit</label>
-                <input
-                  type="number"
-                  name="seat_limit"
-                  value={formData.seat_limit}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                  required
-                  min="1"
-                  disabled={isLoading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Status</label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                  disabled={isLoading}
-                >
-                  <option value={1}>Active</option>
-                  <option value={0}>Inactive</option>
-                </select>
-              </div>
-              <button
-                type="submit"
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
-                    />
-                  </svg>
-                ) : (
-                  <>
-                    <PlusIcon className="w-5 h-5" />
-                    {isEdit ? "Update Flight" : "Add Flight"}
-                  </>
-                )}
-              </button>
-            </form>
+
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Flight Number
+                      </label>
+                      <input
+                        type="text"
+                        name="flight_number"
+                        value={formData.flight_number}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        placeholder="e.g., FL001"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Departure Day
+                      </label>
+                      <select
+                        name="departure_day"
+                        value={formData.departure_day}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        required
+                        disabled={isLoading}
+                      >
+                        {WEEK_DAYS.map((day) => (
+                          <option key={day} value={day}>
+                            {day}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Start Airport
+                      </label>
+                      <select
+                        name="start_airport_id"
+                        value={formData.start_airport_id}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        required
+                        disabled={isLoading}
+                      >
+                        <option value="">Select Airport</option>
+                        {airports.map((airport) => (
+                          <option key={airport.id} value={airport.id}>
+                            {airport.airport_name} ({airport.airport_code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        End Airport
+                      </label>
+                      <select
+                        name="end_airport_id"
+                        value={formData.end_airport_id}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        required
+                        disabled={isLoading}
+                      >
+                        <option value="">Select Airport</option>
+                        {airports.map((airport) => (
+                          <option key={airport.id} value={airport.id}>
+                            {airport.airport_name} ({airport.airport_code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Seat Limit
+                      </label>
+                      <input
+                        type="number"
+                        name="seat_limit"
+                        value={formData.seat_limit}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        min="1"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Status
+                      </label>
+                      <select
+                        name="status"
+                        value={formData.status}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        disabled={isLoading}
+                      >
+                        <option value={1}>Active</option>
+                        <option value={0}>Inactive</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-3">
+                      Stop Airports (Optional)
+                    </label>
+                    <div className="max-h-40 overflow-y-auto border border-slate-300 rounded-xl p-4 bg-slate-50">
+                      {airports.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {airports.map((airport) => (
+                            <div key={airport.id} className="flex items-center">
+                              <input
+                                type="checkbox"
+                                id={`stop-airport-${airport.id}`}
+                                value={airport.id}
+                                checked={normaliseStops(formData.airport_stop_ids).includes(airport.id)}
+                                onChange={handleStopsChange}
+                                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                                disabled={
+                                  isLoading ||
+                                  airport.id === formData.start_airport_id ||
+                                  airport.id === formData.end_airport_id
+                                }
+                              />
+                              <label
+                                htmlFor={`stop-airport-${airport.id}`}
+                                className={`ml-2 text-sm cursor-pointer ${isLoading ||
+                                    airport.id === formData.start_airport_id ||
+                                    airport.id === formData.end_airport_id
+                                    ? "text-slate-400"
+                                    : "text-slate-700"
+                                  }`}
+                              >
+                                {airport.airport_name} ({airport.airport_code})
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-500">No airports available</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4 pt-4">
+                    <button
+                      type="button"
+                      className="flex-1 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors font-semibold"
+                      onClick={() => setShowModal(false)}
+                      disabled={isLoading}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-white font-semibold transition-all duration-200 shadow-lg disabled:opacity-50 ${isEdit
+                          ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600"
+                          : "bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
+                        }`}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <PlusIcon className="w-5 h-5" />
+                      )}
+                      {isEdit ? "Update Flight" : "Add Flight"}
+                    </button>
+                  </div>
+                </form>
+              </Dialog.Panel>
+            </Transition.Child>
           </div>
-        </div>
-      )}
+        </Dialog>
+      </Transition>
+
+      {/* Delete Confirmation Modal */}
+      <Transition show={!!showDeleteConfirm} as={React.Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowDeleteConfirm(null)}>
+          <Transition.Child
+            as={React.Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <Transition.Child
+              as={React.Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-200">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <ExclamationTriangleIcon className="w-6 h-6 text-red-600" />
+                  </div>
+                  <Dialog.Title className="text-lg font-semibold text-slate-900">
+                    Confirm Delete
+                  </Dialog.Title>
+                </div>
+
+                <p className="text-slate-600 mb-6">
+                  Are you sure you want to delete this flight? This action cannot be undone.
+                </p>
+
+                <div className="flex gap-3">
+                  <button
+                    className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors font-medium"
+                    onClick={() => setShowDeleteConfirm(null)}
+                    disabled={isLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium disabled:opacity-50"
+                    onClick={confirmDelete}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                    ) : (
+                      "Delete"
+                    )}
+                  </button>
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </Dialog>
+      </Transition>
     </div>
   );
 };
-
-// helper so other components (Schedule page) can reuse
-export { normaliseStops };
 
 export default FlightsPage;

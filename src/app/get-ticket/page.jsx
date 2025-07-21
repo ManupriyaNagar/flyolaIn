@@ -1,297 +1,533 @@
-'use client';
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { FaEnvelope, FaTicketAlt, FaPlane } from 'react-icons/fa';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import TicketView from './../../components/Ticket/TicketView'; // Adjust path to where TicketView is located
-import axios from 'axios';
+"use client";
 
-const FlightInquiryForm = () => {
-  const [formData, setFormData] = useState({
-    searchOption: 'pnr',
-    pnr: '',
-    name: '',
-    email: '',
-  });
-  const [booking, setBooking] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showTicket, setShowTicket] = useState(false);
+import React, { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import ProfessionalTicket from "../../components/SingleTicket/ProfessionalTicket";
+import BASE_URL from "@/baseUrl/baseUrl";
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+const GetTicketPage = () => {
+  const [ticketData, setTicketData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [searchMethod, setSearchMethod] = useState("pnr");
+  const [pnr, setPnr] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const bookingId = searchParams.get("id");
+  const pnrParam = searchParams.get("pnr");
+
+  useEffect(() => {
+    if (bookingId || pnrParam) {
+      fetchTicketData(bookingId || pnrParam);
+    }
+  }, [bookingId, pnrParam]);
+
+  const fetchTicketData = async (identifier) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const url = `${BASE_URL}/tickets/get-ticket?id=${identifier}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ticket data: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || "Failed to fetch ticket data");
+      }
+
+      // Format the data for the ticket component
+      const formattedData = {
+        bookingData: {
+          id: result.data.flight.id,
+          departure: result.data.flight.departure,
+          arrival: result.data.flight.arrival,
+          departureCode: result.data.flight.departureCode,
+          arrivalCode: result.data.flight.arrivalCode,
+          departureTime: result.data.flight.departureTime,
+          arrivalTime: result.data.flight.arrivalTime,
+          selectedDate: result.data.flight.selectedDate,
+          totalPrice: result.data.flight.totalPrice || result.data.booking.totalFare,
+          bookDate: result.data.booking.bookDate,
+          flightId: result.data.flight.id
+        },
+        travelerDetails: result.data.passengers.map(passenger => ({
+          title: passenger.title || "Mr",
+          fullName: passenger.fullName || passenger.name,
+          dateOfBirth: passenger.dateOfBirth,
+          email: passenger.email || result.data.booking.email_id,
+          phone: passenger.phone || result.data.booking.contact_no,
+          address: passenger.address || ""
+        })),
+        bookingResult: {
+          booking: {
+            pnr: result.data.booking.pnr,
+            bookingNo: result.data.booking.bookingNo,
+            bookDate: result.data.booking.bookDate,
+            paymentStatus: result.data.booking.paymentStatus,
+            bookingStatus: result.data.booking.bookingStatus,
+            totalFare: result.data.booking.totalFare,
+            noOfPassengers: result.data.booking.noOfPassengers,
+            contact_no: result.data.booking.contact_no,
+            email_id: result.data.booking.email_id
+          },
+          passengers: result.data.passengers.map(passenger => ({
+            age: passenger.age,
+            type: passenger.type || "Adult",
+            name: passenger.name,
+            title: passenger.title
+          })),
+          payment: result.data.payment || {
+            status: result.data.booking.paymentStatus,
+            amount: result.data.booking.totalFare
+          }
+        }
+      };
+
+      setTicketData(formattedData);
+    } catch (err) {
+      console.error("Error fetching ticket data:", err);
+      setError(err.message || "Failed to load ticket data");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-    setBooking(null);
-    setShowTicket(false);
-
+    setSubmitting(true);
+    
     try {
-      const baseUrl = 'http://localhost:4000'; // Replace with your actual BASE_URL
-      let response;
-
-      if (formData.searchOption === 'pnr') {
-        if (!formData.pnr || formData.pnr.length < 6) {
-          toast.error('Please enter a valid PNR (at least 6 characters).');
-          setIsLoading(false);
-          return;
+      if (searchMethod === "pnr") {
+        if (!pnr.trim()) {
+          throw new Error("Please enter a valid PNR number");
         }
-        response = await axios.get(`${baseUrl}/bookings/pnr`, {
-          params: { pnr: formData.pnr },
-          auth: {
-            username: 'kshitizmaurya6@gmail.com',
-            password: 'augs snhv vjmw njfg',
-          },
-        });
+        router.push(`/get-ticket?pnr=${pnr.trim()}`);
       } else {
-        if (!formData.name || !formData.email) {
-          toast.error('Please enter both name and email.');
-          setIsLoading(false);
-          return;
+        if (!fullName.trim() || !email.trim()) {
+          throw new Error("Please enter both name and email");
         }
-        response = await axios.get(`${baseUrl}/bookings/by-user`, {
-          params: { name: formData.name, email: formData.email },
-          auth: {
-            username: 'kshitizmaurya6@gmail.com',
-            password: 'augs snhv vjmw njfg',
-          },
-        });
+        // Here you would implement the name/email search
+        // For now, we'll just show an error
+        throw new Error("Name and email search is not implemented yet");
       }
-
-      if (response.data && (formData.searchOption === 'pnr' || response.data.length > 0)) {
-        const bookingData = formData.searchOption === 'pnr' ? response.data : response.data[0];
-        setBooking(bookingData);
-        setShowTicket(true);
-        toast.success('Booking details fetched successfully!');
-      } else {
-        toast.error('No booking found for the provided details.');
-      }
-    } catch (error) {
-      console.error('Error fetching booking:', error);
-      toast.error(error.response?.data?.error || 'Failed to fetch booking details.');
+    } catch (err) {
+      setError(err.message);
     } finally {
-      setIsLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const handleCloseTicket = () => {
-    setShowTicket(false);
-    setBooking(null);
-    setFormData({
-      searchOption: 'pnr',
-      pnr: '',
-      name: '',
-      email: '',
-    });
-  };
-
   return (
-    <section className="bg-gradient-to-b from-blue-50 to-blue-200 min-h-screen py-20 px-6 md:px-12 flex items-center justify-center">
-      <ToastContainer position="top-right" autoClose={3000} />
-      {/* Form Container */}
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="max-w-md w-full bg-white p-8 rounded-3xl shadow-2xl border border-blue-100"
-      >
-        <div className="text-center mb-8">
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-3xl md:text-4xl font-extrabold text-blue-900 tracking-tight"
-          >
-            Flight Inquiry
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="text-lg text-blue-700 mt-2"
-          >
-            Check your flight details with ease using your PNR or name and email.
-          </motion.p>
-          <svg
-            className="w-16 h-16 mx-auto mt-4 text-blue-500"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-            />
-          </svg>
-        </div>
-
-        <form onSubmit={handleSubmit} className="grid gap-6">
-          {/* Radio Buttons for Search Option */}
-          <div className="space-y-2">
-            <Label className="text-blue-700 font-medium">Search By</Label>
-            <div className="flex space-x-4">
-              <div className="flex items-center">
-                <input
-                  id="pnr"
-                  name="searchOption"
-                  type="radio"
-                  value="pnr"
-                  checked={formData.searchOption === 'pnr'}
-                  onChange={handleChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <Label htmlFor="pnr" className="ml-2 text-blue-700">
-                  PNR
-                </Label>
-              </div>
-              <div className="flex items-center">
-                <input
-                  id="name"
-                  name="searchOption"
-                  type="radio"
-                  value="name"
-                  checked={formData.searchOption === 'name'}
-                  onChange={handleChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <Label htmlFor="name" className="ml-2 text-blue-700">
-                  Name and Email
-                </Label>
+    <div style={{ 
+      backgroundColor: "#f9fafb", 
+      minHeight: "100vh",
+      paddingTop: "80px",
+      paddingBottom: "80px",
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    }}>
+      {!ticketData ? (
+        <div style={{ 
+          maxWidth: "1000px", 
+          margin: "0 auto", 
+          padding: "0 24px"
+        }}>
+          <div style={{ 
+            backgroundColor: "white", 
+            borderRadius: "8px", 
+            boxShadow: "0 4px 6px rgba(0,0,0,0.05), 0 10px 15px rgba(0,0,0,0.03)", 
+            overflow: "hidden",
+            border: "1px solid #e5e7eb"
+          }}>
+            {/* Header */}
+            <div style={{ 
+              background: "#1e293b",
+              padding: "32px 40px",
+              position: "relative",
+              borderBottom: "1px solid #334155"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <img 
+                    src="/logoo-04.png" 
+                    alt="FlyOla Logo" 
+                    width={48}
+                    height={48}
+                    style={{ marginRight: "16px" }}
+                  />
+                  <div>
+                    <h1 style={{ 
+                      fontSize: "24px", 
+                      fontWeight: "600", 
+                      color: "white", 
+                      margin: 0
+                    }}>
+                      Flight Inquiry
+                    </h1>
+                    <p style={{ 
+                      fontSize: "14px", 
+                      color: "#94a3b8", 
+                      margin: "4px 0 0 0"
+                    }}>
+                      Check your flight details with ease
+                    </p>
+                  </div>
+                </div>
+                <div style={{
+                  backgroundColor: "#334155",
+                  padding: "8px 16px",
+                  borderRadius: "4px",
+                  color: "white",
+                  fontSize: "13px",
+                  fontWeight: "500"
+                }}>
+                  Ticket Management
+                </div>
               </div>
             </div>
+            
+            {/* Search Form */}
+            <div style={{ padding: "40px" }}>
+              <div style={{ marginBottom: "32px" }}>
+                <h2 style={{ 
+                  fontSize: "18px", 
+                  fontWeight: "600", 
+                  color: "#334155", 
+                  margin: "0 0 8px 0" 
+                }}>
+                  Retrieve Your Booking
+                </h2>
+                <p style={{ 
+                  fontSize: "14px", 
+                  color: "#64748b", 
+                  margin: 0 
+                }}>
+                  Enter your booking details to view and download your ticket.
+                </p>
+              </div>
+              
+              {error && (
+                <div style={{
+                  backgroundColor: "#fef2f2",
+                  color: "#991b1b",
+                  padding: "12px 16px",
+                  borderRadius: "4px",
+                  marginBottom: "24px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  display: "flex",
+                  alignItems: "center",
+                  border: "1px solid #fee2e2"
+                }}>
+                  <span style={{ 
+                    marginRight: "12px",
+                    fontWeight: "700"
+                  }}>!</span>
+                  {error}
+                </div>
+              )}
+              
+              <div style={{ 
+                display: "flex", 
+                borderBottom: "1px solid #e5e7eb", 
+                marginBottom: "32px" 
+              }}>
+                <button 
+                  onClick={() => setSearchMethod("pnr")}
+                  style={{
+                    padding: "12px 24px",
+                    backgroundColor: "transparent",
+                    color: searchMethod === "pnr" ? "#0f172a" : "#64748b",
+                    border: "none",
+                    borderBottom: searchMethod === "pnr" ? "2px solid #0f172a" : "none",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    marginRight: "16px"
+                  }}
+                >
+                  Search By PNR
+                </button>
+                <button 
+                  onClick={() => setSearchMethod("name-email")}
+                  style={{
+                    padding: "12px 24px",
+                    backgroundColor: "transparent",
+                    color: searchMethod === "name-email" ? "#0f172a" : "#64748b",
+                    border: "none",
+                    borderBottom: searchMethod === "name-email" ? "2px solid #0f172a" : "none",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  Name and Email
+                </button>
+              </div>
+              
+              <form onSubmit={handleSubmit}>
+                {searchMethod === "pnr" ? (
+                  <div>
+                    <label 
+                      htmlFor="pnr" 
+                      style={{ 
+                        display: "block", 
+                        marginBottom: "8px", 
+                        fontSize: "14px", 
+                        fontWeight: "500", 
+                        color: "#475569" 
+                      }}
+                    >
+                      PNR Number
+                    </label>
+                    <input 
+                      type="text" 
+                      id="pnr"
+                      value={pnr}
+                      onChange={(e) => setPnr(e.target.value)}
+                      placeholder="Enter your PNR number"
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        fontSize: "14px",
+                        borderRadius: "4px",
+                        border: "1px solid #d1d5db",
+                        backgroundColor: "white",
+                        marginBottom: "24px",
+                        outline: "none",
+                        transition: "all 0.2s ease"
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = "#6b7280"}
+                      onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
+                    />
+                    <button 
+                      type="submit"
+                      disabled={submitting}
+                      style={{
+                        padding: "10px 16px",
+                        backgroundColor: "#1e40af",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                        cursor: submitting ? "not-allowed" : "pointer",
+                        transition: "all 0.2s ease",
+                        opacity: submitting ? 0.7 : 1
+                      }}
+                      onMouseOver={(e) => !submitting && (e.currentTarget.style.backgroundColor = "#1e3a8a")}
+                      onMouseOut={(e) => !submitting && (e.currentTarget.style.backgroundColor = "#1e40af")}
+                    >
+                      {submitting ? "Searching..." : "Search Ticket"}
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ marginBottom: "16px" }}>
+                      <label 
+                        htmlFor="fullName" 
+                        style={{ 
+                          display: "block", 
+                          marginBottom: "8px", 
+                          fontSize: "14px", 
+                          fontWeight: "500", 
+                          color: "#475569" 
+                        }}
+                      >
+                        Full Name
+                      </label>
+                      <input 
+                        type="text" 
+                        id="fullName"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="Enter your full name"
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          fontSize: "14px",
+                          borderRadius: "4px",
+                          border: "1px solid #d1d5db",
+                          backgroundColor: "white",
+                          outline: "none",
+                          transition: "all 0.2s ease"
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = "#6b7280"}
+                        onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
+                      />
+                    </div>
+                    
+                    <div style={{ marginBottom: "24px" }}>
+                      <label 
+                        htmlFor="email" 
+                        style={{ 
+                          display: "block", 
+                          marginBottom: "8px", 
+                          fontSize: "14px", 
+                          fontWeight: "500", 
+                          color: "#475569" 
+                        }}
+                      >
+                        Email Address
+                      </label>
+                      <input 
+                        type="email" 
+                        id="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter your email address"
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          fontSize: "14px",
+                          borderRadius: "4px",
+                          border: "1px solid #d1d5db",
+                          backgroundColor: "white",
+                          outline: "none",
+                          transition: "all 0.2s ease"
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = "#6b7280"}
+                        onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
+                      />
+                    </div>
+                    
+                    <button 
+                      type="submit"
+                      disabled={submitting}
+                      style={{
+                        padding: "10px 16px",
+                        backgroundColor: "#1e40af",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                        cursor: submitting ? "not-allowed" : "pointer",
+                        transition: "all 0.2s ease",
+                        opacity: submitting ? 0.7 : 1
+                      }}
+                      onMouseOver={(e) => !submitting && (e.currentTarget.style.backgroundColor = "#1e3a8a")}
+                      onMouseOut={(e) => !submitting && (e.currentTarget.style.backgroundColor = "#1e40af")}
+                    >
+                      {submitting ? "Searching..." : "Search Ticket"}
+                    </button>
+                  </div>
+                )}
+              </form>
+            </div>
           </div>
-
-          {/* Conditional Input for PNR or Name */}
-          {formData.searchOption === 'pnr' ? (
-            <div className="relative">
-              <Label htmlFor="pnr" className="text-blue-700 font-medium">
-                PNR Number
-              </Label>
-              <div className="relative mt-1">
-                <FaTicketAlt className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-500" />
-                <Input
-                  id="pnr"
-                  name="pnr"
-                  type="text"
-                  placeholder="Enter your PNR number"
-                  value={formData.pnr}
-                  onChange={handleChange}
-                  className="pl-10 w-full rounded-lg border-blue-300 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
+        </div>
+      ) : (
+        <>
+          {loading ? (
+            <div style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              minHeight: "60vh"
+            }}>
+              <div style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "16px",
+                padding: "24px",
+                backgroundColor: "white",
+                borderRadius: "8px",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+              }}>
+                <div style={{
+                  width: "24px",
+                  height: "24px",
+                  borderRadius: "50%",
+                  border: "2px solid #e2e8f0",
+                  borderTopColor: "#1e40af",
+                  animation: "spin 1s linear infinite"
+                }} />
+                <p style={{
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  color: "#475569"
+                }}>
+                  Loading ticket information...
+                </p>
+                <style jsx global>{`
+                  @keyframes spin {
+                    to { transform: rotate(360deg); }
+                  }
+                `}</style>
               </div>
             </div>
           ) : (
-            <>
-              <div className="relative">
-                <Label htmlFor="name" className="text-blue-700 font-medium">
-                  Full Name
-                </Label>
-                <div className="relative mt-1">
-                  <FaTicketAlt className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-500" />
-                  <Input
-                    id="name"
-                    name="name"
-                    type="text"
-                    placeholder="Enter your full name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="pl-10 w-full rounded-lg border-blue-300 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="relative">
-                <Label htmlFor="email" className="text-blue-700 font-medium">
-                  Email Address
-                </Label>
-                <div className="relative mt-1">
-                  <FaEnvelope className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-500" />
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="Enter your email address"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="pl-10 w-full rounded-lg border-blue-300 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Submit Button */}
-          <Button
-            type="submit"
-            disabled={isLoading}
-            className="mt-6 bg-gradient-to-r from-blue-600 to-blue-800 text-white px-8 py-3 rounded-lg hover:from-blue-700 hover:to-blue-900 transition-all duration-300 w-full font-medium text-lg flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              <>
-                <svg
-                  className="animate-spin h-5 w-5 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
+            <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 24px" }}>
+              <div style={{ 
+                display: "flex", 
+                justifyContent: "space-between", 
+                alignItems: "center", 
+                marginBottom: "24px" 
+              }}>
+                <h2 style={{ 
+                  fontSize: "20px", 
+                  fontWeight: "600", 
+                  color: "#0f172a", 
+                  margin: 0 
+                }}>
+                  Flight Ticket Details
+                </h2>
+                <button 
+                  onClick={() => {
+                    setTicketData(null);
+                    router.push("/get-ticket");
+                  }}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: "#f1f5f9",
+                    color: "#475569",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px"
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = "#e2e8f0";
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = "#f1f5f9";
+                  }}
                 >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
-                  />
-                </svg>
-                Loading...
-              </>
-            ) : (
-              <>
-                <FaPlane /> Submit Inquiry
-              </>
-            )}
-          </Button>
-        </form>
-      </motion.div>
-
-      {/* Ticket View Modal */}
-      {showTicket && booking && (
-        <TicketView
-          isOpen={true}
-          onClose={handleCloseTicket}
-          booking={booking}
-        />
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                  </svg>
+                  Back to Search
+                </button>
+              </div>
+              
+              <ProfessionalTicket
+                bookingData={ticketData.bookingData}
+                travelerDetails={ticketData.travelerDetails}
+                bookingResult={ticketData.bookingResult}
+              />
+            </div>
+          )}
+        </>
       )}
-
-      {/* Decorative SVG Background */}
-      <svg
-        className="absolute bottom-0 left-0 w-full h-32 text-blue-300 opacity-20"
-        fill="none"
-        viewBox="0 0 1440 320"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          fill="currentColor"
-          d="M0,160L48,176C96,192,192,224,288,213.3C384,203,480,149,576,138.7C672,128,768,160,864,186.7C960,213,1056,235,1152,213.3C1248,192,1344,128,1392,96L1440,64L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"
-        />
-      </svg>
-    </section>
+    </div>
   );
 };
 
-export default FlightInquiryForm;
+export default GetTicketPage;

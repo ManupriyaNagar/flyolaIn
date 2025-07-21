@@ -1,10 +1,30 @@
 "use client";
-import { FaUserFriends, FaClock, FaPlane } from "react-icons/fa";
+import { FaUserFriends, FaClock, FaPlane, FaCalendarAlt } from "react-icons/fa";
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import BASE_URL from "@/baseUrl/baseUrl";
 
 const tz = "Asia/Kolkata";
+
+// Memoized seat button component to prevent unnecessary re-renders
+const SeatButton = memo(({ seat, isSelected, isAvailable, onToggle, disabled }) => (
+  <button
+    onClick={() => onToggle(seat)}
+    className={`h-12 rounded-lg text-sm font-bold transition-colors duration-150 ${isSelected
+      ? "bg-green-500 text-white shadow-md"
+      : isAvailable
+        ? "bg-blue-200 text-gray-800 hover:bg-blue-300"
+        : "bg-red-200 text-gray-500 cursor-not-allowed"
+      }`}
+    disabled={disabled || !isAvailable}
+  >
+    {seat}
+  </button>
+));
+
+SeatButton.displayName = 'SeatButton';
+
 const BookingPopup = ({ closePopup, passengerData, departure, arrival, selectedDate, flightSchedule }) => {
   const router = useRouter();
   const [passengers] = useState({
@@ -16,38 +36,33 @@ const BookingPopup = ({ closePopup, passengerData, departure, arrival, selectedD
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [retryCount, setRetryCount] = useState(0);
 
-  const basePrice = parseFloat(flightSchedule.price || 2000);
+  // Memoized constants to prevent recalculation
+  const basePrice = useMemo(() => parseFloat(flightSchedule.price || 2000), [flightSchedule.price]);
   const childDiscount = 0.5;
   const infantFee = 10;
-  const totalPassengers = passengers.adults + passengers.children;
-  const allSeats = flightSchedule.allSeats || ["S1", "S2", "S3", "S4", "S5", "S6"];
+  const totalPassengers = useMemo(() => passengers.adults + passengers.children, [passengers.adults, passengers.children]);
+  const allSeats = useMemo(() => flightSchedule.allSeats || ["S1", "S2", "S3", "S4", "S5", "S6"], [flightSchedule.allSeats]);
 
-  const isValidISODate = useCallback((date) => /^\d{4}-\d{2}-\d{2}$/.test(date), []);
-  const formattedDate = useMemo(
-    () => (isValidISODate(selectedDate) ? selectedDate : new Date().toISOString().split("T")[0]),
-    [selectedDate, isValidISODate]
-  );
+  // Optimized date validation
+  const formattedDate = useMemo(() => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) return selectedDate;
+    return new Date().toISOString().split("T")[0];
+  }, [selectedDate]);
 
+  // Optimized time formatting
   const formatTime = useCallback((t) => {
     if (!t) return "N/A";
-    if (/^\d{6}$/.test(t)) {
-      return `${t.slice(0, 2)}:${t.slice(2, 4)}`;
-    }
-    if (/^\d{2}:\d{2}:\d{2}$/.test(t)) {
-      return t.slice(0, 5);
-    }
+    if (/^\d{6}$/.test(t)) return `${t.slice(0, 2)}:${t.slice(2, 4)}`;
+    if (/^\d{2}:\d{2}:\d{2}$/.test(t)) return t.slice(0, 5);
     try {
-      const date = new Date(`1970-01-01 ${t}`);
-      return date.toLocaleTimeString("en-IN", {
+      return new Date(`1970-01-01 ${t}`).toLocaleTimeString("en-IN", {
         hour: "2-digit",
         minute: "2-digit",
         hour12: false,
         timeZone: tz,
       });
     } catch {
-      console.warn(`Invalid time format: ${t}`);
       return "N/A";
     }
   }, []);
@@ -58,47 +73,50 @@ const BookingPopup = ({ closePopup, passengerData, departure, arrival, selectedD
   const fetchAvailableSeats = useCallback(async () => {
     setLoading(true);
     try {
+      const token = localStorage.getItem("token") || "";
       const response = await fetch(
         `${BASE_URL}/booked-seat/available-seats?schedule_id=${flightSchedule.id}&bookDate=${formattedDate}`,
         {
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+            Authorization: `Bearer ${token}`,
           },
         }
       );
+
       if (!response.ok) {
         throw new Error(`Seats API failed: ${response.status}`);
       }
+
       const data = await response.json();
       const seats = Array.isArray(data.availableSeats)
         ? data.availableSeats.filter((seat) => allSeats.includes(seat))
         : allSeats;
+
       setAvailableSeats(seats);
       setSelectedSeats(seats.slice(0, totalPassengers));
       setError(null);
     } catch (err) {
       console.warn(`Failed to fetch seats for schedule ${flightSchedule.id}: ${err.message}`);
-      setError(`Unable to load seats: ${err.message}. Using all seats.`);
+      setError(`Unable to load seats. Using fallback.`);
       setAvailableSeats(allSeats);
-      setSelectedSeats([]);
+      setSelectedSeats(allSeats.slice(0, totalPassengers));
     } finally {
       setLoading(false);
     }
   }, [flightSchedule.id, formattedDate, allSeats, totalPassengers]);
 
   useEffect(() => {
-    const timer = setTimeout(() => fetchAvailableSeats(), 100);
-    return () => clearTimeout(timer);
-  }, [fetchAvailableSeats, retryCount]);
+    fetchAvailableSeats();
+  }, [fetchAvailableSeats]);
 
   const handleSeatToggle = useCallback((seat) => {
     setSelectedSeats((prev) =>
       prev.includes(seat)
         ? prev.filter((s) => s !== seat)
         : prev.length < totalPassengers
-        ? [...prev, seat]
-        : prev
+          ? [...prev, seat]
+          : prev
     );
   }, [totalPassengers]);
 
@@ -135,116 +153,248 @@ const BookingPopup = ({ closePopup, passengerData, departure, arrival, selectedD
 
   const handleRetry = useCallback(() => {
     setError(null);
-    setRetryCount((prev) => prev + 1);
-  }, []);
+    fetchAvailableSeats();
+  }, [fetchAvailableSeats]);
+
+  // Optimized backdrop click handler
+  const handleBackdropClick = useCallback((e) => {
+    if (e.target === e.currentTarget) {
+      closePopup();
+    }
+  }, [closePopup]);
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-800">Book Your Flight</h2>
-          <button
-            className="text-gray-500 hover:text-gray-800 transition-colors"
-            onClick={closePopup}
-            aria-label="Close"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-green-50 p-4 rounded-lg space-y-3">
-            <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
-              <FaPlane className="text-green-500" />
-              From: <span className="font-semibold">{departure}</span>
-            </p>
-            <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
-              To: <span className="font-semibold">{arrival}</span>
-            </p>
-            <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
-              Date: <span className="font-semibold">{new Date(formattedDate).toLocaleDateString("en-US")}</span>
-            </p>
-            <p className="text-base font-medium text-gray-800 flex items-center gap-3 bg-green-100 px-2 py-1 rounded-md">
-              <FaClock className="text-gray-600" />
-              Departure: <span className="font-bold">{departureTime}</span>
-            </p>
-            <p className="text-base font-medium text-gray-800 flex items-center gap-3 bg-green-100 px-2 py-1 rounded-md">
-              <FaClock className="text-gray-600" />
-              Arrival: <span className="font-bold">{arrivalTime}</span>
-            </p>
-            <p className="text-sm font-medium text-gray-700">
-              Base Price: <span className="font-semibold">INR {basePrice.toFixed(2)}</span>
-            </p>
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold text-gray-800 flex items-center gap-2 mb-3">
-              <FaUserFriends className="text-green-500" /> Passengers
-            </p>
-            <div className="space-y-2">
-              <p className="text-sm">Adults: {passengers.adults}</p>
-              <p className="text-sm">Children: {passengers.children}</p>
-              <p className="text-sm">Infants: {passengers.infants}</p>
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 overflow-y-auto"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={handleBackdropClick}
+      >
+        <motion.div
+          className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[95vh] overflow-y-auto border border-gray-200"
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6 rounded-t-3xl">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold flex items-center gap-3">
+                  <FaPlane className="text-yellow-300" />
+                  Complete Your Booking
+                </h2>
+                <p className="text-blue-100 mt-1">Secure your seats in just a few clicks</p>
+              </div>
+              <button
+                className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-full transition-all"
+                onClick={closePopup}
+                aria-label="Close"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           </div>
 
-          <div className="bg-green-50 p-4 rounded-lg">
-            <p className="text-sm font-semibold text-gray-800 mb-2">
-              Select Seats ({selectedSeats.length}/{totalPassengers})
-            </p>
-            {loading ? (
-              <p className="text-sm text-gray-500">Loading seats...</p>
-            ) : error && availableSeats.length === 0 ? (
-              <div className="text-sm text-red-500">
-                <p>{error}</p>
-                <button
-                  onClick={handleRetry}
-                  className="mt-2 px-3 py-1 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
-                >
-                  Retry
-                </button>
+          <div className="p-6 space-y-6">
+            {/* Flight Details */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-200">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <FaPlane className="text-blue-600" />
+                Flight Details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-sm text-gray-600">From:</span>
+                    <span className="font-semibold text-gray-800">{departure}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    <span className="text-sm text-gray-600">To:</span>
+                    <span className="font-semibold text-gray-800">{arrival}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <FaCalendarAlt className="text-blue-500" size={12} />
+                    <span className="text-sm text-gray-600">Date:</span>
+                    <span className="font-semibold text-gray-800">
+                      {new Date(formattedDate).toLocaleDateString("en-US", {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="bg-white p-3 rounded-xl border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600 flex items-center gap-2">
+                        <FaClock className="text-green-500" />
+                        Departure
+                      </span>
+                      <span className="font-bold text-lg text-gray-800">{departureTime}</span>
+                    </div>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600 flex items-center gap-2">
+                        <FaClock className="text-blue-500" />
+                        Arrival
+                      </span>
+                      <span className="font-bold text-lg text-gray-800">{arrivalTime}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-2">
-                {allSeats.map((seat) => (
+            </div>
+
+            {/* Passenger Information */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-200">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <FaUserFriends className="text-green-600" />
+                Passenger Details
+              </h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center bg-white p-4 rounded-xl border border-green-200">
+                  <div className="text-2xl font-bold text-green-600">{passengers.adults}</div>
+                  <div className="text-sm text-gray-600">Adults</div>
+                </div>
+                <div className="text-center bg-white p-4 rounded-xl border border-green-200">
+                  <div className="text-2xl font-bold text-blue-600">{passengers.children}</div>
+                  <div className="text-sm text-gray-600">Children</div>
+                </div>
+                <div className="text-center bg-white p-4 rounded-xl border border-green-200">
+                  <div className="text-2xl font-bold text-purple-600">{passengers.infants}</div>
+                  <div className="text-sm text-gray-600">Infants</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Seat Selection */}
+            <div className="bg-gradient-to-br from-yellow-50 to-orange-50 p-6 rounded-2xl border border-yellow-200">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 2L3 7v11a2 2 0 002 2h10a2 2 0 002-2V7l-7-5z" />
+                </svg>
+                Select Your Seats ({selectedSeats.length}/{totalPassengers})
+              </h3>
+
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-3 text-gray-600">Loading available seats...</span>
+                </div>
+              ) : error && availableSeats.length === 0 ? (
+                <div className="text-center py-6 bg-red-50 rounded-xl border border-red-200">
+                  <p className="text-red-600 mb-3">{error}</p>
                   <button
-                    key={seat}
-                    onClick={() => handleSeatToggle(seat)}
-                    className={`w-12 h-12 rounded-md text-sm font-medium transition-colors ${
-                      selectedSeats.includes(seat)
-                        ? "bg-green-600 text-white"
-                        : availableSeats.includes(seat)
-                        ? "bg-green-200 text-gray-800 hover:bg-green-300"
-                        : "bg-red-200 text-gray-800 cursor-not-allowed"
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    disabled={selectedSeats.length >= totalPassengers && !selectedSeats.includes(seat) || !availableSeats.includes(seat)}
+                    onClick={handleRetry}
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
                   >
-                    {seat}
+                    Try Again
                   </button>
-                ))}
+                </div>
+              ) : (
+                <div>
+                  <div className="mb-4 flex items-center justify-center gap-6 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-green-500 rounded"></div>
+                      <span>Selected</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-blue-200 rounded"></div>
+                      <span>Available</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-red-200 rounded"></div>
+                      <span>Occupied</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-xl border border-gray-200">
+                    <div className="text-center mb-4">
+                      <div className="inline-block bg-gray-800 text-white px-4 py-1 rounded-full text-xs font-medium">
+                        ✈️ FRONT OF AIRCRAFT
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
+                      {allSeats.map((seat) => (
+                        <SeatButton
+                          key={seat}
+                          seat={seat}
+                          isSelected={selectedSeats.includes(seat)}
+                          isAvailable={availableSeats.includes(seat)}
+                          onToggle={handleSeatToggle}
+                          disabled={selectedSeats.length >= totalPassengers && !selectedSeats.includes(seat)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Price Summary */}
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-2xl border border-purple-200">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Price Breakdown</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Base Price (Adults: {passengers.adults})</span>
+                  <span className="font-semibold">₹{(basePrice * passengers.adults).toLocaleString('en-IN')}</span>
+                </div>
+                {passengers.children > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Children ({passengers.children}) - 50% off</span>
+                    <span className="font-semibold">₹{(basePrice * passengers.children * childDiscount).toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                {passengers.infants > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Infants ({passengers.infants})</span>
+                    <span className="font-semibold">₹{(passengers.infants * infantFee).toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                <div className="border-t border-gray-300 pt-3">
+                  <div className="flex justify-between items-center text-xl font-bold">
+                    <span className="text-gray-800">Total Amount</span>
+                    <span className="text-green-600">₹{parseFloat(calculateTotalPrice).toLocaleString('en-IN')}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">✅ Includes all taxes and fees</p>
+                </div>
               </div>
-            )}
-          </div>
+            </div>
 
-          <div className="bg-green-100 p-4 rounded-lg">
-            <p className="text-sm font-semibold text-gray-800">
-              Total: <span className="text-green-600 font-bold">INR {calculateTotalPrice}</span>
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Includes all fees</p>
+            {/* Confirm Button */}
+            <button
+              onClick={handleConfirmBooking}
+              className="w-full py-4 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-2xl text-lg font-bold hover:from-green-700 hover:to-blue-700 transition-colors duration-200 shadow-lg hover:shadow-xl disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed"
+              disabled={loading || (error && availableSeats.length === 0) || selectedSeats.length !== totalPassengers}
+            >
+              {loading ? (
+                <div className="flex items-center justify-center gap-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  Processing...
+                </div>
+              ) : selectedSeats.length !== totalPassengers ? (
+                `Select ${totalPassengers - selectedSeats.length} more seat${totalPassengers - selectedSeats.length > 1 ? 's' : ''}`
+              ) : (
+                `🎫 Confirm Booking - ₹${parseFloat(calculateTotalPrice).toLocaleString('en-IN')}`
+              )}
+            </button>
           </div>
-
-          <button
-            onClick={handleConfirmBooking}
-            className="w-full py-3 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            disabled={loading || (error && availableSeats.length === 0) || selectedSeats.length !== totalPassengers}
-          >
-            Confirm Booking (INR {calculateTotalPrice})
-          </button>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 

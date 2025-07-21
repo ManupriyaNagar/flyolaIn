@@ -1,34 +1,54 @@
-'use client';
+"use client";
 
-import BASE_URL from '@/baseUrl/baseUrl';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import { PlusIcon, TrashIcon, PencilIcon, XMarkIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import { debounce } from 'lodash';
+import BASE_URL from "@/baseUrl/baseUrl";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import {
+  PlusIcon,
+  TrashIcon,
+  PencilIcon,
+  XMarkIcon,
+  MagnifyingGlassIcon,
+  ExclamationTriangleIcon,
+  ClockIcon,
+  CalendarDaysIcon,
+  MapPinIcon,
+  CurrencyDollarIcon,
+  ArrowsUpDownIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  PaperAirplaneIcon,
+} from "@heroicons/react/24/outline";
+import { Dialog, Transition } from "@headlessui/react";
+import { debounce } from "lodash";
 
 const ENTRIES_PER_PAGE = [10, 25, 50, 100];
+const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 const FlightSchedulePage = () => {
   const [schedules, setSchedules] = useState([]);
   const [flights, setFlights] = useState([]);
   const [airports, setAirports] = useState([]);
-  const [filterDay, setFilterDay] = useState('All Days');
-  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterDay, setFilterDay] = useState("All Days");
+  const [filterStatus, setFilterStatus] = useState("All");
   const [entriesPerPage, setEntriesPerPage] = useState(10);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [isEdit, setIsEdit] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [formData, setFormData] = useState({
-    flight_id: '',
-    departure_airport_id: '',
-    arrival_airport_id: '',
-    departure_time: '',
-    arrival_time: '',
-    price: '',
+    flight_id: "",
+    departure_airport_id: "",
+    arrival_airport_id: "",
+    departure_time: "",
+    arrival_time: "",
+    price: "",
     status: 1,
+    via_stop_id: "[]",
   });
 
   // Fetch data with validation
@@ -40,16 +60,21 @@ const FlightSchedulePage = () => {
         fetch(`${BASE_URL}/flight-schedules`),
         fetch(`${BASE_URL}/airport`),
       ]);
-      if (!flightsRes.ok || !schedulesRes.ok || !airportsRes.ok) throw new Error('Failed to fetch data');
+      
+      if (!flightsRes.ok || !schedulesRes.ok || !airportsRes.ok) {
+        throw new Error("Failed to fetch data");
+      }
+      
       const [flightsData, schedulesData, airportsData] = await Promise.all([
         flightsRes.json(),
         schedulesRes.json(),
         airportsRes.json(),
       ]);
-  
+
       // Validate data
       const flightIds = new Set(flightsData.map((f) => f.id));
       const airportIds = new Set(airportsData.map((a) => a.id));
+      
       schedulesData.forEach((schedule) => {
         if (!flightIds.has(schedule.flight_id)) {
           console.warn(`Invalid flight_id ${schedule.flight_id} in schedule ${schedule.id}`);
@@ -60,49 +85,40 @@ const FlightSchedulePage = () => {
         if (!airportIds.has(schedule.arrival_airport_id)) {
           console.warn(`Invalid arrival_airport_id ${schedule.arrival_airport_id} in schedule ${schedule.id}`);
         }
-        try {
-          const viaStopIds = schedule.via_stop_id ? JSON.parse(schedule.via_stop_id || '[]') : [];
-          viaStopIds.forEach((id) => {
-            if (!airportIds.has(id)) {
-              console.warn(`Invalid via_stop_id ${id} in schedule ${schedule.id}`);
-            }
-          });
-        } catch (error) {
-          console.error(`Invalid via_stop_id in schedule ${schedule.id}:`, schedule.via_stop_id);
-        }
       });
-  
+
       setFlights(flightsData);
       setAirports(airportsData);
       setSchedules(
         schedulesData.map((schedule) => {
           const flight = flightsData.find((f) => f.id === schedule.flight_id) || {};
           const stops = schedule.via_stop_id
-            ? JSON.parse(schedule.via_stop_id || '[]').length > 0
+            ? JSON.parse(schedule.via_stop_id || "[]").length > 0
               ? JSON.parse(schedule.via_stop_id)
                   .map((id) => airportsData.find((a) => a.id === id)?.airport_name || `Invalid ID: ${id}`)
-                  .join(', ')
-              : 'Direct'
-            : 'Direct';
+                  .join(", ")
+              : "Direct"
+            : "Direct";
           return {
             ...schedule,
-            flight_number: flight.flight_number || 'N/A',
-            departure_day: flight.departure_day || 'N/A',
+            flight_number: flight.flight_number || "N/A",
+            departure_day: flight.departure_day || "N/A",
             startAirport: airportsData.find((a) => a.id === schedule.departure_airport_id)?.airport_name || `Invalid ID: ${schedule.departure_airport_id}`,
             endAirport: airportsData.find((a) => a.id === schedule.arrival_airport_id)?.airport_name || `Invalid ID: ${schedule.arrival_airport_id}`,
             stops,
-            status: schedule.status === 1 ? 'Active' : 'Inactive',
-            date: schedule.updated_at ? new Date(schedule.updated_at).toLocaleDateString('en-GB') : 'N/A',
+            status: schedule.status === 1 ? "Active" : "Inactive",
+            date: schedule.updated_at ? new Date(schedule.updated_at).toLocaleDateString("en-GB") : "N/A",
           };
         })
       );
     } catch (err) {
-      console.error('Error fetching data:', err);
-      toast.error('Failed to load data.');
+      console.error("Error fetching data:", err);
+      toast.error("Failed to load data.");
     } finally {
       setLoading(false);
     }
   }, []);
+
   // Initial data fetch
   useEffect(() => {
     fetchData();
@@ -122,42 +138,61 @@ const FlightSchedulePage = () => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'price' || name === 'status' || name.includes('airport_id') ? Number(value) : value,
+      [name]: name === "price" || name === "status" || name.includes("airport_id") ? Number(value) : value,
     }));
+  };
+
+  // Handle stops change
+  const handleStopsChange = (e) => {
+    const { value, checked } = e.target;
+    const currentStops = JSON.parse(formData.via_stop_id || "[]");
+    let updatedStops;
+    if (checked) {
+      updatedStops = [...currentStops, Number(value)];
+    } else {
+      updatedStops = currentStops.filter((id) => id !== Number(value));
+    }
+    setFormData({
+      ...formData,
+      via_stop_id: JSON.stringify(updatedStops),
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const method = isEdit ? 'PUT' : 'POST';
+    const method = isEdit ? "PUT" : "POST";
     const url = isEdit ? `${BASE_URL}/flight-schedules/${formData.id}` : `${BASE_URL}/flight-schedules`;
+    
     try {
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          via_stop_id: formData.via_stop_id, // Include via_stop_id
+          via_stop_id: formData.via_stop_id,
         }),
       });
-      if (!response.ok) throw new Error('Error saving schedule');
+      
+      if (!response.ok) throw new Error("Error saving schedule");
+      
       setShowModal(false);
       setFormData({
-        flight_id: '',
-        departure_airport_id: '',
-        arrival_airport_id: '',
-        departure_time: '',
-        arrival_time: '',
-        price: '',
+        flight_id: "",
+        departure_airport_id: "",
+        arrival_airport_id: "",
+        departure_time: "",
+        arrival_time: "",
+        price: "",
         status: 1,
-        via_stop_id: '[]',
+        via_stop_id: "[]",
       });
       setIsEdit(false);
-      toast.success(isEdit ? 'Schedule updated!' : 'Schedule added!');
-      await fetchData(); // Refetch data after submission
+      toast.success(isEdit ? "Schedule updated!" : "Schedule added!");
+      await fetchData();
     } catch (err) {
-      console.error('Error:', err);
-      toast.error('Failed to save schedule.');
+      console.error("Error:", err);
+      toast.error("Failed to save schedule.");
     } finally {
       setLoading(false);
     }
@@ -174,37 +209,40 @@ const FlightSchedulePage = () => {
       departure_time: schedule.departure_time,
       arrival_time: schedule.arrival_time,
       price: schedule.price,
-      status: schedule.status === 'Active' ? 1 : 0,
-      via_stop_id: schedule.via_stop_id || '[]',
+      status: schedule.status === "Active" ? 1 : 0,
+      via_stop_id: schedule.via_stop_id || "[]",
     });
     setShowModal(true);
   };
+
   // Handle delete
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this schedule?')) return;
+  const handleDelete = async () => {
+    if (!showDeleteConfirm) return;
     setLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/flight-schedules/${id}`, {
-        method: 'DELETE',
+      const response = await fetch(`${BASE_URL}/flight-schedules/${showDeleteConfirm}`, {
+        method: "DELETE",
       });
-      if (!response.ok) throw new Error('Error deleting schedule');
+      if (!response.ok) throw new Error("Error deleting schedule");
       await fetchData();
-      toast.success('Schedule deleted!');
+      toast.success("Schedule deleted!");
     } catch (err) {
-      console.error('Error:', err);
-      toast.error('Failed to delete schedule.');
+      console.error("Error:", err);
+      toast.error("Failed to delete schedule.");
     } finally {
       setLoading(false);
+      setShowDeleteConfirm(null);
     }
   };
+
   // Handle status toggle
   const handleStatusToggle = async (schedule) => {
     setLoading(true);
-    const newStatus = schedule.status === 'Active' ? 0 : 1;
+    const newStatus = schedule.status === "Active" ? 0 : 1;
     try {
       const response = await fetch(`${BASE_URL}/flight-schedules/${schedule.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           flight_id: schedule.flight_id,
           departure_airport_id: schedule.departure_airport_id,
@@ -215,29 +253,61 @@ const FlightSchedulePage = () => {
           status: newStatus,
         }),
       });
-      if (!response.ok) throw new Error('Error updating status');
-      await fetchData(); // Refetch data after status update
-      toast.success(`Schedule ${newStatus === 1 ? 'activated' : 'deactivated'}!`);
+      if (!response.ok) throw new Error("Error updating status");
+      await fetchData();
+      toast.success(`Schedule ${newStatus === 1 ? "activated" : "deactivated"}!`);
     } catch (err) {
-      console.error('Error:', err);
-      toast.error('Failed to update status.');
+      console.error("Error:", err);
+      toast.error("Failed to update status.");
     } finally {
       setLoading(false);
     }
   };
 
+  // Handle sorting
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
   // Filter schedules
   const filteredSchedules = useMemo(() => {
-    return schedules.filter((schedule) => {
-      const matchesDay = filterDay === 'All Days' || schedule.departure_day === filterDay;
-      const matchesStatus = filterStatus === 'All' || filterStatus === schedule.status;
+    let filtered = schedules.filter((schedule) => {
+      const matchesDay = filterDay === "All Days" || schedule.departure_day === filterDay;
+      const matchesStatus = filterStatus === "All" || filterStatus === schedule.status;
       const matchesSearch =
         schedule.flight_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
         schedule.startAirport.toLowerCase().includes(searchTerm.toLowerCase()) ||
         schedule.endAirport.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesDay && matchesStatus && matchesSearch;
     });
-  }, [schedules, filterDay, filterStatus, searchTerm]);
+
+    // Apply sorting
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+        
+        if (typeof aValue === 'string') {
+          aValue = aValue.toLowerCase();
+          bValue = bValue.toLowerCase();
+        }
+        
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [schedules, filterDay, filterStatus, searchTerm, sortConfig]);
 
   // Pagination
   const totalPages = Math.ceil(filteredSchedules.length / entriesPerPage) || 1;
@@ -246,69 +316,44 @@ const FlightSchedulePage = () => {
     return filteredSchedules.slice(start, start + entriesPerPage);
   }, [filteredSchedules, currentPage, entriesPerPage]);
 
-  // Pagination items
-  const getPaginationItems = () => {
-    const items = [];
-    const maxButtons = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
-    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
-    if (endPage - startPage + 1 < maxButtons) startPage = Math.max(1, endPage - maxButtons + 1);
-    if (startPage > 1) items.push(1);
-    if (startPage > 2) items.push('...');
-    for (let i = startPage; i <= endPage; i++) items.push(i);
-    if (endPage < totalPages - 1) items.push('...');
-    if (endPage < totalPages) items.push(totalPages);
-    return items;
+  const getSortIcon = (columnKey) => {
+    if (sortConfig.key !== columnKey) {
+      return <ArrowsUpDownIcon className="w-4 h-4 text-slate-400" />;
+    }
+    return sortConfig.direction === 'asc' ? 
+      <ArrowsUpDownIcon className="w-4 h-4 text-blue-500 rotate-180" /> :
+      <ArrowsUpDownIcon className="w-4 h-4 text-blue-500" />;
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 max-w-7xl">
+    <div className="space-y-8">
       <ToastContainer position="top-right" autoClose={3000} />
-      <h2 className="text-3xl font-bold mb-6 text-gray-900">Flight Schedule Management</h2>
-
-      {/* Filters and Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-          <select
-            value={filterDay}
-            onChange={(e) => {
-              setFilterDay(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
-            aria-label="Filter by day"
-          >
-            <option>All Days</option>
-            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
-              <option key={day}>{day}</option>
-            ))}
-          </select>
-          <select
-            value={filterStatus}
-            onChange={(e) => {
-              setFilterStatus(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
-            aria-label="Filter by status"
-          >
-            <option>All</option>
-            <option>Active</option>
-            <option>Inactive</option>
-          </select>
+      
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl">
+              <ClockIcon className="w-8 h-8 text-white" />
+            </div>
+            Flight Schedule Management
+          </h1>
+          <p className="text-slate-600 mt-2">Manage flight schedules, timings, and pricing</p>
         </div>
+        
         <button
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors shadow-sm"
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:from-emerald-600 hover:to-teal-600 transition-all duration-200 shadow-lg font-semibold"
           onClick={() => {
             setIsEdit(false);
             setFormData({
-              flight_id: '',
-              departure_airport_id: '',
-              arrival_airport_id: '',
-              departure_time: '',
-              arrival_time: '',
-              price: '',
+              flight_id: "",
+              departure_airport_id: "",
+              arrival_airport_id: "",
+              departure_time: "",
+              arrival_time: "",
+              price: "",
               status: 1,
+              via_stop_id: "[]",
             });
             setShowModal(true);
           }}
@@ -319,372 +364,584 @@ const FlightSchedulePage = () => {
         </button>
       </div>
 
-      {/* Table Controls */}
-      <div className="bg-white rounded-xl shadow-lg mb-6">
-        <div className="p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-600">Show</span>
-              <select
-                value={entriesPerPage}
-                onChange={(e) => {
-                  setEntriesPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
-              >
-                {ENTRIES_PER_PAGE.map((num) => (
-                  <option key={num}>{num}</option>
-                ))}
-              </select>
-              <span className="text-gray-600">entries</span>
-            </div>
-            <div className="relative w-full sm:w-64">
+      {/* Filters */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row gap-4 flex-1">
+            <div className="relative flex-1 max-w-md">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
                 type="text"
                 onChange={(e) => debouncedSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+                className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Search schedules..."
               />
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             </div>
+            
+            <select
+              value={filterDay}
+              onChange={(e) => {
+                setFilterDay(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            >
+              <option>All Days</option>
+              {WEEK_DAYS.map((day) => (
+                <option key={day}>{day}</option>
+              ))}
+            </select>
+            
+            <select
+              value={filterStatus}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            >
+              <option>All</option>
+              <option>Active</option>
+              <option>Inactive</option>
+            </select>
           </div>
+          
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-slate-600">Show</span>
+            <select
+              value={entriesPerPage}
+              onChange={(e) => {
+                setEntriesPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {ENTRIES_PER_PAGE.map((num) => (
+                <option key={num}>{num}</option>
+              ))}
+            </select>
+            <span className="text-sm text-slate-600">entries</span>
+          </div>
+        </div>
+      </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse min-w-[800px]">
-              <thead>
-                <tr className="bg-gray-50">
-                  {['S#', 'Flight', 'Airports', 'Time', 'Price', 'Stops', 'Status', 'Action'].map((header) => (
-                    <th key={header} className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                      {header}
-                    </th>
-                  ))}
+      {/* Schedule List */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-50 to-purple-50 px-6 py-4 border-b border-slate-200">
+          <h3 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+            <CalendarDaysIcon className="w-6 h-6 text-purple-600" />
+            Flight Schedules ({filteredSchedules.length})
+          </h3>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                {[
+                  { key: 'flight_number', label: 'Flight' },
+                  { key: 'startAirport', label: 'Route' },
+                  { key: 'departure_time', label: 'Time' },
+                  { key: 'price', label: 'Price' },
+                  { key: 'stops', label: 'Stops' },
+                  { key: 'status', label: 'Status' },
+                ].map((column) => (
+                  <th
+                    key={column.key}
+                    className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort(column.key)}
+                  >
+                    <div className="flex items-center gap-2">
+                      {column.label}
+                      {getSortIcon(column.key)}
+                    </div>
+                  </th>
+                ))}
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-slate-500">Loading schedules...</span>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {loading ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
-                      Loading...
+              ) : paginatedSchedules.length ? (
+                paginatedSchedules.map((schedule) => (
+                  <tr key={schedule.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <PaperAirplaneIcon className="w-4 h-4 text-slate-400" />
+                        <span className="font-semibold text-slate-900">{schedule.flight_number}</span>
+                      </div>
                     </td>
-                  </tr>
-                ) : paginatedSchedules.length ? (
-                  paginatedSchedules.map((schedule, index) => (
-                    <tr key={schedule.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {(currentPage - 1) * entriesPerPage + index + 1}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">{schedule.flight_number}</td>
-                      <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">
-                        <span title={`${schedule.startAirport} - ${schedule.endAirport}`}>
-                          {schedule.startAirport} - {schedule.endAirport}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2 max-w-[300px]">
+                        <MapPinIcon className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                        <span className="text-slate-900 truncate" title={schedule.startAirport}>
+                          {schedule.startAirport}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          title={`${
-                            new Date(`1970-01-01T${schedule.departure_time}`).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          } - ${
-                            new Date(`1970-01-01T${schedule.arrival_time}`).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          }`}
-                        >
+                        <span className="text-slate-400 flex-shrink-0">→</span>
+                        <MapPinIcon className="w-4 h-4 text-red-500 flex-shrink-0" />
+                        <span className="text-slate-900 truncate" title={schedule.endAirport}>
+                          {schedule.endAirport}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <ClockIcon className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-700">
                           {new Date(`1970-01-01T${schedule.departure_time}`).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}{' '}
-                          -{' '}
-                          {new Date(`1970-01-01T${schedule.arrival_time}`).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })} - {new Date(`1970-01-01T${schedule.arrival_time}`).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
                           })}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">INR {schedule.price}</td>
-                      <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis max-w-3xl">
-                        <span title={schedule.stops}>{schedule.stops}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="checkbox"
-                          checked={schedule.status === 'Active'}
-                          onChange={() => handleStatusToggle(schedule)}
-                          disabled={loading}
-                          className="form-checkbox h-5 w-5 text-blue-600"
-                        />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap flex gap-2">
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <CurrencyDollarIcon className="w-4 h-4 text-slate-400" />
+                        <span className="font-semibold text-slate-900">₹{schedule.price}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span 
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium max-w-[150px] truncate ${
+                          schedule.stops === "Direct" 
+                            ? "bg-green-100 text-green-800" 
+                            : "bg-blue-100 text-blue-800"
+                        }`}
+                        title={schedule.stops}
+                      >
+                        {schedule.stops}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => handleStatusToggle(schedule)}
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                          schedule.status === "Active"
+                            ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                            : "bg-red-100 text-red-800 hover:bg-red-200"
+                        }`}
+                        disabled={loading}
+                      >
+                        {schedule.status === "Active" ? (
+                          <CheckCircleIcon className="w-3 h-3" />
+                        ) : (
+                          <XCircleIcon className="w-3 h-3" />
+                        )}
+                        {schedule.status}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
                         <button
-                          className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                           onClick={() => handleEdit(schedule)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           disabled={loading}
+                          title="Edit schedule"
                         >
                           <PencilIcon className="w-4 h-4" />
                         </button>
                         <button
-                          className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
-                          onClick={() => handleDelete(schedule.id)}
+                          onClick={() => setShowDeleteConfirm(schedule.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           disabled={loading}
+                          title="Delete schedule"
                         >
                           <TrashIcon className="w-4 h-4" />
                         </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
-                      No schedules available.
+                      </div>
                     </td>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-2 mt-6">
-          <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage === 1 || loading}
-            className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 transition-colors shadow-sm"
-          >
-            Previous
-          </button>
-          {getPaginationItems().map((item, index) => (
-            <React.Fragment key={`page-${item}-${index}`}>
-              {item === '...' ? (
-                <span className="px-4 py-2 text-gray-500">...</span>
+                ))
               ) : (
-                <button
-                  onClick={() => setCurrentPage(item)}
-                  disabled={loading}
-                  className={`px-4 py-2 rounded-lg ${
-                    currentPage === item
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  } disabled:opacity-50 transition-colors shadow-sm`}
-                >
-                  {item}
-                </button>
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <ClockIcon className="w-12 h-12 text-slate-300" />
+                      <div>
+                        <p className="text-slate-500 font-medium">No schedules found</p>
+                        <p className="text-slate-400 text-sm">
+                          {searchTerm ? "Try adjusting your search terms" : "Add your first schedule to get started"}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
               )}
-            </React.Fragment>
-          ))}
-          <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages || loading}
-            className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 transition-colors shadow-sm"
-          >
-            Next
-          </button>
+            </tbody>
+          </table>
         </div>
-      )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 p-6 border-t border-slate-200">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1 || loading}
+              className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 transition-colors"
+            >
+              Previous
+            </button>
+            
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const page = i + 1;
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    disabled={loading}
+                    className={`px-3 py-2 rounded-lg transition-colors ${
+                      currentPage === page
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    } disabled:opacity-50`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+            </div>
+            
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages || loading}
+              className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Add/Edit Modal */}
-      {showModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-    <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
-      <div className="flex justify-between items-center mb-6">
-        <h5 className="text-xl font-semibold">{isEdit ? 'Edit Schedule' : 'Add Schedule'}</h5>
-        <button
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-          onClick={() => setShowModal(false)}
-          disabled={loading}
-        >
-          <XMarkIcon className="w-6 h-6" />
-        </button>
-      </div>
-      <form onSubmit={handleSubmit} className="space-y-4 mt-20">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Flight</label>
-          <select
-            name="flight_id"
-            value={formData.flight_id}
-            onChange={handleInputChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
-            required
-            disabled={loading}
+      <Transition show={showModal} as={React.Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowModal(false)}>
+          <Transition.Child
+            as={React.Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
           >
-            <option value="">Select a flight</option>
-            {flights.map((flight) => (
-              <option key={flight.id} value={flight.id}>
-                {flight.flight_number}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Departure Airport</label>
-          <select
-            name="departure_airport_id"
-            value={formData.departure_airport_id}
-            onChange={handleInputChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
-            required
-            disabled={loading}
-          >
-            <option value="">Select Airport</option>
-            {airports.map((airport) => (
-              <option key={airport.id} value={airport.id}>
-                {airport.airport_name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Arrival Airport</label>
-          <select
-            name="arrival_airport_id"
-            value={formData.arrival_airport_id}
-            onChange={handleInputChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
-            required
-            disabled={loading}
-          >
-            <option value="">Select Airport</option>
-            {airports.map((airport) => (
-              <option key={airport.id} value={airport.id}>
-                {airport.airport_name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Stop Airports</label>
-          <div className="max-h-40 overflow-y-auto border rounded-lg px-4 py-2 bg-gray-50">
-            {airports.length > 0 ? (
-              airports.map((airport) => (
-                <div key={airport.id} className="flex items-center py-1">
-                  <input
-                    type="checkbox"
-                    id={`stop-airport-${airport.id}`}
-                    value={airport.id}
-                    checked={JSON.parse(formData.via_stop_id || '[]').includes(airport.id)}
-                    onChange={(e) => {
-                      const { value, checked } = e.target;
-                      const currentStops = JSON.parse(formData.via_stop_id || '[]');
-                      let updatedStops;
-                      if (checked) {
-                        updatedStops = [...currentStops, Number(value)];
-                      } else {
-                        updatedStops = currentStops.filter((id) => id !== Number(value));
-                      }
-                      setFormData({
-                        ...formData,
-                        via_stop_id: JSON.stringify(updatedStops),
-                      });
-                    }}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <Transition.Child
+              as={React.Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <ClockIcon className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <Dialog.Title className="text-xl font-semibold text-slate-900">
+                      {isEdit ? "Edit Schedule" : "Add New Schedule"}
+                    </Dialog.Title>
+                  </div>
+                  <button
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                    onClick={() => setShowModal(false)}
                     disabled={loading}
-                  />
-                  <label
-                    htmlFor={`stop-airport-${airport.id}`}
-                    className="ml-2 text-sm text-gray-700 cursor-pointer"
                   >
-                    {airport.airport_name}
-                  </label>
+                    <XMarkIcon className="w-6 h-6" />
+                  </button>
                 </div>
-              ))
-            ) : (
-              <p className="text-sm text-gray-500">No airports available</p>
-            )}
+
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Flight
+                      </label>
+                      <select
+                        name="flight_id"
+                        value={formData.flight_id}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        required
+                        disabled={loading}
+                      >
+                        <option value="">Select a flight</option>
+                        {flights.map((flight) => (
+                          <option key={flight.id} value={flight.id}>
+                            {flight.flight_number}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Price (INR)
+                      </label>
+                      <input
+                        type="number"
+                        name="price"
+                        value={formData.price}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        required
+                        min="0"
+                        step="0.01"
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Departure Airport
+                      </label>
+                      <select
+                        name="departure_airport_id"
+                        value={formData.departure_airport_id}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        required
+                        disabled={loading}
+                      >
+                        <option value="">Select Airport</option>
+                        {airports.map((airport) => (
+                          <option key={airport.id} value={airport.id}>
+                            {airport.airport_name} ({airport.airport_code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Arrival Airport
+                      </label>
+                      <select
+                        name="arrival_airport_id"
+                        value={formData.arrival_airport_id}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        required
+                        disabled={loading}
+                      >
+                        <option value="">Select Airport</option>
+                        {airports.map((airport) => (
+                          <option key={airport.id} value={airport.id}>
+                            {airport.airport_name} ({airport.airport_code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Departure Time
+                      </label>
+                      <input
+                        type="time"
+                        name="departure_time"
+                        value={formData.departure_time}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        required
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Arrival Time
+                      </label>
+                      <input
+                        type="time"
+                        name="arrival_time"
+                        value={formData.arrival_time}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        required
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-3">
+                      Stop Airports (Optional)
+                    </label>
+                    <div className="max-h-40 overflow-y-auto border border-slate-300 rounded-xl p-4 bg-slate-50">
+                      {airports.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {airports.map((airport) => (
+                            <div key={airport.id} className="flex items-center">
+                              <input
+                                type="checkbox"
+                                id={`stop-airport-${airport.id}`}
+                                value={airport.id}
+                                checked={JSON.parse(formData.via_stop_id || "[]").includes(airport.id)}
+                                onChange={handleStopsChange}
+                                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                                disabled={
+                                  loading ||
+                                  airport.id === formData.departure_airport_id ||
+                                  airport.id === formData.arrival_airport_id
+                                }
+                              />
+                              <label
+                                htmlFor={`stop-airport-${airport.id}`}
+                                className={`ml-2 text-sm cursor-pointer ${
+                                  loading ||
+                                  airport.id === formData.departure_airport_id ||
+                                  airport.id === formData.arrival_airport_id
+                                    ? "text-slate-400"
+                                    : "text-slate-700"
+                                }`}
+                              >
+                                {airport.airport_name} ({airport.airport_code})
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-500">No airports available</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Status
+                    </label>
+                    <select
+                      name="status"
+                      value={formData.status}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      disabled={loading}
+                    >
+                      <option value={1}>Active</option>
+                      <option value={0}>Inactive</option>
+                    </select>
+                  </div>
+
+                  <div className="flex gap-4 pt-4">
+                    <button
+                      type="button"
+                      className="flex-1 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors font-semibold"
+                      onClick={() => setShowModal(false)}
+                      disabled={loading}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-white font-semibold transition-all duration-200 shadow-lg disabled:opacity-50 ${
+                        isEdit
+                          ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600"
+                          : "bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
+                      }`}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <PlusIcon className="w-5 h-5" />
+                      )}
+                      {isEdit ? "Update Schedule" : "Add Schedule"}
+                    </button>
+                  </div>
+                </form>
+              </Dialog.Panel>
+            </Transition.Child>
           </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Departure Time</label>
-          <input
-            type="time"
-            name="departure_time"
-            value={formData.departure_time}
-            onChange={handleInputChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
-            required
-            disabled={loading}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Arrival Time</label>
-          <input
-            type="time"
-            name="arrival_time"
-            value={formData.arrival_time}
-            onChange={handleInputChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
-            required
-            disabled={loading}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Price (INR)</label>
-          <input
-            type="number"
-            name="price"
-            value={formData.price}
-            onChange={handleInputChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
-            required
-            min="0"
-            step="0.01"
-            disabled={loading}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Status</label>
-          <select
-            name="status"
-            value={formData.status}
-            onChange={handleInputChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white shadow-sm disabled:opacity-50"
-            disabled={loading}
+        </Dialog>
+      </Transition>
+
+      {/* Delete Confirmation Modal */}
+      <Transition show={!!showDeleteConfirm} as={React.Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowDeleteConfirm(null)}>
+          <Transition.Child
+            as={React.Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
           >
-            <option value={1}>Active</option>
-            <option value={0}>Inactive</option>
-          </select>
-        </div>
-        <button
-          type="submit"
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
-          disabled={loading}
-        >
-          {loading ? (
-            <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
-              />
-            </svg>
-          ) : (
-            <>
-              <PlusIcon className="w-5 h-5" />
-              {isEdit ? 'Update Schedule' : 'Add Schedule'}
-            </>
-          )}
-        </button>
-      </form>
-    </div>
-  </div>
-)}
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <Transition.Child
+              as={React.Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-200">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <ExclamationTriangleIcon className="w-6 h-6 text-red-600" />
+                  </div>
+                  <Dialog.Title className="text-lg font-semibold text-slate-900">
+                    Confirm Delete
+                  </Dialog.Title>
+                </div>
+                
+                <p className="text-slate-600 mb-6">
+                  Are you sure you want to delete this schedule? This action cannot be undone.
+                </p>
+                
+                <div className="flex gap-3">
+                  <button
+                    className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors font-medium"
+                    onClick={() => setShowDeleteConfirm(null)}
+                    disabled={loading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium disabled:opacity-50"
+                    onClick={handleDelete}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                    ) : (
+                      "Delete"
+                    )}
+                  </button>
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </Dialog>
+      </Transition>
     </div>
   );
 };
 
 export default FlightSchedulePage;
-
