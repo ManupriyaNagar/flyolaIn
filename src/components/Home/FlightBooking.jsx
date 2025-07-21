@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   FaPlaneDeparture,
   FaUser,
-  FaSpinner,
   FaHelicopter,
   FaCalendarCheck,
   FaPlane,
@@ -34,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import Loader from "@/components/Loader";
 
 export default function FlightBooking() {
 
@@ -173,7 +173,7 @@ export default function FlightBooking() {
 
 
       {/* Services Navigation */}
-      <motion.div
+      {/* <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
@@ -210,7 +210,7 @@ export default function FlightBooking() {
             );
           })}
         </div>
-      </motion.div>
+      </motion.div> */}
 
 
 
@@ -308,8 +308,7 @@ export default function FlightBooking() {
                             disabled
                             className="flex items-center justify-center"
                           >
-                            <FaSpinner className="animate-spin mr-2" /> Loading
-                            airports...
+                            <Loader inline={true} size="sm" />
                           </SelectItem>
                         ) : airportFetchError ? (
                           <SelectItem
@@ -365,8 +364,7 @@ export default function FlightBooking() {
                             disabled
                             className="flex items-center justify-center"
                           >
-                            <FaSpinner className="animate-spin mr-2" /> Loading
-                            airports...
+                            <Loader inline={true} size="sm" />
                           </SelectItem>
                         ) : airportFetchError ? (
                           <SelectItem
@@ -650,11 +648,11 @@ export default function FlightBooking() {
                   >
                     <a className="flex items-center gap-3">
                       {isLoadingAirports ? (
-                        <FaSpinner className="animate-spin text-xl" />
+                        <Loader inline={true} size="sm" />
                       ) : (
                         <FaPlaneDeparture className="text-xl" />
                       )}
-                      {isLoadingAirports ? "Loading..." : "Search Flights"}
+                      {!isLoadingAirports && "Search Flights"}
                     </a>
                   </Button>
                 </Link>

@@ -70,7 +70,7 @@ const PopularDestinations = lazy(() =>
 export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
-      <Suspense fallback={<Loader onLoadingComplete={() => {}} />}>
+      <Suspense fallback={<Loader />}>
         {/* Desktop Flight Booking - Hidden on mobile */}
         <div className="hidden md:block">
           <FlightBooking />

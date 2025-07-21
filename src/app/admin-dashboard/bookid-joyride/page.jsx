@@ -14,6 +14,7 @@ import {
   SparklesIcon,
 } from "@heroicons/react/24/outline";
 import BASE_URL from "@/baseUrl/baseUrl";
+import Loader from "@/components/Loader";
 
 const AdminJoyrideSlotsPage = () => {
   const [slotData, setSlotData] = useState({
@@ -30,7 +31,7 @@ const AdminJoyrideSlotsPage = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setSlotData({ ...slotData, [name]: value });
-    
+
     // Clear specific error when user starts typing
     if (errors[name]) {
       setErrors({ ...errors, [name]: '' });
@@ -44,23 +45,23 @@ const AdminJoyrideSlotsPage = () => {
     if (!slotData.startDate) {
       newErrors.startDate = 'Start date is required';
     }
-    
+
     if (!slotData.endDate) {
       newErrors.endDate = 'End date is required';
     }
-    
+
     if (slotData.startDate && slotData.endDate && new Date(slotData.startDate) > new Date(slotData.endDate)) {
       newErrors.endDate = 'End date must be after start date';
     }
-    
+
     if (!slotData.time) {
       newErrors.time = 'Time is required';
     }
-    
+
     if (!slotData.seats || slotData.seats < 1) {
       newErrors.seats = 'At least 1 seat is required';
     }
-    
+
     if (!slotData.price || slotData.price <= 0) {
       newErrors.price = 'Price must be greater than 0';
     }
@@ -72,7 +73,7 @@ const AdminJoyrideSlotsPage = () => {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       toast.error('Please fix the errors in the form');
       return;
@@ -81,10 +82,17 @@ const AdminJoyrideSlotsPage = () => {
     setLoading(true);
 
     try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        toast.error('Please sign in to continue');
+        return;
+      }
+
       const response = await fetch(`${BASE_URL}/api/joyride-slots`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           startDate: slotData.startDate,
@@ -115,7 +123,7 @@ const AdminJoyrideSlotsPage = () => {
   return (
     <div className="space-y-8">
       <ToastContainer position="top-right" autoClose={3000} />
-      
+
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
@@ -137,7 +145,7 @@ const AdminJoyrideSlotsPage = () => {
             Create New Joy Ride Slots
           </h2>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Start Date */}
@@ -151,9 +159,8 @@ const AdminJoyrideSlotsPage = () => {
                 name="startDate"
                 value={slotData.startDate}
                 onChange={handleInputChange}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${
-                  errors.startDate ? 'border-red-300 bg-red-50' : 'border-slate-300'
-                }`}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${errors.startDate ? 'border-red-300 bg-red-50' : 'border-slate-300'
+                  }`}
                 disabled={loading}
               />
               {errors.startDate && (
@@ -175,9 +182,8 @@ const AdminJoyrideSlotsPage = () => {
                 name="endDate"
                 value={slotData.endDate}
                 onChange={handleInputChange}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${
-                  errors.endDate ? 'border-red-300 bg-red-50' : 'border-slate-300'
-                }`}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${errors.endDate ? 'border-red-300 bg-red-50' : 'border-slate-300'
+                  }`}
                 disabled={loading}
               />
               {errors.endDate && (
@@ -199,9 +205,8 @@ const AdminJoyrideSlotsPage = () => {
                 name="time"
                 value={slotData.time}
                 onChange={handleInputChange}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${
-                  errors.time ? 'border-red-300 bg-red-50' : 'border-slate-300'
-                }`}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${errors.time ? 'border-red-300 bg-red-50' : 'border-slate-300'
+                  }`}
                 disabled={loading}
               />
               {errors.time && (
@@ -223,9 +228,8 @@ const AdminJoyrideSlotsPage = () => {
                 name="seats"
                 value={slotData.seats}
                 onChange={handleInputChange}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${
-                  errors.seats ? 'border-red-300 bg-red-50' : 'border-slate-300'
-                }`}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${errors.seats ? 'border-red-300 bg-red-50' : 'border-slate-300'
+                  }`}
                 min="1"
                 disabled={loading}
               />
@@ -248,9 +252,8 @@ const AdminJoyrideSlotsPage = () => {
                 name="price"
                 value={slotData.price}
                 onChange={handleInputChange}
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${
-                  errors.price ? 'border-red-300 bg-red-50' : 'border-slate-300'
-                }`}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${errors.price ? 'border-red-300 bg-red-50' : 'border-slate-300'
+                  }`}
                 min="0.01"
                 step="0.01"
                 placeholder="Enter price per seat"
@@ -273,11 +276,11 @@ const AdminJoyrideSlotsPage = () => {
               disabled={loading}
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <Loader inline={true} size="sm" />
               ) : (
                 <CheckCircleIcon className="w-5 h-5" />
               )}
-              {loading ? 'Creating Slots...' : 'Create Joy Ride Slots'}
+              {!loading && 'Create Joy Ride Slots'}
             </button>
           </div>
         </form>

@@ -5,7 +5,32 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FaPlane } from "react-icons/fa";
 import Image from "next/image";
 
-export default function Loader({ onLoadingComplete = () => { } }) {
+export default function Loader({ onLoadingComplete = () => { }, inline = false, size = "md" }) {
+  // Inline loader for small loading states
+  if (inline) {
+    const sizeClasses = {
+      sm: "w-4 h-4",
+      md: "w-6 h-6", 
+      lg: "w-8 h-8"
+    };
+
+    return (
+      <motion.div
+        animate={{ 
+          rotate: 360,
+          x: [0, 5, 0, -5, 0]
+        }}
+        transition={{ 
+          rotate: { duration: 2, repeat: Infinity, ease: "linear" },
+          x: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+        }}
+        className={`${sizeClasses[size]} text-indigo-500 inline-block`}
+      >
+        <FaPlane className="w-full h-full" />
+      </motion.div>
+    );
+  }
+
   const [progress, setProgress] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
 

@@ -36,7 +36,7 @@ const SignInPage = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (authState.isLoggedIn) {
-      const redirectTo = authState.userRole === '1' ? '/admin-dashboard' : '/user-dashboard';
+      const redirectTo = authState.userRole === '1' ? '/admin-dashboard' : '/';
       router.push(redirectTo);
     }
   }, [authState.isLoggedIn, authState.userRole, router]);
@@ -117,7 +117,7 @@ const SignInPage = () => {
 
         // Redirect based on user role
         setTimeout(() => {
-          const redirectTo = data.user.role === '1' ? '/admin-dashboard' : '/user-dashboard';
+          const redirectTo = data.user.role === '1' ? '/admin-dashboard' : '/';
           router.push(redirectTo);
         }, 1500);
 

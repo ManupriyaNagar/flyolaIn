@@ -118,7 +118,7 @@ const Footer = () => {
               <img
                 src="/logoo-04.png"
                 alt="Flyola Logo"
-                className="h-16 w-auto"
+                className="h-16 w-60"
               />
             </div>
             

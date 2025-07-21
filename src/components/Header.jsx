@@ -75,7 +75,7 @@ const Header = () => {
         <div className="flex h-16 items-center">
           {/* Logo */}
           <Link href="/" className="flex items-center mr-auto">
-            <img src="/logoo-04.png" alt="Logo" className="h-10 w-auto" />
+            <img src="/logoo-04.png" alt="Logo" className="h-10 w-48" />
           </Link>
 
           {/* Main nav: total 5 items */}
@@ -165,20 +165,20 @@ const Header = () => {
             {authState.isLoggedIn ? (
               <Menu as="div" className="relative">
                 <Menu.Button className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition">
-                  <UserCircleIcon className="w-6 h-6" />
-                  <span className="ml-2 hidden lg:inline">{authState.userName}</span>
+                  <UserCircleIcon className="w-7 h-7" />
+
                   <ChevronDownIcon className="w-4 h-4 ml-1" />
                 </Menu.Button>
                 <Transition as={Fragment} enter="transition ease-out duration-100" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="transition ease-in duration-75" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
                   <Menu.Items className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg ring-1 ring-black ring-opacity-5 border border-slate-200">
                     <div className="p-2">
                       <div className="px-3 py-2 border-b border-slate-100">
-                        <p className="text-sm font-medium text-slate-900">{authState.userName}</p>
+
                         <p className="text-xs text-slate-500">
                           {authState.userRole === '1' ? 'Administrator' : authState.userRole === '2' ? 'Agent' : 'Customer'}
                         </p>
                       </div>
-                      {authState.userRole === '1' && adminMenuItems.map(item => (
+                      {(authState.userRole === '1' || authState.userRole === 1) && adminMenuItems.map(item => (
                         <Menu.Item key={item.href}>
                           {({ active }) => (
                             <Link
@@ -285,10 +285,10 @@ const Header = () => {
               {authState.isLoggedIn ? (
                 <div className="space-y-1">
                   <div className="px-3 py-2">
-                    <p className="text-base font-medium text-slate-900">{authState.userName}</p>
+
                     <p className="text-sm text-slate-500">{authState.userRole === '1' ? 'Admin' : authState.userRole === '2' ? 'Agent' : 'Customer'}</p>
                   </div>
-                  {adminMenuItems.map(item => (
+                  {(authState.userRole === '1' || authState.userRole === 1) && adminMenuItems.map(item => (
                     <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
                       <item.icon className="w-5 h-5 mr-3" />{item.name}
                     </Link>

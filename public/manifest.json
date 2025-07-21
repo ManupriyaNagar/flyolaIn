@@ -1,0 +1,27 @@
+{
+  "name": "Flyola - Premium Aviation Services",
+  "short_name": "Flyola",
+  "description": "Book premium flights, private charters, and aviation services with Flyola",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e40af",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logoo-04.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logoo-04.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["travel", "business"],
+  "lang": "en",
+  "dir": "ltr"
+}

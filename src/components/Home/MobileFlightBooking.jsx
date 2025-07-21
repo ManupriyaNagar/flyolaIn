@@ -5,13 +5,12 @@ import Link from "next/link";
 import {
     FaPlaneDeparture,
     FaUser,
-    FaSpinner,
-    FaHelicopter,
+
     FaCalendarCheck,
     FaPlane,
     FaExchangeAlt,
-    FaClock,
-    FaDollarSign
+    FaDollarSign,
+    FaClock
 } from "react-icons/fa";
 import { MdErrorOutline, MdFlightTakeoff, MdFlightLand } from "react-icons/md";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,6 +26,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import Loader from "@/components/Loader";
 
 export default function MobileFlightBooking() {
     const [departure, setDeparture] = useState("");
@@ -45,6 +45,16 @@ export default function MobileFlightBooking() {
 
     useEffect(() => {
         const fetchAirports = async () => {
+            // Check cache first for faster loading
+            const cached = sessionStorage.getItem('airports_data');
+            const cacheTime = sessionStorage.getItem('airports_cache_time');
+
+            if (cached && cacheTime && (Date.now() - parseInt(cacheTime)) < 300000) {
+                setAirports(JSON.parse(cached));
+                setIsLoadingAirports(false);
+                return;
+            }
+
             setIsLoadingAirports(true);
             setAirportFetchError(null);
             try {
@@ -53,6 +63,11 @@ export default function MobileFlightBooking() {
                     throw new Error(`Failed to fetch airports: ${response.status}`);
                 }
                 const data = await response.json();
+
+                // Cache for faster subsequent loads
+                sessionStorage.setItem('airports_data', JSON.stringify(data));
+                sessionStorage.setItem('airports_cache_time', Date.now().toString());
+
                 setAirports(data);
             } catch (error) {
                 setAirportFetchError(error.message);
@@ -66,11 +81,11 @@ export default function MobileFlightBooking() {
     const containerVariants = {
         hidden: {},
         visible: { transition: { staggerChildren: 0.15 } },
-      };
-      const itemVariants = {
+    };
+    const itemVariants = {
         hidden: { opacity: 0, y: -10 },
         visible: { opacity: 1, y: 0 },
-      };
+    };
 
     const totalPassengers =
         passengerData.adults + passengerData.children + passengerData.infants;
@@ -143,67 +158,67 @@ export default function MobileFlightBooking() {
             <div className="relative z-10 px-4 py-6 safe-area-inset">
                 {/* Mobile Header */}
                 <motion.div
-      initial="hidden"
-      animate="visible"
-      variants={containerVariants}
-      className="
+                    initial="hidden"
+                    animate="visible"
+                    variants={containerVariants}
+                    className="
         relative overflow-hidden
         bg-gradient-to-r from-blue-600 to-indigo-500
         rounded-3xl
         text-center mb-8 py-6
       "
-    >
-      {/* Decorative wave at the top */}
-      <div className="absolute top-0 left-1/2 w-[150%] -translate-x-1/2 -mt-4 pointer-events-none">
-        <svg
-          viewBox="0 0 1440 320"
-          className="w-full h-8 fill-white/10"
-        >
-          <path
-            d="M0,64L48,90.7C96,117,192,171,288,186.7C384,203,480,181,576,181.3C672,181,768,203,864,213.3C960,224,1056,224,1152,213.3C1248,203,1344,181,1392,170.7L1440,160L1440,0L1392,0C1344,0,1248,0,1152,0C1056,0,960,0,864,0C768,0,672,0,576,0C480,0,384,0,288,0C192,0,96,0,48,0L0,0Z"
-          />
-        </svg>
-      </div>
+                >
+                    {/* Decorative wave at the top */}
+                    <div className="absolute top-0 left-1/2 w-[150%] -translate-x-1/2 -mt-4 pointer-events-none">
+                        <svg
+                            viewBox="0 0 1440 320"
+                            className="w-full h-8 fill-white/10"
+                        >
+                            <path
+                                d="M0,64L48,90.7C96,117,192,171,288,186.7C384,203,480,181,576,181.3C672,181,768,203,864,213.3C960,224,1056,224,1152,213.3C1248,203,1344,181,1392,170.7L1440,160L1440,0L1392,0C1344,0,1248,0,1152,0C1056,0,960,0,864,0C768,0,672,0,576,0C480,0,384,0,288,0C192,0,96,0,48,0L0,0Z"
+                            />
+                        </svg>
+                    </div>
 
-      {/* Plane icon with hover & pulse */}
-      <motion.div
-        variants={itemVariants}
-        whileHover={{ scale: 1.1 }}
-        className="flex justify-center mb-4"
-      >
-        <div className="
+                    {/* Plane icon with hover & pulse */}
+                    <motion.div
+                        variants={itemVariants}
+                        whileHover={{ scale: 1.1 }}
+                        className="flex justify-center mb-4"
+                    >
+                        <div className="
           bg-white/20 backdrop-blur-sm
           rounded-full p-3 shadow-lg
         ">
-          <FaPlane className="h-8 w-8 text-white animate-pulse" />
-        </div>
-      </motion.div>
+                            <FaPlane className="h-8 w-8 text-white animate-pulse" />
+                        </div>
+                    </motion.div>
 
-      {/* Headline */}
-      <motion.h1
-        variants={itemVariants}
-        className="text-3xl font-extrabold text-white mb-2 drop-shadow-md"
-      >
-        Book Your Flight
-      </motion.h1>
+                    {/* Headline */}
+                    <motion.h1
+                        variants={itemVariants}
+                        className="text-3xl font-extrabold text-white mb-2 drop-shadow-md"
+                    >
+                        Book Your Flight
+                    </motion.h1>
 
-      {/* Subheading */}
-      <motion.p
-        variants={itemVariants}
-        className="text-blue-100 text-base mb-4"
-      >
-        Experience premium aviation on mobile
-      </motion.p>
+                    {/* Subheading */}
+                    <motion.p
+                        variants={itemVariants}
+                        className="text-blue-100 text-base mb-4"
+                    >
+                        Experience premium aviation on mobile
+                    </motion.p>
 
-      {/* Features line */}
-      <motion.div
-        variants={itemVariants}
-        className="flex items-center justify-center gap-2 text-xs text-blue-200"
-      >
-        <FaClock className="text-sm" />
-        <span>Safe • Comfortable • Reliable</span>
-      </motion.div>
-    </motion.div>
+                    {/* Features line */}
+                    <motion.div
+                        variants={itemVariants}
+                        className="flex items-center justify-center gap-2 text-xs text-blue-200"
+                    >
+                        <FaClock className="text-sm" />
+                        <span>Safe • Comfortable • Reliable</span>
+                    </motion.div>
+                </motion.div>
                 {/* Mobile Flight Search Card */}
                 <motion.div
                     initial={{ opacity: 0, y: 30 }}
@@ -238,7 +253,7 @@ export default function MobileFlightBooking() {
                                             <SelectContent className="max-h-60">
                                                 {isLoadingAirports ? (
                                                     <SelectItem value="loading" disabled>
-                                                        <FaSpinner className="animate-spin mr-2" /> Loading...
+                                                        <Loader inline={true} size="sm" />
                                                     </SelectItem>
                                                 ) : airportFetchError ? (
                                                     <SelectItem value="error" disabled>
@@ -293,7 +308,7 @@ export default function MobileFlightBooking() {
                                             <SelectContent className="max-h-60">
                                                 {isLoadingAirports ? (
                                                     <SelectItem value="loading" disabled>
-                                                        <FaSpinner className="animate-spin mr-2" /> Loading...
+                                                        <Loader inline={true} size="sm" />
                                                     </SelectItem>
                                                 ) : airportFetchError ? (
                                                     <SelectItem value="error" disabled>
@@ -374,27 +389,27 @@ export default function MobileFlightBooking() {
                                         </div>
 
                                         <AnimatePresence>
-  {isPassengerDropdownOpen && (
-    <>
-      {/* dim + blur everything behind the sheet on phones */}
-      <motion.div
-        key="overlay"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.3 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        onClick={() => setIsPassengerDropdownOpen(false)}
-        className="fixed inset-0 z-40 bg-black backdrop-blur-md md:hidden"
-      />
+                                            {isPassengerDropdownOpen && (
+                                                <>
+                                                    {/* dim + blur everything behind the sheet on phones */}
+                                                    <motion.div
+                                                        key="overlay"
+                                                        initial={{ opacity: 0 }}
+                                                        animate={{ opacity: 0.3 }}
+                                                        exit={{ opacity: 0 }}
+                                                        transition={{ duration: 0.2 }}
+                                                        onClick={() => setIsPassengerDropdownOpen(false)}
+                                                        className="fixed inset-0 z-40 bg-black backdrop-blur-md md:hidden"
+                                                    />
 
-      <motion.div
-        key="sheet"
-        /* ⬇ phone: bottom‑sheet   desktop: normal popover */
-        initial={{ y: "100%", opacity: 0 }}
-        animate={{ y: 0,          opacity: 1 }}
-        exit={{ y: "100%",  opacity: 0 }}
-        transition={{ duration: 0.25, ease: "easeOut" }}
-        className="
+                                                    <motion.div
+                                                        key="sheet"
+                                                        /* ⬇ phone: bottom‑sheet   desktop: normal popover */
+                                                        initial={{ y: "100%", opacity: 0 }}
+                                                        animate={{ y: 0, opacity: 1 }}
+                                                        exit={{ y: "100%", opacity: 0 }}
+                                                        transition={{ duration: 0.25, ease: "easeOut" }}
+                                                        className="
           fixed md:absolute
           inset-x-0 md:left-0 md:right-0
           bottom-0 md:top-full md:mt-3
@@ -407,128 +422,128 @@ export default function MobileFlightBooking() {
           px-6 py-6 space-y-6
           max-h-[65vh] md:max-h-[30vh] overflow-y-auto
         "
-      >
-        {/* drag‑bar */}
-        <div className="mx-auto h-1.5 w-12 rounded-full bg-gray-300/70 md:hidden mb-2" />
+                                                    >
+                                                        {/* drag‑bar */}
+                                                        <div className="mx-auto h-1.5 w-12 rounded-full bg-gray-300/70 md:hidden mb-2" />
 
-        {/* === ADULTS === */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex justify-center items-center">
-              <FaUser className="text-indigo-600 text-sm" />
-            </div>
-            <div>
-              <p className="font-semibold text-gray-900">Adults</p>
-              <p className="text-xs text-gray-500">(12+ yrs)</p>
-            </div>
-          </div>
+                                                        {/* === ADULTS === */}
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex justify-center items-center">
+                                                                    <FaUser className="text-indigo-600 text-sm" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-semibold text-gray-900">Adults</p>
+                                                                    <p className="text-xs text-gray-500">(12+ yrs)</p>
+                                                                </div>
+                                                            </div>
 
-          <div className="flex items-center gap-4">
-            <button
-              disabled={passengerData.adults <= 1}
-              onClick={() => handlePassengerChange("adults", "decrement")}
-              className="counterBtn border-indigo-200 text-indigo-600 disabled:opacity-40"
-            >–</button>
+                                                            <div className="flex items-center gap-4">
+                                                                <button
+                                                                    disabled={passengerData.adults <= 1}
+                                                                    onClick={() => handlePassengerChange("adults", "decrement")}
+                                                                    className="counterBtn border-indigo-200 text-indigo-600 disabled:opacity-40"
+                                                                >–</button>
 
-            <span className="w-8 text-center font-bold text-lg">
-              {passengerData.adults}
-            </span>
+                                                                <span className="w-8 text-center font-bold text-lg">
+                                                                    {passengerData.adults}
+                                                                </span>
 
-            <button
-              onClick={() => handlePassengerChange("adults", "increment")}
-              className="counterBtn bg-indigo-500 text-white hover:bg-indigo-600"
-            >+</button>
-          </div>
-        </div>
+                                                                <button
+                                                                    onClick={() => handlePassengerChange("adults", "increment")}
+                                                                    className="counterBtn bg-indigo-500 text-white hover:bg-indigo-600"
+                                                                >+</button>
+                                                            </div>
+                                                        </div>
 
-        <Separator />
+                                                        <Separator />
 
-        {/* === CHILDREN === */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-100 rounded-xl flex justify-center items-center">
-              <FaUser className="text-green-600 text-xs" />
-            </div>
-            <div>
-              <p className="font-semibold text-gray-900">Children</p>
-              <p className="text-xs text-gray-500">(2‑12 yrs)</p>
-            </div>
-          </div>
+                                                        {/* === CHILDREN === */}
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 bg-green-100 rounded-xl flex justify-center items-center">
+                                                                    <FaUser className="text-green-600 text-xs" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-semibold text-gray-900">Children</p>
+                                                                    <p className="text-xs text-gray-500">(2‑12 yrs)</p>
+                                                                </div>
+                                                            </div>
 
-          <div className="flex items-center gap-4">
-            <button
-              disabled={passengerData.children === 0}
-              onClick={() => handlePassengerChange("children", "decrement")}
-              className="counterBtn border-green-200 text-green-600 disabled:opacity-40"
-            >–</button>
+                                                            <div className="flex items-center gap-4">
+                                                                <button
+                                                                    disabled={passengerData.children === 0}
+                                                                    onClick={() => handlePassengerChange("children", "decrement")}
+                                                                    className="counterBtn border-green-200 text-green-600 disabled:opacity-40"
+                                                                >–</button>
 
-            <span className="w-8 text-center font-bold text-lg">
-              {passengerData.children}
-            </span>
+                                                                <span className="w-8 text-center font-bold text-lg">
+                                                                    {passengerData.children}
+                                                                </span>
 
-            <button
-              disabled={passengerData.adults === 0}
-              onClick={() => handlePassengerChange("children", "increment")}
-              className="counterBtn bg-green-500 text-white hover:bg-green-600 disabled:opacity-40"
-            >+</button>
-          </div>
-        </div>
+                                                                <button
+                                                                    disabled={passengerData.adults === 0}
+                                                                    onClick={() => handlePassengerChange("children", "increment")}
+                                                                    className="counterBtn bg-green-500 text-white hover:bg-green-600 disabled:opacity-40"
+                                                                >+</button>
+                                                            </div>
+                                                        </div>
 
-        <Separator />
+                                                        <Separator />
 
-        {/* === INFANTS === */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-pink-100 rounded-xl flex justify-center items-center">
-              <FaUser className="text-pink-600 text-xs" />
-            </div>
-            <div>
-              <p className="font-semibold text-gray-900">Infants</p>
-              <p className="text-xs text-gray-500">(0‑2 yrs)</p>
-            </div>
-          </div>
+                                                        {/* === INFANTS === */}
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 bg-pink-100 rounded-xl flex justify-center items-center">
+                                                                    <FaUser className="text-pink-600 text-xs" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-semibold text-gray-900">Infants</p>
+                                                                    <p className="text-xs text-gray-500">(0‑2 yrs)</p>
+                                                                </div>
+                                                            </div>
 
-          <div className="flex items-center gap-4">
-            <button
-              disabled={passengerData.infants === 0}
-              onClick={() => handlePassengerChange("infants", "decrement")}
-              className="counterBtn border-pink-200 text-pink-600 disabled:opacity-40"
-            >–</button>
+                                                            <div className="flex items-center gap-4">
+                                                                <button
+                                                                    disabled={passengerData.infants === 0}
+                                                                    onClick={() => handlePassengerChange("infants", "decrement")}
+                                                                    className="counterBtn border-pink-200 text-pink-600 disabled:opacity-40"
+                                                                >–</button>
 
-            <span className="w-8 text-center font-bold text-lg">
-              {passengerData.infants}
-            </span>
+                                                                <span className="w-8 text-center font-bold text-lg">
+                                                                    {passengerData.infants}
+                                                                </span>
 
-            <button
-              disabled={passengerData.adults === 0}
-              onClick={() => handlePassengerChange("infants", "increment")}
-              className="counterBtn bg-pink-500 text-white hover:bg-pink-600 disabled:opacity-40"
-            >+</button>
-          </div>
-        </div>
+                                                                <button
+                                                                    disabled={passengerData.adults === 0}
+                                                                    onClick={() => handlePassengerChange("infants", "increment")}
+                                                                    className="counterBtn bg-pink-500 text-white hover:bg-pink-600 disabled:opacity-40"
+                                                                >+</button>
+                                                            </div>
+                                                        </div>
 
-        {/* Warning */}
-        {passengerData.adults === 0 &&
-          (passengerData.children > 0 || passengerData.infants > 0) && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-800 flex gap-2">
-              ⚠ At least one adult must accompany children/infants.
-            </div>
-          )}
+                                                        {/* Warning */}
+                                                        {passengerData.adults === 0 &&
+                                                            (passengerData.children > 0 || passengerData.infants > 0) && (
+                                                                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-800 flex gap-2">
+                                                                    ⚠ At least one adult must accompany children/infants.
+                                                                </div>
+                                                            )}
 
-        {/* Done */}
-        <button
-          onClick={() => setIsPassengerDropdownOpen(false)}
-          className="w-full h-12 mt-2 bg-gradient-to-r from-indigo-500 to-blue-500
+                                                        {/* Done */}
+                                                        <button
+                                                            onClick={() => setIsPassengerDropdownOpen(false)}
+                                                            className="w-full h-12 mt-2 bg-gradient-to-r from-indigo-500 to-blue-500
                      text-white font-semibold rounded-2xl shadow-md
                      hover:brightness-105 active:brightness-95 active:scale-95
                      transition"
-        >
-          Done
-        </button>
-      </motion.div>
-    </>
-  )}
-</AnimatePresence>
+                                                        >
+                                                            Done
+                                                        </button>
+                                                    </motion.div>
+                                                </>
+                                            )}
+                                        </AnimatePresence>
 
 
                                     </motion.div>
@@ -586,11 +601,11 @@ export default function MobileFlightBooking() {
                                         >
                                             <a className="flex items-center gap-3 justify-center w-full text-white">
                                                 {isLoadingAirports ? (
-                                                    <FaSpinner className="animate-spin text-xl" />
+                                                    <Loader inline={true} size="sm" />
                                                 ) : (
                                                     <FaPlaneDeparture className="text-xl " />
                                                 )}
-                                                {isLoadingAirports ? "Loading..." : "Search Flights"}
+                                                {!isLoadingAirports && "Search Flights"}
                                             </a>
                                         </Button>
                                     </Link>
@@ -660,7 +675,7 @@ export default function MobileFlightBooking() {
                     </div>
 
                     {/* Special Offers Banner */}
-                   
+
                 </motion.div>
             </div>
         </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
+import Loader from '@/components/Loader';
 
 export default function JoyrideTicketPage() {
   const [booking, setBooking] = useState(null);
@@ -195,7 +196,7 @@ export default function JoyrideTicketPage() {
   };
 
   if (!booking && !error) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return <Loader />;
   }
 
   if (error) {

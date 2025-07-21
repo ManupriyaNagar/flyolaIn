@@ -3,9 +3,25 @@ import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
 
 export const metadata = {
-  title: "Jet Aviation",
+  title: "Flyola - Premium Aviation Services | Book Flights & Private Charters",
+  description: "Experience premium aviation services with Flyola. Book scheduled flights, private charters, helicopter rides, and joy rides. Safe, comfortable, and reliable air travel.",
+  keywords: "flights, aviation, private charter, helicopter, joy rides, air travel, premium flights",
   icons: {
     icon: "/pp.svg",
+    apple: "/logoo-04.png",
+  },
+  manifest: "/manifest.json",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=5",
+  themeColor: "#3b82f6",
+  openGraph: {
+    title: "Flyola - Premium Aviation Services",
+    description: "Book premium flights and aviation services with Flyola",
+    type: "website",
+    locale: "en_US",
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 
@@ -13,6 +29,13 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
+        {/* Performance optimizations */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_BASE_URL || "https://api.flyola.com"} />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+        <meta name="theme-color" content="#3b82f6" />
+        <link rel="manifest" href="/manifest.json" />
         {/* Meta Pixel Code */}
         <script
           dangerouslySetInnerHTML={{
