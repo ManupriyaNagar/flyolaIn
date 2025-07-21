@@ -210,7 +210,7 @@ export default function MobileFlightBooking() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
                 >
-                    <Card className="bg-white/98 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/30 overflow-hidden">
+                    <Card className="bg-white/98 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/30 overflow-visible">
                         <CardContent className="p-5">
                             {/* Mobile Form Layout */}
                             <div className="space-y-5">
@@ -374,135 +374,163 @@ export default function MobileFlightBooking() {
                                         </div>
 
                                         <AnimatePresence>
-                                            {isPassengerDropdownOpen && (
-                                                <motion.div
-                                                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                                                    transition={{ duration: 0.2 }}
-                                                    className="absolute top-full mt-3 left-0 right-0 bg-white border border-gray-200 rounded-3xl shadow-2xl z-50 p-5 space-y-5 backdrop-blur-sm"
-                                                >
-                                                    {/* Adults */}
-                                                    <div className="flex items-center justify-between py-4 px-3 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                                                                <FaUser className="text-indigo-600 text-sm" />
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-gray-800 font-bold text-base">Adults</p>
-                                                                <p className="text-xs text-gray-500">(12+ years)</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-4">
-                                                            <button
-                                                                onClick={() => handlePassengerChange("adults", "decrement")}
-                                                                disabled={passengerData.adults <= 1}
-                                                                className="w-12 h-12 rounded-full bg-white border-2 border-indigo-200 text-indigo-600 font-bold text-xl flex items-center justify-center hover:bg-indigo-50 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                                                            >
-                                                                -
-                                                            </button>
-                                                            <span className="w-8 text-center font-bold text-gray-800 text-xl">
-                                                                {passengerData.adults}
-                                                            </span>
-                                                            <button
-                                                                onClick={() => handlePassengerChange("adults", "increment")}
-                                                                className="w-12 h-12 rounded-full bg-indigo-500 text-white font-bold text-xl flex items-center justify-center hover:bg-indigo-600 active:scale-95 transition-all duration-200 shadow-sm"
-                                                            >
-                                                                +
-                                                            </button>
-                                                        </div>
-                                                    </div>
+  {isPassengerDropdownOpen && (
+    <>
+      {/* dim + blur everything behind the sheet on phones */}
+      <motion.div
+        key="overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.3 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={() => setIsPassengerDropdownOpen(false)}
+        className="fixed inset-0 z-40 bg-black backdrop-blur-md md:hidden"
+      />
 
-                                                    {/* Children */}
-                                                    <div className="flex items-center justify-between py-4 px-3 rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                                                                <FaUser className="text-green-600 text-xs" />
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-gray-800 font-bold text-base">Children</p>
-                                                                <p className="text-xs text-gray-500">(2-12 years)</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-4">
-                                                            <button
-                                                                onClick={() => handlePassengerChange("children", "decrement")}
-                                                                disabled={passengerData.children === 0}
-                                                                className="w-12 h-12 rounded-full bg-white border-2 border-green-200 text-green-600 font-bold text-xl flex items-center justify-center hover:bg-green-50 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                                                            >
-                                                                -
-                                                            </button>
-                                                            <span className="w-8 text-center font-bold text-gray-800 text-xl">
-                                                                {passengerData.children}
-                                                            </span>
-                                                            <button
-                                                                onClick={() => handlePassengerChange("children", "increment")}
-                                                                disabled={passengerData.adults === 0}
-                                                                className="w-12 h-12 rounded-full bg-green-500 text-white font-bold text-xl flex items-center justify-center hover:bg-green-600 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                                                            >
-                                                                +
-                                                            </button>
-                                                        </div>
-                                                    </div>
+      <motion.div
+        key="sheet"
+        /* ⬇ phone: bottom‑sheet   desktop: normal popover */
+        initial={{ y: "100%", opacity: 0 }}
+        animate={{ y: 0,          opacity: 1 }}
+        exit={{ y: "100%",  opacity: 0 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        className="
+          fixed md:absolute
+          inset-x-0 md:left-0 md:right-0
+          bottom-0 md:top-full md:mt-3
+          z-50
+          mx-auto md:mx-0
+          w-full max-w-md md:max-w-none
+          bg-white/90 backdrop-blur-lg
+          rounded-3xl md:rounded-3xl
+          shadow-xl ring-1 ring-black/5
+          px-6 py-6 space-y-6
+          max-h-[65vh] md:max-h-[30vh] overflow-y-auto
+        "
+      >
+        {/* drag‑bar */}
+        <div className="mx-auto h-1.5 w-12 rounded-full bg-gray-300/70 md:hidden mb-2" />
 
-                                                    {/* Infants */}
-                                                    <div className="flex items-center justify-between py-4 px-3 rounded-2xl bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-100">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center">
-                                                                <FaUser className="text-pink-600 text-xs" />
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-gray-800 font-bold text-base">Infants</p>
-                                                                <p className="text-xs text-gray-500">(0-2 years)</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-4">
-                                                            <button
-                                                                onClick={() => handlePassengerChange("infants", "decrement")}
-                                                                disabled={passengerData.infants === 0}
-                                                                className="w-12 h-12 rounded-full bg-white border-2 border-pink-200 text-pink-600 font-bold text-xl flex items-center justify-center hover:bg-pink-50 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                                                            >
-                                                                -
-                                                            </button>
-                                                            <span className="w-8 text-center font-bold text-gray-800 text-xl">
-                                                                {passengerData.infants}
-                                                            </span>
-                                                            <button
-                                                                onClick={() => handlePassengerChange("infants", "increment")}
-                                                                disabled={passengerData.adults === 0}
-                                                                className="w-12 h-12 rounded-full bg-pink-500 text-white font-bold text-xl flex items-center justify-center hover:bg-pink-600 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                                                            >
-                                                                +
-                                                            </button>
-                                                        </div>
-                                                    </div>
+        {/* === ADULTS === */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex justify-center items-center">
+              <FaUser className="text-indigo-600 text-sm" />
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900">Adults</p>
+              <p className="text-xs text-gray-500">(12+ yrs)</p>
+            </div>
+          </div>
 
-                                                    {/* Warning Message */}
-                                                    {passengerData.adults === 0 && (passengerData.children > 0 || passengerData.infants > 0) && (
-                                                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center">
-                                                                    <span className="text-amber-600 text-sm">⚠</span>
-                                                                </div>
-                                                                <p className="text-amber-800 text-sm font-medium">
-                                                                    At least one adult is required to accompany children and infants.
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    )}
+          <div className="flex items-center gap-4">
+            <button
+              disabled={passengerData.adults <= 1}
+              onClick={() => handlePassengerChange("adults", "decrement")}
+              className="counterBtn border-indigo-200 text-indigo-600 disabled:opacity-40"
+            >–</button>
 
-                                                    {/* Done Button */}
-                                                    <div className="pt-2">
-                                                        <button
-                                                            onClick={() => setIsPassengerDropdownOpen(false)}
-                                                            className="w-full h-12 bg-gradient-to-r from-indigo-500 to-blue-500 text-white font-bold rounded-2xl hover:from-indigo-600 hover:to-blue-600 active:scale-95 transition-all duration-200 shadow-lg"
-                                                        >
-                                                            Done
-                                                        </button>
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
+            <span className="w-8 text-center font-bold text-lg">
+              {passengerData.adults}
+            </span>
+
+            <button
+              onClick={() => handlePassengerChange("adults", "increment")}
+              className="counterBtn bg-indigo-500 text-white hover:bg-indigo-600"
+            >+</button>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* === CHILDREN === */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-100 rounded-xl flex justify-center items-center">
+              <FaUser className="text-green-600 text-xs" />
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900">Children</p>
+              <p className="text-xs text-gray-500">(2‑12 yrs)</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button
+              disabled={passengerData.children === 0}
+              onClick={() => handlePassengerChange("children", "decrement")}
+              className="counterBtn border-green-200 text-green-600 disabled:opacity-40"
+            >–</button>
+
+            <span className="w-8 text-center font-bold text-lg">
+              {passengerData.children}
+            </span>
+
+            <button
+              disabled={passengerData.adults === 0}
+              onClick={() => handlePassengerChange("children", "increment")}
+              className="counterBtn bg-green-500 text-white hover:bg-green-600 disabled:opacity-40"
+            >+</button>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* === INFANTS === */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-pink-100 rounded-xl flex justify-center items-center">
+              <FaUser className="text-pink-600 text-xs" />
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900">Infants</p>
+              <p className="text-xs text-gray-500">(0‑2 yrs)</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button
+              disabled={passengerData.infants === 0}
+              onClick={() => handlePassengerChange("infants", "decrement")}
+              className="counterBtn border-pink-200 text-pink-600 disabled:opacity-40"
+            >–</button>
+
+            <span className="w-8 text-center font-bold text-lg">
+              {passengerData.infants}
+            </span>
+
+            <button
+              disabled={passengerData.adults === 0}
+              onClick={() => handlePassengerChange("infants", "increment")}
+              className="counterBtn bg-pink-500 text-white hover:bg-pink-600 disabled:opacity-40"
+            >+</button>
+          </div>
+        </div>
+
+        {/* Warning */}
+        {passengerData.adults === 0 &&
+          (passengerData.children > 0 || passengerData.infants > 0) && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-800 flex gap-2">
+              ⚠ At least one adult must accompany children/infants.
+            </div>
+          )}
+
+        {/* Done */}
+        <button
+          onClick={() => setIsPassengerDropdownOpen(false)}
+          className="w-full h-12 mt-2 bg-gradient-to-r from-indigo-500 to-blue-500
+                     text-white font-semibold rounded-2xl shadow-md
+                     hover:brightness-105 active:brightness-95 active:scale-95
+                     transition"
+        >
+          Done
+        </button>
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
+
+
                                     </motion.div>
                                 </div>
 

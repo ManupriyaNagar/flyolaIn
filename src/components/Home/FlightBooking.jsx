@@ -242,7 +242,9 @@ export default function FlightBooking() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
         >
-          <Card className="bg-white/95 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/20 mx-4 sm:mx-6 md:mx-20 lg:mx-32 overflow-hidden">
+ <Card className="bg-white/95 backdrop-blur-xl shadow-2xl rounded-3xl
+                  border border-white/20 mx-4 sm:mx-6 md:mx-20 lg:mx-32
+                 overflow-visible">
             <CardContent className="p-6 sm:p-8 flex flex-col gap-8">
               {/* Header Section */}
               <motion.div
@@ -467,7 +469,7 @@ export default function FlightBooking() {
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: -10, scale: 0.95 }}
                           transition={{ duration: 0.2, ease: "easeInOut" }}
-                          className="absolute top-full mt-2 left-0 w-full min-w-[280px] max-w-[90vw] bg-white border-2 border-gray-100 rounded-2xl shadow-2xl z-30 p-6 space-y-4 overflow-y-auto max-h-[50vh]"
+                          className="absolute top-full mt-2 left-0 w-full min-w-[330px] max-w-[90vw] bg-white border-2 border-gray-100 rounded-2xl shadow-2xl z-30 p-6 space-y-4 overflow-y-auto max-h-[50vh]"
                         >
                           {/* Adults */}
                           <div className="flex items-center justify-between py-3 px-2 rounded-lg hover:bg-gray-50 transition-colors">
