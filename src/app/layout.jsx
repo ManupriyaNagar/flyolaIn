@@ -11,8 +11,6 @@ export const metadata = {
     apple: "/logoo-04.png",
   },
   manifest: "/manifest.json",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=5",
-  themeColor: "#3b82f6",
   openGraph: {
     title: "Flyola - Premium Aviation Services",
     description: "Book premium flights and aviation services with Flyola",
@@ -25,6 +23,13 @@ export const metadata = {
   },
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#3b82f6",
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
@@ -33,8 +38,7 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_BASE_URL || "https://api.flyola.com"} />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
-        <meta name="theme-color" content="#3b82f6" />
+
         <link rel="manifest" href="/manifest.json" />
         {/* Meta Pixel Code */}
         <script
