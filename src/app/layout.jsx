@@ -11,6 +11,7 @@ export const metadata = {
     apple: "/logoo-04.png",
   },
   manifest: "/manifest.json",
+  themeColor: "#3b82f6",
   openGraph: {
     title: "Flyola - Premium Aviation Services",
     description: "Book premium flights and aviation services with Flyola",
@@ -27,7 +28,6 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#3b82f6",
 };
 
 export default function RootLayout({ children }) {

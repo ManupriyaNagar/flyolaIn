@@ -75,7 +75,7 @@ const Header = () => {
         <div className="flex h-16 items-center">
           {/* Logo */}
           <Link href="/" className="flex items-center mr-auto">
-            <img src="/logoo-04.png" alt="Logo" className="h-10 w-48" />
+            <img src="/logoo-04.png" alt="Logo" className="h-8 w-40" />
           </Link>
 
           {/* Main nav: total 5 items */}
