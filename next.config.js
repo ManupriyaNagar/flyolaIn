@@ -7,6 +7,7 @@ const nextConfig = {
   },
   env: {
     JWT_SECRET: process.env.JWT_SECRET, // for build-time only (won't be in browser)
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },
 };
 

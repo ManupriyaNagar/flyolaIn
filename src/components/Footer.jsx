@@ -77,18 +77,18 @@ const Footer = () => {
   ];
 
   const socialLinks = [
-    { name: 'Facebook', icon: FacebookIcon, href: 'https://www.facebook.com/flyola/', color: 'hover:text-blue-600' },
-    { name: 'Twitter', icon: TwitterIcon, href: '#', color: 'hover:text-sky-500' },
-    { name: 'Instagram', icon: InstagramIcon, href: 'https://www.instagram.com/flyolaskytaxi/profilecard/?igsh=MXN5bW1yYzVoYWw2ag==', color: 'hover:text-pink-600' },
-    { name: 'LinkedIn', icon: LinkedInIcon, href: 'https://www.linkedin.com/company/105953525/admin/dashboard/', color: 'hover:text-blue-700' },
-    { name: 'YouTube', icon: YouTubeIcon, href: '#', color: 'hover:text-red-600' },
+    { name: 'Facebook', icon: FacebookIcon, href: 'https://www.facebook.com/flyolaaviation/', color: 'hover:text-blue-600' },
+    { name: 'Twitter', icon: TwitterIcon, href: 'https://x.com/flyolaviation', color: 'hover:text-sky-500' },
+    { name: 'Instagram', icon: InstagramIcon, href: 'https://www.instagram.com/flyolaindia/?__d=11', color: 'hover:text-pink-600' },
+    { name: 'LinkedIn', icon: LinkedInIcon, href: 'https://in.linkedin.com/company/fly-ola', color: 'hover:text-blue-700' },
+    { name: 'YouTube', icon: YouTubeIcon, href: 'https://www.youtube.com/@jetserveaviation', color: 'hover:text-red-600' },
   ];
 
   const contactInfo = [
     {
       icon: MapPinIcon,
       title: 'Address',
-      content: '123 Aviation Boulevard, Sky City, SC 12345',
+      content: '  Indraprasth Aerospace & Knowledge Park, Sector-77, Delhi-Jaipur NH-08, Gurgaon, Haryana-122004',
     },
     {
       icon: PhoneIcon,
@@ -103,7 +103,7 @@ const Footer = () => {
     {
       icon: GlobeAltIcon,
       title: 'Website',
-      content: 'www.flyola.com',
+      content: 'https://jetserveaviation.com/',
     },
   ];
 

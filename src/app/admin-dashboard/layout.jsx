@@ -287,20 +287,37 @@ export default function AdminDashboardLayout({ children }) {
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 px-3">
               User Management
             </p>
-            <Link
-              href="/admin-dashboard/all-users"
-              className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${
-                isActive("/admin-dashboard/all-users") 
-                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg" 
-                  : "hover:bg-slate-800/50 text-slate-300 hover:text-white"
-              }`}
-            >
-              <FaUsers className={`text-lg ${isActive("/admin-dashboard/all-users") ? "text-white" : "text-indigo-400"}`} />
-              <span className="font-medium">Manage Users</span>
-              {isActive("/admin-dashboard/all-users") && (
-                <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
-              )}
-            </Link>
+            <div className="space-y-1">
+              <Link
+                href="/admin-dashboard/all-users"
+                className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${
+                  isActive("/admin-dashboard/all-users") 
+                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg" 
+                    : "hover:bg-slate-800/50 text-slate-300 hover:text-white"
+                }`}
+              >
+                <FaUsers className={`text-lg ${isActive("/admin-dashboard/all-users") ? "text-white" : "text-indigo-400"}`} />
+                <span className="font-medium">Manage Users</span>
+                {isActive("/admin-dashboard/all-users") && (
+                  <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
+                )}
+              </Link>
+              
+              <Link
+                href="/admin-dashboard/agents"
+                className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${
+                  isActive("/admin-dashboard/agents") 
+                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg" 
+                    : "hover:bg-slate-800/50 text-slate-300 hover:text-white"
+                }`}
+              >
+                <FaUserShield className={`text-lg ${isActive("/admin-dashboard/agents") ? "text-white" : "text-emerald-400"}`} />
+                <span className="font-medium">Agent Management</span>
+                {isActive("/admin-dashboard/agents") && (
+                  <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
+                )}
+              </Link>
+            </div>
           </div>
         </nav>
 
