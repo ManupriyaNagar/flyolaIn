@@ -3,7 +3,8 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { FaPlane, FaClock, FaUserFriends, FaCheckCircle } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import BASE_URL from "@/baseUrl/baseUrl";
+import API from "@/services/api";
+import AuthModal from "@/components/AuthModal";
 
 const tz = "Asia/Kolkata";
 const fmtTime = (t) => {
@@ -46,6 +47,7 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
   const [availableSeats, setAvailableSeats] = useState([]);
   const [isBookingDisabled, setIsBookingDisabled] = useState(false);
   const [isDeparted, setIsDeparted] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const flight = useMemo(
     () =>
@@ -89,19 +91,7 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
 
   const fetchSeats = useCallback(async () => {
     try {
-      const response = await fetch(
-        `${BASE_URL}/booked-seat/available-seats?schedule_id=${flightSchedule.id}&bookDate=${selectedDate}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authState.token || localStorage.getItem("token") || ""}`,
-          },
-        }
-      );
-      if (!response.ok) {
-        throw new Error(`Seats API failed: ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await API.bookings.getAvailableSeats(flightSchedule.id, selectedDate);
       const seats = Array.isArray(data.availableSeats) ? data.availableSeats : allSeats;
       const validSeats = seats.filter((seat) => allSeats.includes(seat));
       setAvailableSeats(validSeats);
@@ -109,7 +99,7 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
       console.warn(`Failed to fetch seats for schedule ${flightSchedule.id}: ${err.message}`);
       setAvailableSeats(allSeats);
     }
-  }, [flightSchedule.id, selectedDate, allSeats, authState.token]);
+  }, [flightSchedule.id, selectedDate, allSeats]);
 
   useEffect(() => {
     const timer = setTimeout(() => fetchSeats(), 100);
@@ -167,7 +157,7 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
 
   const handleBookNowClick = useCallback(() => {
     if (!authState.isLoggedIn) {
-      alert("Please log in to book a flight.");
+      setShowAuthModal(true);
       return;
     }
     if (isSoldOut) {
@@ -197,6 +187,22 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
     
     router.push(`/booking?${bookingParams.toString()}`);
   }, [authState.isLoggedIn, isSoldOut, availableSeats, passengers, isBookingDisabled, isDeparted, departureAirport.city, arrivalAirport.city, flightSchedule, selectedDate, router]);
+
+  const handleAuthSuccess = useCallback(() => {
+    // After successful login, automatically proceed with booking
+    const bookingParams = new URLSearchParams({
+      departure: departureAirport.city,
+      arrival: arrivalAirport.city,
+      date: flightSchedule.departure_date || selectedDate,
+      scheduleId: flightSchedule.id.toString(),
+      price: flightSchedule.price.toString(),
+      departureTime: flightSchedule.departure_time,
+      arrivalTime: flightSchedule.arrival_time,
+      passengers: passengers.toString(),
+    });
+    
+    router.push(`/booking?${bookingParams.toString()}`);
+  }, [departureAirport.city, arrivalAirport.city, flightSchedule, selectedDate, passengers, router]);
 
 
 
@@ -333,6 +339,12 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
         </div>
       </div>
 
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={handleAuthSuccess}
+      />
     </motion.div>
   );
 };

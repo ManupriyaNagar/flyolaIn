@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect } from "react";
-import BASE_URL from "@/baseUrl/baseUrl";
+import API from "@/services/api";
 import { useRouter } from "next/navigation";
 
 const AuthContext = createContext();
@@ -27,17 +27,7 @@ export function AuthProvider({ children }) {
 
       (async () => {
         try {
-          const res = await fetch(`${BASE_URL}/users/verify`, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          });
-
-          if (!res.ok) throw new Error("Invalid token");
-
-          const { id, email, role } = await res.json();
+          const { id, email, role } = await API.users.getProfile();
           const newState = {
             isLoading: false,
             isLoggedIn: true,

@@ -1,6 +1,6 @@
 "use client";
 
-import BASE_URL from "@/baseUrl/baseUrl";
+import API from "@/services/api";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -86,14 +86,9 @@ const FlightsPage = () => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [flightsRes, airportsRes] = await Promise.all([
-          fetch(`${BASE_URL}/flights`),
-          fetch(`${BASE_URL}/airport`),
-        ]);
-        if (!flightsRes.ok || !airportsRes.ok) throw new Error("Failed to fetch data");
         const [flightsData, airportsData] = await Promise.all([
-          flightsRes.json(),
-          airportsRes.json(),
+          API.flights.getFlights(),
+          API.airports.getAirports(),
         ]);
 
         const airportIds = new Set(airportsData.map((a) => a.id));
@@ -190,8 +185,7 @@ const FlightsPage = () => {
         toast.success(isEdit ? "Flight updated!" : "Flight added!");
 
         // Refresh flights
-        const flightsRes = await fetch(`${BASE_URL}/flights`);
-        const flightsData = await flightsRes.json();
+        const flightsData = await API.flights.getFlights();
         const normalizedFlights = flightsData.map((flight) => ({
           ...flight,
           airport_stop_ids: normaliseStops(flight.airport_stop_ids),
@@ -214,15 +208,7 @@ const FlightsPage = () => {
     if (!showDeleteConfirm) return;
     setIsLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/flights/${showDeleteConfirm}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to delete flight`);
-      }
+      await API.admin.deleteFlight(showDeleteConfirm);
 
       setFlights(flights.filter((f) => f.id !== showDeleteConfirm));
       toast.success("Flight deleted successfully!");
@@ -256,17 +242,9 @@ const FlightsPage = () => {
     setIsLoading(true);
     const updatedFlight = { ...flight, status: flight.status === 1 ? 0 : 1 };
     try {
-      const response = await fetch(`${BASE_URL}/flights/${flight.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedFlight),
-      });
-      if (response.ok) {
-        setFlights(flights.map((f) => (f.id === flight.id ? updatedFlight : f)));
-        toast.success(`Flight ${updatedFlight.status === 1 ? "activated" : "deactivated"}!`);
-      } else {
-        throw new Error("Error updating status");
-      }
+      await API.admin.updateFlight(flight.id, updatedFlight);
+      setFlights(flights.map((f) => (f.id === flight.id ? updatedFlight : f)));
+      toast.success(`Flight ${updatedFlight.status === 1 ? "activated" : "deactivated"}!`);
     } catch (error) {
       console.error("Error:", error);
       toast.error("Failed to update status.");
@@ -538,8 +516,8 @@ const FlightsPage = () => {
                       <button
                         onClick={() => handleStatusToggle(flight)}
                         className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors ${flight.status === 1
-                            ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
-                            : "bg-red-100 text-red-800 hover:bg-red-200"
+                          ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                          : "bg-red-100 text-red-800 hover:bg-red-200"
                           }`}
                         disabled={isLoading}
                       >
@@ -612,8 +590,8 @@ const FlightsPage = () => {
                     onClick={() => setCurrentPage(page)}
                     disabled={isLoading}
                     className={`px-3 py-2 rounded-lg transition-colors ${currentPage === page
-                        ? "bg-blue-600 text-white"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                       } disabled:opacity-50`}
                   >
                     {page}
@@ -815,10 +793,10 @@ const FlightsPage = () => {
                               <label
                                 htmlFor={`stop-airport-${airport.id}`}
                                 className={`ml-2 text-sm cursor-pointer ${isLoading ||
-                                    airport.id === formData.start_airport_id ||
-                                    airport.id === formData.end_airport_id
-                                    ? "text-slate-400"
-                                    : "text-slate-700"
+                                  airport.id === formData.start_airport_id ||
+                                  airport.id === formData.end_airport_id
+                                  ? "text-slate-400"
+                                  : "text-slate-700"
                                   }`}
                               >
                                 {airport.airport_name} ({airport.airport_code})
@@ -844,8 +822,8 @@ const FlightsPage = () => {
                     <button
                       type="submit"
                       className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-white font-semibold transition-all duration-200 shadow-lg disabled:opacity-50 ${isEdit
-                          ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600"
-                          : "bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
+                        ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600"
+                        : "bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
                         }`}
                       disabled={isLoading}
                     >

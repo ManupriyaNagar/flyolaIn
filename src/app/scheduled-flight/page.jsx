@@ -6,7 +6,7 @@ import FilterSidebar from "@/components/ScheduledFlight/FilterSidebar";
 import FlightCard from "@/components/ScheduledFlight/FlightCard";
 import Header2 from "@/components/ScheduledFlight/Header";
 import { useAuth } from "@/components/AuthContext";
-import BASE_URL from "@/baseUrl/baseUrl";
+import API from "@/services/api";
 
 const tz = "Asia/Kolkata";
 const fmtIso = (d) =>
@@ -57,28 +57,18 @@ const ScheduledFlightsPage = () => {
     const month = String(today.getMonth() + 1).padStart(2, "0");
 
     try {
-      const headers = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${authState.token || localStorage.getItem("token") || ""}`,
-      };
-
       const [schedulesRes, flightsRes, airportsRes] = await Promise.all([
-        fetch(`${BASE_URL}/flight-schedules?user=true&month=${year}-${month}`, { headers }).then(
-          (res) => {
-            if (!res.ok) throw new Error(`Schedules API failed: ${res.status}`);
-            return res.json();
-          }
-        ),
-        fetch(`${BASE_URL}/flights?user=true`, { headers }).then((res) => {
-          if (!res.ok) throw new Error(`Flights API failed: ${res.status}`);
-          return res.json();
+        API.flights.getFlightSchedules({ user: true, month: `${year}-${month}` }).catch((err) => {
+          console.warn(`Schedules API failed: ${err.message}`);
+          return [];
         }),
-        fetch(`${BASE_URL}/airport`, { headers }).then((res) => {
-          if (!res.ok) {
-            console.warn(`Airports API failed: ${res.status}`);
-            return [];
-          }
-          return res.json();
+        API.flights.getFlights({ user: true }).catch((err) => {
+          console.warn(`Flights API failed: ${err.message}`);
+          return [];
+        }),
+        API.airports.getAirports().catch((err) => {
+          console.warn(`Airports API failed: ${err.message}`);
+          return [];
         }),
       ]);
 

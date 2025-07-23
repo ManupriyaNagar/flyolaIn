@@ -20,7 +20,7 @@ import {
   CheckCircleIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
-import BASE_URL from '@/baseUrl/baseUrl';
+import API from '@/services/api';
 
 const SignUpPage = () => {
   const [formData, setFormData] = useState({
@@ -133,35 +133,22 @@ const SignUpPage = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${BASE_URL}/users/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          email: formData.email.toLowerCase(),
-          number: formData.phone, // Backend expects 'number' not 'phone'
-          password: formData.password,
-        }),
+      await API.auth.register({
+        name: formData.name.trim(),
+        email: formData.email.toLowerCase(),
+        number: formData.phone, // Backend expects 'number' not 'phone'
+        password: formData.password,
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success('Account created successfully! Please sign in to continue.');
-        
-        setTimeout(() => {
-          router.push('/sign-in');
-        }, 2000);
-        
-      } else {
-        console.error('[Sign-up] Error response:', data);
-        toast.error(data.error || data.message || 'Failed to create account. Please try again.');
-      }
+      toast.success('Account created successfully! Please sign in to continue.');
+      
+      setTimeout(() => {
+        router.push('/sign-in');
+      }, 2000);
     } catch (error) {
       console.error('Registration error:', error);
-      toast.error('Something went wrong. Please try again.');
+      const message = API.isApiError(error) ? error.message : 'Something went wrong. Please try again.';
+      toast.error(message);
     } finally {
       setLoading(false);
     }

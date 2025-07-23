@@ -18,7 +18,7 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
 } from '@heroicons/react/24/outline';
-import BASE_URL from '@/baseUrl/baseUrl';
+import API from '@/services/api';
 
 const SignInPage = () => {
   const [formData, setFormData] = useState({
@@ -87,47 +87,34 @@ const SignInPage = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${BASE_URL}/users/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+      const data = await API.auth.login({
+        email: formData.email,
+        password: formData.password,
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        // Store token and user data
-        if (rememberMe) {
-          localStorage.setItem('token', data.token);
-          localStorage.setItem('userData', JSON.stringify(data.user));
-        } else {
-          sessionStorage.setItem('token', data.token);
-          sessionStorage.setItem('userData', JSON.stringify(data.user));
-        }
-
-        // Update auth context
-        login(data.token, data.user);
-
-        toast.success('Welcome back! Redirecting...');
-
-        // Redirect based on user role
-        setTimeout(() => {
-          const redirectTo = data.user.role === '1' ? '/admin-dashboard' : '/';
-          router.push(redirectTo);
-        }, 1500);
-
+      // Store token and user data
+      if (rememberMe) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('userData', JSON.stringify(data.user));
       } else {
-        console.error('[Sign-in] Error response:', data);
-        toast.error(data.error || data.message || 'Invalid email or password');
+        sessionStorage.setItem('token', data.token);
+        sessionStorage.setItem('userData', JSON.stringify(data.user));
       }
+
+      // Update auth context
+      login(data.token, data.user);
+
+      toast.success('Welcome back! Redirecting...');
+
+      // Redirect based on user role
+      setTimeout(() => {
+        const redirectTo = data.user.role === '1' ? '/admin-dashboard' : '/';
+        router.push(redirectTo);
+      }, 1500);
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('Something went wrong. Please try again.');
+      const message = API.isApiError(error) ? error.message : 'Something went wrong. Please try again.';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
