@@ -219,7 +219,7 @@ export default function FlightBooking() {
 
 
       {/* Content */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto">
+      <div className="relative z-10 w-full ">
 
 
 
@@ -275,7 +275,7 @@ export default function FlightBooking() {
 
               {/* Flight Search Form */}
               <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl p-6 border border-gray-200">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   {/* Departure Airport Dropdown */}
                   <motion.div
                     initial={{ opacity: 0, x: -20 }}
@@ -482,7 +482,7 @@ export default function FlightBooking() {
                                 onClick={() =>
                                   handlePassengerChange("adults", "decrement")
                                 }
-                                className="w-10 h-10 rounded-full text-indigo-600 border-2 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300 disabled:opacity-50 transition-all"
+                                className="w-10 h-10 rounded-full text-indigo-600 border-2  border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300 disabled:opacity-50 transition-all"
                                 disabled={
                                   passengerData.adults ===
                                   (passengerData.children > 0 ||
@@ -591,30 +591,9 @@ export default function FlightBooking() {
                       )}
                     </AnimatePresence>
                   </motion.div>
-                </div>
-              </div>
 
-              {/* Error Message */}
-              {airportFetchError && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg"
-                >
-                  <div className="flex items-center">
-                    <MdErrorOutline className="text-red-500 text-xl mr-3" />
-                    <div>
-                      <p className="text-red-800 font-semibold">Connection Error</p>
-                      <p className="text-red-600 text-sm">
-                        Failed to load airport data: {airportFetchError}. Please refresh or try again later.
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Search Button */}
-              <motion.div
+    {/* Search Button */}
+                  <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.9 }}
@@ -640,8 +619,8 @@ export default function FlightBooking() {
                 >
                   <Button
                     asChild
-                    className={`w-full sm:w-auto h-14 px-8 text-lg font-bold rounded-2xl flex items-center gap-3 transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:-translate-y-1 ${isSearchDisabled
-                      ? "bg-gray-400 cursor-not-allowed"
+                    className={`w-full mt-7 sm:w-auto h-14 px-8 text-lg font-bold rounded-2xl flex items-center gap-3 transition-all duration-300 border shadow-3xl transform hover:-translate-y-1 ${isSearchDisabled
+                      ? "bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600"
                       : "bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 hover:from-indigo-700 hover:via-blue-700 hover:to-purple-700 text-white"
                       }`}
                     disabled={isSearchDisabled}
@@ -657,6 +636,31 @@ export default function FlightBooking() {
                   </Button>
                 </Link>
               </motion.div>
+                  
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {airportFetchError && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg"
+                >
+                  <div className="flex items-center">
+                    <MdErrorOutline className="text-red-500 text-xl mr-3" />
+                    <div>
+                      <p className="text-red-800 font-semibold">Connection Error</p>
+                      <p className="text-red-600 text-sm">
+                        Failed to load airport data: {airportFetchError}. Please refresh or try again later.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+          
+              
 
               {/* Quick Action Buttons */}
               <motion.div
