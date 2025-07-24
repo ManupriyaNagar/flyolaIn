@@ -149,9 +149,9 @@ const TourReviewStep = ({
           <div>
             <h4 className="font-semibold text-yellow-800 mb-2">Important Information</h4>
             <ul className="text-sm text-yellow-700 space-y-1">
-              <li>• Please arrive at the airport at least 2 hours before departure</li>
+              <li>• Please arrive at the airport at least 1 hours before departure</li>
               <li>• Carry a valid government-issued photo ID</li>
-              <li>• Check-in closes 45 minutes before departure</li>
+              <li>• Check-in closes 30 minutes before departure</li>
               <li>• All prices are in Indian Rupees and subject to change</li>
             </ul>
           </div>
@@ -171,16 +171,13 @@ const TourReviewStep = ({
           </div>
           <div className="flex items-start">
             <div className="w-2 h-2 bg-gray-400 rounded-full mr-2 mt-2"></div>
-            <span>Baggage allowance: 20kg check-in + 7kg cabin baggage</span>
+            <span>Baggage allowance 7kg </span>
           </div>
           <div className="flex items-start">
             <div className="w-2 h-2 bg-gray-400 rounded-full mr-2 mt-2"></div>
             <span>Seat selection is subject to availability</span>
           </div>
-          <div className="flex items-start">
-            <div className="w-2 h-2 bg-gray-400 rounded-full mr-2 mt-2"></div>
-            <span>Travel insurance is recommended for international flights</span>
-          </div>
+         
         </div>
       </div>
 
