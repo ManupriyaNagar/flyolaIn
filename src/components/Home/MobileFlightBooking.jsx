@@ -31,7 +31,10 @@ import Loader from "@/components/Loader";
 export default function MobileFlightBooking() {
     const [departure, setDeparture] = useState("");
     const [arrival, setArrival] = useState("");
-    const [date, setDate] = useState("");
+    const [date, setDate] = useState(() => {
+        const today = new Date();
+        return today.toISOString().split("T")[0]; // "YYYY-MM-DD"
+      });
     const [passengerData, setPassengerData] = useState({
         adults: 1,
         children: 0,
