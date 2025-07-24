@@ -95,7 +95,7 @@ export const API_ENDPOINTS = {
   },
 };
 
-// HTTP Status Codes
+
 export const HTTP_STATUS = {
   OK: 200,
   CREATED: 201,
@@ -111,7 +111,7 @@ export const HTTP_STATUS = {
   SERVICE_UNAVAILABLE: 503,
 };
 
-// API Response Status
+
 export const API_STATUS = {
   SUCCESS: 'success',
   ERROR: 'error',
@@ -119,7 +119,7 @@ export const API_STATUS = {
   IDLE: 'idle',
 };
 
-// Error Messages
+
 export const ERROR_MESSAGES = {
   NETWORK_ERROR: 'Network error. Please check your connection.',
   TIMEOUT_ERROR: 'Request timeout. Please try again.',
