@@ -38,11 +38,18 @@ export function AuthProvider({ children }) {
           setAuthState(newState);
           localStorage.setItem("authState", JSON.stringify(newState));
         } catch (err) {
-          console.error("[AuthContext] verify failed:", err);
-          setAuthState({ ...INITIAL, isLoading: false });
-          localStorage.removeItem("authState");
-          localStorage.removeItem("token");
-          router.push("/sign-in");
+          // Only log out if error is 401/403 (unauthorized/forbidden)
+          if (err?.response?.status === 401 || err?.response?.status === 403) {
+            setAuthState({ ...INITIAL, isLoading: false });
+            localStorage.removeItem("authState");
+            localStorage.removeItem("token");
+            router.push("/sign-in");
+          } else {
+            // For other errors (network/server), keep user logged in and just stop loading
+            setAuthState((prev) => ({ ...prev, isLoading: false }));
+            console.error("[AuthContext] Non-auth error during profile fetch:", err);
+            // Optionally, show a notification to the user here
+          }
         }
       })();
     } else {

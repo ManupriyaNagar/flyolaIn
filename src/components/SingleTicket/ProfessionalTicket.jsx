@@ -109,7 +109,8 @@ const ProfessionalTicket = ({ bookingData, travelerDetails, bookingResult }) => 
         >
           {/* Header with Logo */}
           <div style={{
-            background: "#000000",
+           background: "F0F8FF",
+
             padding: "24px",
             position: "relative",
             borderBottom: "1px solid #335155"
