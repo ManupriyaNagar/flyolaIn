@@ -190,8 +190,8 @@ useEffect(() => {
                 travelerDetails={travelerDetails}
                 handlePreviousStep={handlePrev}
                 onConfirm={handleConfirm}
-                isAdmin={authState.user?.role === "1"}
-                isAgent={authState.user?.role === "2"}
+                isAdmin={Number(authState.user?.role) === 1}
+                isAgent={Number(authState.user?.role) === 2}
               />
             )}
           </div>
