@@ -330,7 +330,7 @@ const FlightsPage = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 " >
       <ToastContainer position="top-right" autoClose={3000} />
 
       {/* Header */}
