@@ -5,7 +5,7 @@ import { useAuth } from "@/components/AuthContext";
 import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import TicketView from "./../../../components/Ticket/TicketView";
+import ProfessionalTicket from "./../../../components/SingleTicket/ProfessionalTicket";
 import BASE_URL from "@/baseUrl/baseUrl";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -27,6 +27,7 @@ const Page = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [showTicketModal, setShowTicketModal] = useState(false);
   const [airportMap, setAirportMap] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
   const [dateFilter, setDateFilter] = useState("all");
@@ -269,6 +270,76 @@ const Page = () => {
     }
   };
 
+  // Transform booking data for ProfessionalTicket component
+  const transformBookingData = (booking) => {
+    console.log("Transforming booking data:", booking); // Debug log
+    
+    const flightSchedule = booking.FlightSchedule || {};
+    const payment = booking.payment || {};
+    const billing = booking.billing || {};
+    const passengers = booking.passengers || [];
+    
+    // Get contact info from first passenger or billing
+    const primaryContact = passengers[0] || {};
+    const contactEmail = primaryContact.email || billing.email || "contact@flyolaindia.com";
+    const contactPhone = primaryContact.phone || billing.phone || primaryContact.number || "+91-XXXXXXXXXX";
+    
+    // Calculate total price from various sources
+    const totalPrice = booking.totalPrice || 
+                      booking.total_price || 
+                      payment.amount || 
+                      booking.amount ||
+                      (passengers.length * 5000); // Fallback calculation
+    
+    return {
+      bookingData: {
+        id: booking.id || booking.schedule_id,
+        departure: booking.departureAirportName || "Departure City",
+        arrival: booking.arrivalAirportName || "Arrival City", 
+        departureCode: booking.departureAirportName?.substring(0, 3).toUpperCase() || "DEP",
+        arrivalCode: booking.arrivalAirportName?.substring(0, 3).toUpperCase() || "ARR",
+        departureTime: flightSchedule.departure_time || "09:00",
+        arrivalTime: flightSchedule.arrival_time || "11:00",
+        selectedDate: booking.bookDate || booking.book_date,
+        bookDate: booking.bookDate || booking.book_date,
+        totalPrice: totalPrice
+      },
+      travelerDetails: passengers.length > 0 ? passengers.map((passenger, index) => ({
+        title: passenger.title || (passenger.gender === 'Female' ? "Ms." : "Mr."),
+        fullName: passenger.name || passenger.passenger_name || `Passenger ${index + 1}`,
+        email: contactEmail,
+        phone: contactPhone,
+        address: passenger.address || billing.address || "Address not provided"
+      })) : [{
+        title: "Mr.",
+        fullName: "Passenger Name",
+        email: contactEmail,
+        phone: contactPhone,
+        address: "Address not provided"
+      }],
+      bookingResult: {
+        booking: {
+          pnr: booking.pnr || `PNR${booking.bookingNo || booking.id}`,
+          bookingNo: booking.bookingNo || booking.booking_no || booking.id,
+          bookingStatus: booking.bookingStatus || booking.booking_status || "CONFIRMED",
+          paymentStatus: payment.status || payment.payment_status || "COMPLETED"
+        },
+        passengers: passengers.length > 0 ? passengers.map((passenger, index) => ({
+          age: passenger.age || "25",
+          type: passenger.type || passenger.passenger_type || "Adult"
+        })) : [{
+          age: "25",
+          type: "Adult"
+        }]
+      }
+    };
+  };
+
+  const handleViewTicket = (booking) => {
+    setSelectedBooking(booking);
+    setShowTicketModal(true);
+  };
+
   const getSortIcon = (columnKey) => {
     if (sortConfig.key !== columnKey) {
       return <ArrowsUpDownIcon className="w-4 h-4 text-slate-400" />;
@@ -472,20 +543,12 @@ const Page = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
-                        onClick={() => setSelectedBooking(booking)}
+                        onClick={() => handleViewTicket(booking)}
                         className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-lg hover:from-pink-600 hover:to-rose-600 transition-all duration-200 shadow-sm font-medium"
                       >
                         <EyeIcon className="w-4 h-4" />
                         View Ticket
                       </button>
-                      
-                      {/* Render TicketView off-screen for download */}
-                      <TicketView
-                        isOpen={false}
-                        onClose={() => {}}
-                        booking={booking}
-                        isDownload={true}
-                      />
                     </td>
                   </tr>
                 ))
@@ -535,13 +598,24 @@ const Page = () => {
         )}
       </div>
 
-      {/* Ticket Modal */}
-      {selectedBooking && (
-        <TicketView
-          isOpen={true}
-          onClose={() => setSelectedBooking(null)}
-          booking={selectedBooking}
-        />
+      {/* Professional Ticket Modal */}
+      {selectedBooking && showTicketModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
+            <button
+              onClick={() => {
+                setShowTicketModal(false);
+                setSelectedBooking(null);
+              }}
+              className="absolute top-4 right-4 z-10 w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
+            >
+              ×
+            </button>
+            <ProfessionalTicket
+              {...transformBookingData(selectedBooking)}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

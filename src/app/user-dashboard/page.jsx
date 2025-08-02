@@ -90,31 +90,16 @@ export default function UserDashboard() {
           throw new Error("User ID not found. Please log in again.");
         }
         
-        // Try user-specific endpoints first, fallback to general endpoints with filtering
+        // Fetch user bookings using the correct endpoint
         const fetchUserBookings = async () => {
           try {
-            // Try user-specific endpoint first
-            const userBookingsRes = await fetch(`${BASE_URL}/bookings/user/${userId}`, commonOpts);
+            // Use the correct user bookings endpoint
+            const userBookingsRes = await fetch(`${BASE_URL}/bookings/my`, commonOpts);
             if (userBookingsRes.ok) {
               return await userBookingsRes.json();
             }
           } catch (err) {
-            console.log("User-specific bookings endpoint not available, using general endpoint");
-          }
-          
-          // Fallback to general endpoint and filter
-          try {
-            const allBookingsRes = await fetch(`${BASE_URL}/bookings`, commonOpts);
-            if (allBookingsRes.ok) {
-              const allBookings = await allBookingsRes.json();
-              return Array.isArray(allBookings) ? allBookings.filter(booking => 
-                String(booking.userId) === String(userId) || 
-                String(booking.user_id) === String(userId) ||
-                String(booking.id) === String(userId) // In case booking ID is used as user reference
-              ) : [];
-            }
-          } catch (err) {
-            console.error("Error fetching bookings:", err);
+            console.error("Error fetching user bookings:", err);
           }
           
           return [];
@@ -122,28 +107,13 @@ export default function UserDashboard() {
 
         const fetchUserPayments = async () => {
           try {
-            // Try user-specific endpoint first
-            const userPaymentsRes = await fetch(`${BASE_URL}/payments/user/${userId}`, commonOpts);
+            // Use the correct user payments endpoint
+            const userPaymentsRes = await fetch(`${BASE_URL}/payments/user`, commonOpts);
             if (userPaymentsRes.ok) {
               return await userPaymentsRes.json();
             }
           } catch (err) {
-            console.log("User-specific payments endpoint not available, using general endpoint");
-          }
-          
-          // Fallback to general endpoint and filter
-          try {
-            const allPaymentsRes = await fetch(`${BASE_URL}/payments`, commonOpts);
-            if (allPaymentsRes.ok) {
-              const allPayments = await allPaymentsRes.json();
-              return Array.isArray(allPayments) ? allPayments.filter(payment => 
-                String(payment.userId) === String(userId) || 
-                String(payment.user_id) === String(userId) ||
-                String(payment.booking_id) === String(userId) // In case payment is linked via booking
-              ) : [];
-            }
-          } catch (err) {
-            console.error("Error fetching payments:", err);
+            console.error("Error fetching user payments:", err);
           }
           
           return [];
@@ -158,20 +128,11 @@ export default function UserDashboard() {
         // Fetch user's joyride bookings
         const fetchUserJoyrideBookings = async () => {
           try {
-            // Try user-specific endpoint first
-            const userJoyrideRes = await fetch(`${BASE_URL}/api/joyride-slots/joyride-bookings/user/${userId}`, commonOpts);
+            // Try joyride bookings endpoint
+            const userJoyrideRes = await fetch(`${BASE_URL}/api/joyride-slots/joyride-bookings`, commonOpts);
             if (userJoyrideRes.ok) {
-              return await userJoyrideRes.json();
-            }
-          } catch (err) {
-            console.log("User-specific joyride endpoint not available, using general endpoint");
-          }
-          
-          // Fallback to general endpoint and filter
-          try {
-            const allJoyrideRes = await fetch(`${BASE_URL}/api/joyride-slots/joyride-bookings`, commonOpts);
-            if (allJoyrideRes.ok) {
-              const allJoyrides = await allJoyrideRes.json();
+              const allJoyrides = await userJoyrideRes.json();
+              // Filter by user if the endpoint returns all bookings
               return Array.isArray(allJoyrides) ? allJoyrides.filter(booking => 
                 String(booking.userId) === String(userId) || 
                 String(booking.user_id) === String(userId)

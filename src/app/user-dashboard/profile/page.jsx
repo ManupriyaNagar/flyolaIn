@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "./../../../components/AuthContext";
+import BASE_URL from "@/baseUrl/baseUrl";
 
 const UserProfile = () => {
   const { authState } = useAuth();
@@ -26,10 +27,18 @@ const UserProfile = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   useEffect(() => {
+    if (!authState.isLoggedIn && !authState.isLoading) {
+      setError("Please log in to view your profile.");
+      setLoading(false);
+      return;
+    }
+
     if (!token) {
-      setError("No authentication token found.");
+      setError("Authentication required. Please log in again.");
       setLoading(false);
       return;
     }
@@ -38,14 +47,26 @@ const UserProfile = () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("http://localhost:4000/users/profile", {
+        const res = await fetch(`${BASE_URL}/users/profile`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
         });
-        if (!res.ok) throw new Error("Failed to fetch profile");
+        
+        if (res.status === 404) {
+          // Profile endpoint doesn't exist, use empty profile
+          console.log("Profile endpoint not found, using empty profile");
+          setLoading(false);
+          return;
+        }
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP ${res.status}: Failed to fetch profile`);
+        }
+        
         const data = await res.json();
         if (data.profile) {
           setProfile({
@@ -55,18 +76,32 @@ const UserProfile = () => {
               ? data.profile.anniversary_date.split("T")[0]
               : "",
           });
+        } else if (data.user) {
+          // Handle different response structure
+          setProfile({
+            ...data.user,
+            dob: data.user.dob ? data.user.dob.split("T")[0] : "",
+            anniversary_date: data.user.anniversary_date
+              ? data.user.anniversary_date.split("T")[0]
+              : "",
+          });
         } else {
-          setError("No profile data found");
+          console.log("No profile data in response, using empty profile");
         }
       } catch (e) {
-        setError(e.message);
+        console.error("Profile fetch error:", e);
+        if (e.message.includes('fetch')) {
+          setError("Unable to connect to server. Please check your internet connection.");
+        } else {
+          setError(`Profile loading failed: ${e.message}`);
+        }
       } finally {
         setLoading(false);
       }
     }
 
     fetchProfile();
-  }, [token]);
+  }, [token, authState]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -86,7 +121,7 @@ const UserProfile = () => {
     }
 
     try {
-      const res = await fetch("/api/users/profile", {
+      const res = await fetch(`${BASE_URL}/users/profile`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -94,13 +129,40 @@ const UserProfile = () => {
         },
         body: JSON.stringify(profile),
       });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to save profile");
+      
+      if (res.status === 404) {
+        // Profile endpoint doesn't exist
+        setError("Profile update feature is not available yet. Please contact support.");
+        setSaving(false);
+        return;
       }
+      
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${res.status}: Failed to save profile`);
+      }
+      
+      const data = await res.json();
       setSuccess("Profile saved successfully!");
+      
+      // Update local profile with response data if available
+      if (data.profile) {
+        setProfile(prev => ({
+          ...prev,
+          ...data.profile,
+          dob: data.profile.dob ? data.profile.dob.split("T")[0] : prev.dob,
+          anniversary_date: data.profile.anniversary_date
+            ? data.profile.anniversary_date.split("T")[0]
+            : prev.anniversary_date,
+        }));
+      }
     } catch (e) {
-      setError(e.message);
+      console.error("Profile save error:", e);
+      if (e.message.includes('fetch')) {
+        setError("Unable to connect to server. Please check your internet connection.");
+      } else {
+        setError(`Save failed: ${e.message}`);
+      }
     } finally {
       setSaving(false);
     }
@@ -114,12 +176,80 @@ const UserProfile = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-8">
+      <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-8">
         <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">User Profile</h2>
         
         {error && (
           <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
-            {error}
+            <div className="flex items-center justify-between">
+              <span>{error}</span>
+              {error.includes("fetch") || error.includes("connect") ? (
+                <button
+                  onClick={() => {
+                    setRetryCount(prev => prev + 1);
+                    setError(null);
+                    const fetchProfile = async () => {
+                      setLoading(true);
+                      setError(null);
+                      try {
+                        const res = await fetch(`${BASE_URL}/users/profile`, {
+                          method: "GET",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                          },
+                        });
+                        
+                        if (res.status === 404) {
+                          console.log("Profile endpoint not found, using empty profile");
+                          setLoading(false);
+                          return;
+                        }
+                        
+                        if (!res.ok) {
+                          const errorData = await res.json().catch(() => ({}));
+                          throw new Error(errorData.error || `HTTP ${res.status}: Failed to fetch profile`);
+                        }
+                        
+                        const data = await res.json();
+                        if (data.profile) {
+                          setProfile({
+                            ...data.profile,
+                            dob: data.profile.dob ? data.profile.dob.split("T")[0] : "",
+                            anniversary_date: data.profile.anniversary_date
+                              ? data.profile.anniversary_date.split("T")[0]
+                              : "",
+                          });
+                        } else if (data.user) {
+                          setProfile({
+                            ...data.user,
+                            dob: data.user.dob ? data.user.dob.split("T")[0] : "",
+                            anniversary_date: data.user.anniversary_date
+                              ? data.user.anniversary_date.split("T")[0]
+                              : "",
+                          });
+                        } else {
+                          console.log("No profile data in response, using empty profile");
+                        }
+                      } catch (e) {
+                        console.error("Profile fetch error:", e);
+                        if (e.message.includes('fetch')) {
+                          setError("Unable to connect to server. Please check your internet connection.");
+                        } else {
+                          setError(`Profile loading failed: ${e.message}`);
+                        }
+                      } finally {
+                        setLoading(false);
+                      }
+                    };
+                    fetchProfile();
+                  }}
+                  className="ml-2 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                >
+                  Retry
+                </button>
+              ) : null}
+            </div>
           </div>
         )}
         {success && (
@@ -142,6 +272,8 @@ const UserProfile = () => {
             </div>
           )}
         </div>
+
+     
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>

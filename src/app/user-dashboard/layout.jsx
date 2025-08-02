@@ -23,8 +23,8 @@ import {
   FaUserCircle,
   FaSearch,
 } from "react-icons/fa";
-import { 
-  Home, 
+import {
+  Home,
   Bell,
   Settings,
   Search,
@@ -58,9 +58,8 @@ export default function UserDashboardLayout({ children }) {
       <div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
         {/* Enhanced Sidebar */}
         <aside
-          className={`fixed top-0 left-0 h-full z-30 w-80 flex flex-col overflow-hidden transition-all duration-300 ${
-            isSidebarVisible ? "translate-x-0" : "-translate-x-full"
-          } md:translate-x-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-blue-900 text-white shadow-2xl border-r border-slate-700/50`}
+          className={`fixed top-0 left-0 h-full z-30 w-80 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarVisible ? "translate-x-0" : "-translate-x-full"
+            } md:translate-x-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-blue-900 text-white shadow-2xl border-r border-slate-700/50`}
         >
           {/* Header */}
           <div className="p-6 border-b border-slate-700/50">
@@ -84,7 +83,7 @@ export default function UserDashboardLayout({ children }) {
                 <FaTimes size={20} />
               </button>
             </div>
-            
+
             {/* User Info */}
             <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-xl">
               <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full flex items-center justify-center">
@@ -106,11 +105,10 @@ export default function UserDashboardLayout({ children }) {
               </p>
               <Link
                 href="/user-dashboard"
-                className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${
-                  isActive("/user-dashboard") 
-                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg" 
+                className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${isActive("/user-dashboard")
+                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                     : "hover:bg-slate-800/50 text-slate-300 hover:text-white"
-                }`}
+                  }`}
                 onClick={() => setSidebarVisible(false)}
               >
                 <FaHome className={`text-lg ${isActive("/user-dashboard") ? "text-white" : "text-blue-400"}`} />
@@ -129,11 +127,10 @@ export default function UserDashboardLayout({ children }) {
               <div className="space-y-1">
                 <Link
                   href="/user-dashboard/bookings"
-                  className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${
-                    isActive("/user-dashboard/bookings") 
-                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg" 
+                  className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${isActive("/user-dashboard/bookings")
+                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                       : "hover:bg-slate-800/50 text-slate-300 hover:text-white"
-                  }`}
+                    }`}
                   onClick={() => setSidebarVisible(false)}
                 >
                   <FaClock className={`text-lg ${isActive("/user-dashboard/bookings") ? "text-white" : "text-emerald-400"}`} />
@@ -142,14 +139,13 @@ export default function UserDashboardLayout({ children }) {
                     <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
                   )}
                 </Link>
-                
+
                 <Link
                   href="/user-dashboard/pnr-status"
-                  className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${
-                    isActive("/user-dashboard/pnr-status") 
-                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg" 
+                  className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${isActive("/user-dashboard/pnr-status")
+                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                       : "hover:bg-slate-800/50 text-slate-300 hover:text-white"
-                  }`}
+                    }`}
                   onClick={() => setSidebarVisible(false)}
                 >
                   <FaTicketAlt className={`text-lg ${isActive("/user-dashboard/pnr-status") ? "text-white" : "text-sky-400"}`} />
@@ -169,11 +165,10 @@ export default function UserDashboardLayout({ children }) {
               <div className="space-y-1">
                 <Link
                   href="/user-dashboard/payments"
-                  className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${
-                    isActive("/user-dashboard/payments") 
-                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg" 
+                  className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${isActive("/user-dashboard/payments")
+                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                       : "hover:bg-slate-800/50 text-slate-300 hover:text-white"
-                  }`}
+                    }`}
                   onClick={() => setSidebarVisible(false)}
                 >
                   <FaCreditCard className={`text-lg ${isActive("/user-dashboard/payments") ? "text-white" : "text-orange-400"}`} />
@@ -182,14 +177,13 @@ export default function UserDashboardLayout({ children }) {
                     <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
                   )}
                 </Link>
-                
+
                 <Link
                   href="/user-dashboard/refunds"
-                  className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${
-                    isActive("/user-dashboard/refunds") 
-                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg" 
+                  className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${isActive("/user-dashboard/refunds")
+                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                       : "hover:bg-slate-800/50 text-slate-300 hover:text-white"
-                  }`}
+                    }`}
                   onClick={() => setSidebarVisible(false)}
                 >
                   <FaDollarSign className={`text-lg ${isActive("/user-dashboard/refunds") ? "text-white" : "text-green-400"}`} />
@@ -209,11 +203,10 @@ export default function UserDashboardLayout({ children }) {
               <div className="space-y-1">
                 <Link
                   href="/user-dashboard/support"
-                  className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${
-                    isActive("/user-dashboard/support") 
-                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg" 
+                  className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${isActive("/user-dashboard/support")
+                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                       : "hover:bg-slate-800/50 text-slate-300 hover:text-white"
-                  }`}
+                    }`}
                   onClick={() => setSidebarVisible(false)}
                 >
                   <FaHeadset className={`text-lg ${isActive("/user-dashboard/support") ? "text-white" : "text-pink-400"}`} />
@@ -222,14 +215,13 @@ export default function UserDashboardLayout({ children }) {
                     <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
                   )}
                 </Link>
-                
+
                 <Link
                   href="/user-dashboard/profile"
-                  className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${
-                    isActive("/user-dashboard/profile") 
-                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg" 
+                  className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${isActive("/user-dashboard/profile")
+                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                       : "hover:bg-slate-800/50 text-slate-300 hover:text-white"
-                  }`}
+                    }`}
                   onClick={() => setSidebarVisible(false)}
                 >
                   <FaUser className={`text-lg ${isActive("/user-dashboard/profile") ? "text-white" : "text-indigo-400"}`} />
@@ -285,7 +277,7 @@ export default function UserDashboardLayout({ children }) {
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-3">
                 {/* Search */}
                 <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl">
@@ -296,27 +288,27 @@ export default function UserDashboardLayout({ children }) {
                     className="bg-transparent border-none outline-none text-sm text-slate-600 placeholder-slate-400 w-40"
                   />
                 </div>
-                
+
                 {/* Home Link */}
-                <Link 
-                  href="/" 
+                <Link
+                  href="/"
                   className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors"
                   title="Go to Home"
                 >
                   <Home size={20} className="text-slate-600" />
                 </Link>
-                
+
                 {/* Notifications */}
                 <button className="relative p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors">
                   <Bell size={20} className="text-slate-600" />
                   <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
                 </button>
-                
+
                 {/* Settings */}
                 <button className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors">
                   <Settings size={20} className="text-slate-600" />
                 </button>
-                
+
                 {/* Profile */}
                 <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl text-white">
                   <User size={18} />
@@ -331,6 +323,41 @@ export default function UserDashboardLayout({ children }) {
             <div className="max-w-7xl mx-auto">
               <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8 min-h-[600px]">
                 {children}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-slate-700 bg-gradient-to-br from-indigo-900 via-purple-900 to-blue-900">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row items-center gap-4 text-sm text-slate-400">
+                  <p>Jet Serve Aviation Pvt. Ltd © {new Date().getFullYear()}. All Rights Reserved</p>
+                  <div className="flex items-center gap-4">
+                    <span className="hidden md:block">|</span>
+                    <Link href="/privacy" className="hover:text-white transition-colors duration-200">
+                      Privacy
+                    </Link>
+                    <span>•</span>
+                    <Link href="/terms" className="hover:text-white transition-colors duration-200">
+                      Terms
+                    </Link>
+                    <span>•</span>
+                    <Link href="/refund" className="hover:text-white transition-colors duration-200">
+                      Refund Policy
+                    </Link>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <a
+                    href="https://rbshstudio.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    Powered By RBSH Studio
+                  </a>
+                </div>
               </div>
             </div>
           </div>
