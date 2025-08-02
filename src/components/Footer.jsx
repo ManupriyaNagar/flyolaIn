@@ -93,12 +93,12 @@ const Footer = () => {
     {
       icon: PhoneIcon,
       title: 'Phone',
-      content: '+1 (555) 123-4567',
+      content: '9311896389',
     },
     {
       icon: EnvelopeIcon,
       title: 'Email',
-      content: 'hello@flyola.com',
+      content: 'booking@flyolaindia.com',
     },
     {
       icon: GlobeAltIcon,
