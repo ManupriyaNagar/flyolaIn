@@ -31,70 +31,73 @@ const GetTicketPage = () => {
       setLoading(true);
       setError(null);
 
-      // Use the correct endpoint for PNR lookup
-      const url = `${BASE_URL}/bookings/pnr?pnr=${encodeURIComponent(identifier)}`;
+      // Use the tickets endpoint for better data formatting
+      const url = `${BASE_URL}/tickets/get-ticket?pnr=${encodeURIComponent(identifier)}`;
       const response = await fetch(url);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to fetch ticket data: ${response.status}`);
+        throw new Error(errorData.message || errorData.error || `Failed to fetch ticket data: ${response.status}`);
       }
 
       const result = await response.json();
 
-      if (!result) {
-        throw new Error("No booking found for this PNR");
+      if (!result.success || !result.data) {
+        throw new Error(result.message || "No booking found for this PNR");
       }
 
-      console.log("PNR API Response:", result); // Debug log
+      console.log("Ticket API Response:", result); // Debug log
 
-      // Format the data for the ticket component based on actual API response
-      const flightSchedule = result.FlightSchedule || {};
-      const passengers = result.Passengers || [];
+      // Use the properly formatted data from the tickets API
+      const ticketData = result.data;
+      const booking = ticketData.booking;
+      const flight = ticketData.flight;
+      const passengers = ticketData.passengers || [];
+      const payment = ticketData.payment || {};
 
       const formattedData = {
         bookingData: {
-          id: result.schedule_id || result.id,
-          departure: flightSchedule.DepartureAirport?.airport_name || "Departure City",
-          arrival: flightSchedule.ArrivalAirport?.airport_name || "Arrival City",
-          departureCode: flightSchedule.DepartureAirport?.airport_name?.substring(0, 3).toUpperCase() || "DEP",
-          arrivalCode: flightSchedule.ArrivalAirport?.airport_name?.substring(0, 3).toUpperCase() || "ARR",
-          departureTime: flightSchedule.departure_time || "09:00",
-          arrivalTime: flightSchedule.arrival_time || "11:00",
-          selectedDate: result.bookDate || flightSchedule.flight_date,
-          totalPrice: result.totalFare || flightSchedule.price,
-          bookDate: result.bookDate,
-          flightId: flightSchedule.flight_id
+          id: booking.id,
+          departure: flight.departure,
+          arrival: flight.arrival,
+          departureCode: flight.departureCode,
+          arrivalCode: flight.arrivalCode,
+          departureTime: flight.departureTime,
+          arrivalTime: flight.arrivalTime,
+          selectedDate: flight.selectedDate,
+          totalPrice: flight.totalPrice,
+          bookDate: booking.bookDate,
+          flightId: flight.id
         },
         travelerDetails: passengers.map(passenger => ({
           title: passenger.title || "Mr",
-          fullName: passenger.name || "Passenger",
-          dateOfBirth: passenger.dob,
-          email: result.email_id || "contact@flyolaindia.com",
-          phone: result.contact_no || "+91-9876543210",
+          fullName: passenger.fullName || passenger.name || "Passenger",
+          dateOfBirth: passenger.dateOfBirth,
+          email: passenger.email || booking.email_id || "contact@flyolaindia.com",
+          phone: passenger.phone || booking.contact_no || "+91-9876543210",
           address: passenger.address || ""
         })),
         bookingResult: {
           booking: {
-            pnr: result.pnr,
-            bookingNo: result.bookingNo,
-            bookDate: result.bookDate,
-            paymentStatus: result.paymentStatus || "COMPLETED",
-            bookingStatus: result.bookingStatus || "CONFIRMED",
-            totalFare: result.totalFare,
-            noOfPassengers: result.noOfPassengers,
-            contact_no: result.contact_no,
-            email_id: result.email_id
+            pnr: booking.pnr,
+            bookingNo: booking.bookingNo,
+            bookDate: booking.bookDate,
+            paymentStatus: booking.paymentStatus || "COMPLETED",
+            bookingStatus: booking.bookingStatus || "CONFIRMED",
+            totalFare: booking.totalFare,
+            noOfPassengers: booking.noOfPassengers,
+            contact_no: booking.contact_no,
+            email_id: booking.email_id
           },
           passengers: passengers.map(passenger => ({
             age: passenger.age || "25",
             type: passenger.type || "Adult",
-            name: passenger.name,
+            name: passenger.name || passenger.fullName,
             title: passenger.title
           })),
           payment: {
-            status: result.paymentStatus || "COMPLETED",
-            amount: result.totalFare
+            status: payment.status || booking.paymentStatus || "COMPLETED",
+            amount: payment.amount || booking.totalFare
           }
         }
       };

@@ -16,7 +16,6 @@ import {
   EyeIcon, 
   ExclamationTriangleIcon,
   MagnifyingGlassIcon,
-  FunnelIcon,
   ArrowsUpDownIcon,
 } from "@heroicons/react/24/outline";
 
@@ -281,11 +280,12 @@ const Page = () => {
     
     // Get contact info from first passenger or billing
     const primaryContact = passengers[0] || {};
-    const contactEmail = primaryContact.email || billing.email || "contact@flyolaindia.com";
-    const contactPhone = primaryContact.phone || billing.phone || primaryContact.number || "+91-XXXXXXXXXX";
+    const contactEmail = primaryContact.email || booking.email_id || billing.email || "contact@flyolaindia.com";
+    const contactPhone = primaryContact.phone || booking.contact_no || billing.phone || primaryContact.number || "+91-XXXXXXXXXX";
     
     // Calculate total price from various sources
-    const totalPrice = booking.totalPrice || 
+    const totalPrice = booking.totalFare || 
+                      booking.totalPrice || 
                       booking.total_price || 
                       payment.amount || 
                       booking.amount ||
@@ -322,7 +322,11 @@ const Page = () => {
           pnr: booking.pnr || `PNR${booking.bookingNo || booking.id}`,
           bookingNo: booking.bookingNo || booking.booking_no || booking.id,
           bookingStatus: booking.bookingStatus || booking.booking_status || "CONFIRMED",
-          paymentStatus: payment.status || payment.payment_status || "COMPLETED"
+          paymentStatus: payment.status || payment.payment_status || booking.paymentStatus || "COMPLETED",
+          totalFare: totalPrice,
+          noOfPassengers: booking.noOfPassengers || passengers.length || 1,
+          contact_no: contactPhone,
+          email_id: contactEmail
         },
         passengers: passengers.length > 0 ? passengers.map((passenger, index) => ({
           age: passenger.age || "25",

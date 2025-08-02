@@ -114,11 +114,10 @@ const ProfessionalTicket = ({ bookingData, travelerDetails, bookingResult }) => 
         >
           {/* Header with Logo */}
           <div style={{
-           background: "F0F8FF",
-
+            background: "#1e293b",
             padding: "24px",
             position: "relative",
-            borderBottom: "1px solid #335155"
+            borderBottom: "1px solid #334155"
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ flexDirection: "column", alignItems: "center" }}>
@@ -146,11 +145,12 @@ const ProfessionalTicket = ({ bookingData, travelerDetails, bookingResult }) => 
                 <p style={{
                   fontSize: "14px",
                   fontWeight: "600",
-                  margin: "2px 0 0 0"
+                  margin: "2px 0 0 0",
+                  color: "#ffffff"
                 }}>
                   {ticketNumber}
                 </p>
-                {bookingResult?.booking?.bookingNo && (
+                {safeBookingResult?.booking?.bookingNo && (
                   <>
                     <p style={{
                       fontSize: "11px",
@@ -164,7 +164,8 @@ const ProfessionalTicket = ({ bookingData, travelerDetails, bookingResult }) => 
                     <p style={{
                       fontSize: "14px",
                       fontWeight: "600",
-                      margin: "2px 0 0 0"
+                      margin: "2px 0 0 0",
+                      color: "#ffffff"
                     }}>
                       {bookingNumber}
                     </p>
