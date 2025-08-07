@@ -134,7 +134,7 @@ const Page = () => {
             return {
               ...booking,
               FlightSchedule: flightSchedule,
-              booked_seat: matchingSeat?.booked_seat || "N/A",
+              booked_seat: booking.seatLabels || booking.booked_seat || matchingSeat?.booked_seat || "N/A",
               passengers: matchingPassengers,
               payment: matchingPayment || {},
               billing: matchingBilling || {},
@@ -276,7 +276,10 @@ const Page = () => {
       pnr: booking.pnr,
       totalFare: booking.totalFare,
       passengers: booking.passengers?.length || 0,
-      flightSchedule: booking.FlightSchedule ? 'Present' : 'Missing'
+      flightSchedule: booking.FlightSchedule ? 'Present' : 'Missing',
+      bookedSeat: booking.booked_seat,
+      seatLabels: booking.seatLabels,
+      BookedSeats: booking.BookedSeats
     }); // Debug log
     
     const flightSchedule = booking.FlightSchedule || {};
@@ -297,6 +300,13 @@ const Page = () => {
                       parseFloat(booking.amount) || 
                       0; // Don't use fallback calculation, show 0 if no real data
     
+    // Get flight number from flight schedule
+    const flightNumber = flightSchedule.Flight?.flight_number || 
+                        `FL${flightSchedule.flight_id || booking.schedule_id || '001'}`;
+    
+    // Parse booked seats
+    const bookedSeats = booking.booked_seat ? booking.booked_seat.split(', ') : [];
+    
     return {
       bookingData: {
         id: booking.id || booking.schedule_id,
@@ -308,20 +318,24 @@ const Page = () => {
         arrivalTime: flightSchedule.arrival_time || "11:00",
         selectedDate: booking.bookDate || booking.book_date,
         bookDate: booking.bookDate || booking.book_date,
-        totalPrice: totalPrice
+        totalPrice: totalPrice,
+        flightNumber: flightNumber,
+        bookedSeats: booking.booked_seat || 'Not Assigned'
       },
       travelerDetails: passengers.length > 0 ? passengers.map((passenger, index) => ({
         title: passenger.title || (passenger.gender === 'Female' ? "Ms." : "Mr."),
         fullName: passenger.name || passenger.passenger_name || `Passenger ${index + 1}`,
         email: contactEmail,
         phone: contactPhone,
-        address: passenger.address || billing.address || "Address not provided"
+        address: passenger.address || billing.address || "Address not provided",
+        seat: bookedSeats[index] || 'Not Assigned'
       })) : [{
         title: "Mr.",
         fullName: "Passenger Name",
         email: contactEmail,
         phone: contactPhone,
-        address: "Address not provided"
+        address: "Address not provided",
+        seat: bookedSeats[0] || 'Not Assigned'
       }],
       bookingResult: {
         booking: {
@@ -332,14 +346,17 @@ const Page = () => {
           totalFare: totalPrice,
           noOfPassengers: booking.noOfPassengers || passengers.length || 1,
           contact_no: contactPhone,
-          email_id: contactEmail
+          email_id: contactEmail,
+          bookedSeats: bookedSeats
         },
         passengers: passengers.length > 0 ? passengers.map((passenger, index) => ({
           age: passenger.age || "25",
-          type: passenger.type || passenger.passenger_type || "Adult"
+          type: passenger.type || passenger.passenger_type || "Adult",
+          seat: bookedSeats[index] || 'Not Assigned'
         })) : [{
           age: "25",
-          type: "Adult"
+          type: "Adult",
+          seat: bookedSeats[0] || 'Not Assigned'
         }]
       }
     };

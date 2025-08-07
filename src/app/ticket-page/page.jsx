@@ -50,14 +50,17 @@ const TicketPage = () => {
             arrivalTime: apiData.flight.arrivalTime,
             selectedDate: apiData.flight.selectedDate,
             bookDate: apiData.booking.bookDate,
-            totalPrice: apiData.flight.totalPrice
+            totalPrice: apiData.flight.totalPrice,
+            flightNumber: apiData.flight.flightNumber,
+            bookedSeats: apiData.seats?.labels || 'Not Assigned'
           },
-          travelerDetails: apiData.passengers.map(passenger => ({
+          travelerDetails: apiData.passengers.map((passenger, index) => ({
             title: passenger.title || "Mr.",
             fullName: passenger.fullName || passenger.name,
             email: passenger.email || "contact@flyolaindia.com",
             phone: passenger.phone || "+91-9876543210",
-            address: "Address not provided"
+            address: "Address not provided",
+            seat: passenger.seat || apiData.seats?.details?.[index]?.label || 'Not Assigned'
           })),
           bookingResult: {
             booking: {
@@ -67,11 +70,13 @@ const TicketPage = () => {
               paymentStatus: apiData.booking.paymentStatus || "COMPLETED",
               totalFare: apiData.booking.totalFare,
               contact_no: apiData.booking.contact_no,
-              email_id: apiData.booking.email_id
+              email_id: apiData.booking.email_id,
+              bookedSeats: apiData.seats?.details?.map(seat => seat.label) || []
             },
-            passengers: apiData.passengers.map(passenger => ({
+            passengers: apiData.passengers.map((passenger, index) => ({
               age: passenger.age || "25",
-              type: passenger.type || "Adult"
+              type: passenger.type || "Adult",
+              seat: passenger.seat || apiData.seats?.details?.[index]?.label || 'Not Assigned'
             }))
           }
         };
