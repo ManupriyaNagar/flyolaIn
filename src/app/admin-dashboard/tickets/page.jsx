@@ -271,25 +271,31 @@ const Page = () => {
 
   // Transform booking data for ProfessionalTicket component
   const transformBookingData = (booking) => {
-    console.log("Transforming booking data:", booking); // Debug log
+    console.log("Transforming booking data for ticket display:", {
+      bookingId: booking.id,
+      pnr: booking.pnr,
+      totalFare: booking.totalFare,
+      passengers: booking.passengers?.length || 0,
+      flightSchedule: booking.FlightSchedule ? 'Present' : 'Missing'
+    }); // Debug log
     
     const flightSchedule = booking.FlightSchedule || {};
     const payment = booking.payment || {};
     const billing = booking.billing || {};
     const passengers = booking.passengers || [];
     
-    // Get contact info from first passenger or billing
+    // Get contact info from booking first, then passengers, then billing
     const primaryContact = passengers[0] || {};
-    const contactEmail = primaryContact.email || booking.email_id || billing.email || "contact@flyolaindia.com";
-    const contactPhone = primaryContact.phone || booking.contact_no || billing.phone || primaryContact.number || "+91-XXXXXXXXXX";
+    const contactEmail = booking.email_id || primaryContact.email || billing.email || "contact@flyolaindia.com";
+    const contactPhone = booking.contact_no || primaryContact.phone || billing.phone || primaryContact.number || "+91-XXXXXXXXXX";
     
     // Calculate total price from various sources
-    const totalPrice = booking.totalFare || 
-                      booking.totalPrice || 
-                      booking.total_price || 
-                      payment.amount || 
-                      booking.amount ||
-                      (passengers.length * 5000); // Fallback calculation
+    const totalPrice = parseFloat(booking.totalFare) || 
+                      parseFloat(booking.totalPrice) || 
+                      parseFloat(booking.total_price) || 
+                      parseFloat(payment.amount) || 
+                      parseFloat(booking.amount) || 
+                      0; // Don't use fallback calculation, show 0 if no real data
     
     return {
       bookingData: {

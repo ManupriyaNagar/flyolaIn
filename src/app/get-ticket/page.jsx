@@ -33,6 +33,7 @@ const GetTicketPage = () => {
 
       // Use the tickets endpoint for better data formatting
       const url = `${BASE_URL}/tickets/get-ticket?pnr=${encodeURIComponent(identifier)}`;
+      console.log('Fetching ticket from:', url); // Debug log
       const response = await fetch(url);
 
       if (!response.ok) {

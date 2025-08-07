@@ -37,8 +37,10 @@ const ProfessionalTicket = ({ bookingData, travelerDetails, bookingResult }) => 
   const ticketRef = useRef(null);
 
   // Format departure and arrival codes
-  const departureCode = safeBookingData?.departureCode || safeBookingData?.departure?.substring(0, 3).toUpperCase() || "DBG";
-  const arrivalCode = safeBookingData?.arrivalCode || safeBookingData?.arrival?.substring(0, 3).toUpperCase() || "DEL";
+  const departureCode = safeBookingData?.departureCode || 
+                       (safeBookingData?.departure ? safeBookingData.departure.substring(0, 3).toUpperCase() : "DEP");
+  const arrivalCode = safeBookingData?.arrivalCode || 
+                     (safeBookingData?.arrival ? safeBookingData.arrival.substring(0, 3).toUpperCase() : "ARR");
 
   const downloadTicket = () => {
     if (!ticketRef.current) {
@@ -379,7 +381,7 @@ const ProfessionalTicket = ({ bookingData, travelerDetails, bookingResult }) => 
                   color: "#0f172a",
                   margin: 0
                 }}>
-                  JS-{safeBookingData?.id || "001"}
+                  FL-{safeBookingData?.flightId || safeBookingData?.id || "001"}
                 </p>
               </div>
               <div>
@@ -564,7 +566,9 @@ const ProfessionalTicket = ({ bookingData, travelerDetails, bookingResult }) => 
                         fontWeight: "600",
                         color: "#2563eb"
                       }}>
-                        {String.fromCharCode(65 + idx)}{Math.floor(Math.random() * 30) + 1}
+                        {safeBookingResult?.booking?.bookedSeats?.[idx] || 
+                         safeBookingData?.bookedSeats?.[idx] ||
+                         `${String.fromCharCode(65 + idx)}${Math.floor(Math.random() * 30) + 1}`}
                       </td>
                     </tr>
                   ))
@@ -738,9 +742,19 @@ const ProfessionalTicket = ({ bookingData, travelerDetails, bookingResult }) => 
                   color: "#0f172a",
                   textAlign: "center"
                 }}>
-                  ₹ {safeBookingData?.totalPrice && safeBookingData.totalPrice !== "0" 
-                      ? parseFloat(safeBookingData.totalPrice).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})
-                      : "5,000.00"}
+                  ₹ {(() => {
+                    const price = safeBookingData?.totalPrice || 
+                                 safeBookingResult?.booking?.totalFare || 
+                                 safeBookingData?.totalFare;
+                    
+                    if (price && parseFloat(price) > 0) {
+                      return parseFloat(price).toLocaleString('en-IN', {
+                        minimumFractionDigits: 2, 
+                        maximumFractionDigits: 2
+                      });
+                    }
+                    return "0.00";
+                  })()}
                 </div>
                 <div style={{
                   fontSize: "12px",

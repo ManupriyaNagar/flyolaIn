@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import ProfessionalTicket from "./../../components/SingleTicket/ProfessionalTicket";
+import BASE_URL from "@/baseUrl/baseUrl";
 
 const TicketPage = () => {
   const [ticketData, setTicketData] = useState(null);
@@ -10,56 +11,80 @@ const TicketPage = () => {
   const router = useRouter();
 
   useEffect(() => {
-    const fetchTicketData = () => {
+    const fetchTicketData = async () => {
       try {
+        // First try to get data from localStorage (for completed bookings)
         const storedData = localStorage.getItem("ticketData");
-        if (!storedData) {
-          console.error("No ticket data found in localStorage");
-          setError("No booking data found. Please complete the booking process or use the 'Get Ticket' page to retrieve your ticket.");
+        if (storedData) {
+          const data = JSON.parse(storedData);
+          console.log("Using stored ticket data:", data);
+          setTicketData(data);
           return;
         }
-        const data = JSON.parse(storedData);
+
+        // If no stored data, try to fetch the latest booking from API
+        console.log("No stored data found, fetching latest booking from API...");
+        const response = await fetch(`${BASE_URL}/tickets/get-ticket`);
         
-        // Validate and fix the data structure
-        const validatedData = {
-          bookingData: data.bookingData || {
-            id: "N/A",
-            departure: "Departure City",
-            arrival: "Arrival City",
-            departureCode: "DEP",
-            arrivalCode: "ARR",
-            departureTime: "09:00",
-            arrivalTime: "11:00",
-            selectedDate: new Date().toISOString().split('T')[0],
-            totalPrice: 0
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log("API Response:", result);
+
+        if (!result.success || !result.data) {
+          throw new Error(result.message || "No booking data available");
+        }
+
+        // Transform API data to match component expectations
+        const apiData = result.data;
+        const transformedData = {
+          bookingData: {
+            id: apiData.booking.id,
+            departure: apiData.flight.departure,
+            arrival: apiData.flight.arrival,
+            departureCode: apiData.flight.departureCode,
+            arrivalCode: apiData.flight.arrivalCode,
+            departureTime: apiData.flight.departureTime,
+            arrivalTime: apiData.flight.arrivalTime,
+            selectedDate: apiData.flight.selectedDate,
+            bookDate: apiData.booking.bookDate,
+            totalPrice: apiData.flight.totalPrice
           },
-          travelerDetails: Array.isArray(data.travelerDetails) ? data.travelerDetails : [{
-            title: "Mr.",
-            fullName: "Passenger Name",
-            email: "contact@flyolaindia.com",
-            phone: "+91-9876543210",
+          travelerDetails: apiData.passengers.map(passenger => ({
+            title: passenger.title || "Mr.",
+            fullName: passenger.fullName || passenger.name,
+            email: passenger.email || "contact@flyolaindia.com",
+            phone: passenger.phone || "+91-9876543210",
             address: "Address not provided"
-          }],
-          bookingResult: data.bookingResult || {
+          })),
+          bookingResult: {
             booking: {
-              pnr: "N/A",
-              bookingNo: "N/A",
-              bookingStatus: "CONFIRMED",
-              paymentStatus: "COMPLETED"
+              pnr: apiData.booking.pnr,
+              bookingNo: apiData.booking.bookingNo,
+              bookingStatus: apiData.booking.bookingStatus || "CONFIRMED",
+              paymentStatus: apiData.booking.paymentStatus || "COMPLETED",
+              totalFare: apiData.booking.totalFare,
+              contact_no: apiData.booking.contact_no,
+              email_id: apiData.booking.email_id
             },
-            passengers: [{
-              age: "25",
-              type: "Adult"
-            }]
+            passengers: apiData.passengers.map(passenger => ({
+              age: passenger.age || "25",
+              type: passenger.type || "Adult"
+            }))
           }
         };
-        
-        setTicketData(validatedData);
+
+        console.log("Transformed ticket data:", transformedData);
+        setTicketData(transformedData);
+
       } catch (err) {
-        console.error("Error parsing ticket data:", err);
-        setError("Failed to load booking data. The stored data may be corrupted. Please try retrieving your ticket using the 'Get Ticket' page.");
+        console.error("Error fetching ticket data:", err);
+        setError(`Failed to load booking data: ${err.message}. Please use the 'Get Ticket' page to retrieve your ticket with PNR.`);
       }
     };
+    
     fetchTicketData();
   }, []);
 
