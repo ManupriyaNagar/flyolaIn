@@ -1,3 +1,27 @@
+/**
+ * SignInPage Component
+ *
+ * This file implements the sign-in page for the Flyola (Jet Serve Aviation) web application.
+ *
+ * Features:
+ * - User authentication form with email and password fields
+ * - Client-side validation for email and password
+ * - Secure login with support for "Remember Me" (localStorage/sessionStorage)
+ * - Integration with AuthContext for authentication state management
+ * - Redirects users based on authentication status and role (admin/user)
+ * - Displays error and success notifications using react-toastify
+ * - Responsive, modern UI with Tailwind CSS and Heroicons
+ * - Links to sign-up and forgot password pages
+ * - Highlights premium aviation services and trust indicators
+ *
+ * Dependencies:
+ * - React, Next.js, Tailwind CSS, Heroicons, react-toastify
+ * - Custom API service and AuthContext
+ *
+ * Usage:
+ * This component is used as the main sign-in page at /sign-in route.
+ */
+
 "use client";
 
 import React, { useState, useEffect } from 'react';

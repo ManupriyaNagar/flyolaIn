@@ -23,6 +23,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Dialog, Transition } from "@headlessui/react";
 import { debounce } from "lodash";
+import BASE_URL from "@/baseUrl/baseUrl";
 
 // Helper functions
 const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];

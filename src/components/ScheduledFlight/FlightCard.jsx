@@ -229,7 +229,7 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
           <div className="flex items-center gap-4 lg:min-w-[200px]">
             <div className="relative">
               <img
-                src="./pp.svg"
+                src="/pp.svg"
                 alt="Flyola Logo"
                 className="w-16 h-16 object-contain rounded-full bg-blue-50 p-2"
               />

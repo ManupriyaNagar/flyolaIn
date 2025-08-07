@@ -25,6 +25,7 @@ import {
     ChartBarIcon,
     BanknotesIcon,
 } from "@heroicons/react/24/outline";
+import AdminCancellationModal from "@/components/AdminCancellationModal";
 
 const BOOKINGS_PER_PAGE = 50;
 
@@ -50,6 +51,8 @@ export default function AllBookingsPage() {
     const [selectedDepartureAirport, setSelectedDepartureAirport] = useState("all");
     const [selectedArrivalAirport, setSelectedArrivalAirport] = useState("all");
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+    const [selectedBooking, setSelectedBooking] = useState(null);
+    const [showCancellationModal, setShowCancellationModal] = useState(false);
 
     const [startBookingDate, endBookingDate] = bookingDateRange;
     const [startFlightDate, endFlightDate] = flightDateRange;
@@ -329,6 +332,29 @@ export default function AllBookingsPage() {
             direction = 'desc';
         }
         setSortConfig({ key, direction });
+    };
+
+    // Handle admin cancellation
+    const handleAdminCancelBooking = (booking) => {
+        setSelectedBooking(booking);
+        setShowCancellationModal(true);
+    };
+
+    const handleCancellationSuccess = (cancellationData) => {
+        // Update the booking status in the local state
+        setAllData(prevData => 
+            prevData.map(booking => 
+                booking.id === cancellationData.bookingId 
+                    ? { ...booking, bookingStatus: 'CANCELLED' }
+                    : booking
+            )
+        );
+        toast.success('Booking cancelled successfully by admin');
+    };
+
+    // Check if booking can be cancelled by admin
+    const canAdminCancelBooking = (booking) => {
+        return booking.bookingStatus === 'CONFIRMED' || booking.bookingStatus === 'SUCCESS';
     };
 
     // Filtered data
@@ -1146,7 +1172,7 @@ ookings Table */}
                                     { key: 'arrival_time', label: 'Arr Time', sortable: false, width: 'min-w-[120px]' },
                                     { key: 'departureAirportName', label: 'From', sortable: false, width: 'min-w-[160px]' },
                                     { key: 'arrivalAirportName', label: 'To', sortable: false, width: 'min-w-[160px]' },
-                                    { key: 'actions', label: 'Action', sortable: false, width: 'min-w-[100px]' },
+                                    { key: 'actions', label: 'Actions', sortable: false, width: 'min-w-[160px]' },
                                 ].map((column) => (
                                     <th
                                         key={column.key}
@@ -1247,13 +1273,25 @@ ookings Table */}
                                             {booking.arrivalAirportName || "N/A"}
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap">
-                                            <button
-                                                onClick={() => router.push(`/booking-details/${booking.id}`)}
-                                                className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                                            >
-                                                <EyeIcon className="w-4 h-4" />
-                                                View
-                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => router.push(`/booking-details/${booking.id}`)}
+                                                    className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                                                >
+                                                    <EyeIcon className="w-4 h-4" />
+                                                    View
+                                                </button>
+                                                {canAdminCancelBooking(booking) && (
+                                                    <button
+                                                        onClick={() => handleAdminCancelBooking(booking)}
+                                                        className="flex items-center gap-1 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                                                        title="Cancel booking as admin"
+                                                    >
+                                                        <XCircleIcon className="w-4 h-4" />
+                                                        Cancel
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -1316,6 +1354,17 @@ ookings Table */}
                     </div>
                 )}
             </div>
+
+            {/* Admin Cancellation Modal */}
+            <AdminCancellationModal
+                isOpen={showCancellationModal}
+                onClose={() => {
+                    setShowCancellationModal(false);
+                    setSelectedBooking(null);
+                }}
+                booking={selectedBooking}
+                onCancellationSuccess={handleCancellationSuccess}
+            />
         </div>
     );
 }

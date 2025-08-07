@@ -22,6 +22,7 @@ import {
   FaCalendarAlt,
   FaUserShield,
   FaSignOutAlt,
+  FaDollarSign,
 } from "react-icons/fa";
 import { 
   Home, 
@@ -223,6 +224,21 @@ export default function AdminDashboardLayout({ children }) {
                 <FaTicketAlt className={`text-lg ${isActive("/admin-dashboard/tickets") ? "text-white" : "text-yellow-400"}`} />
                 <span className="font-medium">Ticket Management</span>
                 {isActive("/admin-dashboard/tickets") && (
+                  <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
+                )}
+              </Link>
+              
+              <Link
+                href="/admin-dashboard/refunds"
+                className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-200 group ${
+                  isActive("/admin-dashboard/refunds") 
+                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg" 
+                    : "hover:bg-slate-800/50 text-slate-300 hover:text-white"
+                }`}
+              >
+                <FaDollarSign className={`text-lg ${isActive("/admin-dashboard/refunds") ? "text-white" : "text-green-400"}`} />
+                <span className="font-medium">Refund Management</span>
+                {isActive("/admin-dashboard/refunds") && (
                   <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
                 )}
               </Link>
