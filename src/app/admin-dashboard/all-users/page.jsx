@@ -138,8 +138,7 @@ const AllUsersPage = () => {
         user.email?.toLowerCase().includes(term);
       
       const matchesRole = roleFilter === "all" || 
-        (roleFilter === "admin" && user.role === 1) ||
-        (roleFilter === "user" && user.role !== 1);
+        String(user.role) === String(roleFilter);
       
       return matchesSearch && matchesRole;
     });
@@ -199,15 +198,110 @@ const AllUsersPage = () => {
     return pages;
   };
 
+  // Modal states
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    number: '',
+    role: '3',
+    dob: '',
+    gender: '',
+    city: '',
+    state: ''
+  });
+
   // Action handlers
   const handleShow = (user) => {
-    toast.info(`Viewing details for ${user.name}`);
-    // TODO: Implement user details modal or navigation
+    setSelectedUser(user);
+    setShowViewModal(true);
   };
 
   const handleEdit = (user) => {
-    toast.info(`Editing ${user.name}`);
-    // TODO: Implement user edit functionality
+    setSelectedUser(user);
+    setFormData({
+      name: user.name || '',
+      email: user.email || '',
+      password: '',
+      number: user.number || '',
+      role: String(user.role) || '3',
+      dob: user.dob || '',
+      gender: user.gender || '',
+      city: user.city || '',
+      state: user.state || ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleCreate = () => {
+    setFormData({
+      name: '',
+      email: '',
+      password: '',
+      number: '',
+      role: '3',
+      dob: '',
+      gender: '',
+      city: '',
+      state: ''
+    });
+    setShowCreateModal(true);
+  };
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const token = localStorage.getItem("token") || "";
+      const isEdit = showEditModal && selectedUser;
+      const url = isEdit ? `${BASE_URL}/users/${selectedUser.id}` : `${BASE_URL}/users/create`;
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to ${isEdit ? 'update' : 'create'} user`);
+      }
+
+      const result = await response.json();
+      toast.success(result.message || `User ${isEdit ? 'updated' : 'created'} successfully!`);
+
+      // Refresh users list
+      const usersResponse = await fetch(`${BASE_URL}/users/all`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      if (usersResponse.ok) {
+        const updatedUsers = await usersResponse.json();
+        setUsers(updatedUsers);
+      }
+
+      // Close modals
+      setShowCreateModal(false);
+      setShowEditModal(false);
+      setSelectedUser(null);
+    } catch (err) {
+      console.error(`Error ${showEditModal ? 'updating' : 'creating'} user:`, err);
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -256,11 +350,25 @@ const AllUsersPage = () => {
           Admin
         </span>
       );
+    } else if (role === 2) {
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          <UserCircleIcon className="w-3 h-3" />
+          Booking Agent
+        </span>
+      );
+    } else if (role === 3) {
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <UserCircleIcon className="w-3 h-3" />
+          Regular User
+        </span>
+      );
     }
     return (
-      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
         <UserCircleIcon className="w-3 h-3" />
-        User
+        Unknown
       </span>
     );
   };
@@ -283,7 +391,7 @@ const AllUsersPage = () => {
         
         <button
           className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:from-emerald-600 hover:to-teal-600 transition-all duration-200 shadow-lg font-semibold"
-          onClick={() => toast.info("Add user functionality coming soon!")}
+          onClick={handleCreate}
           disabled={loading}
         >
           <UserPlusIcon className="w-5 h-5" />
@@ -315,8 +423,9 @@ const AllUsersPage = () => {
               className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             >
               <option value="all">All Roles</option>
-              <option value="admin">Admins Only</option>
-              <option value="user">Users Only</option>
+              <option value="1">Admins (Role 1)</option>
+              <option value="2">Booking Agents (Role 2)</option>
+              <option value="3">Regular Users (Role 3)</option>
             </select>
           </div>
 
@@ -613,6 +722,275 @@ const AllUsersPage = () => {
         </div>
       )}
 
+      {/* Create/Edit User Modal */}
+      {(showCreateModal || showEditModal) && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <UserPlusIcon className="w-6 h-6 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-slate-900">
+                {showEditModal ? 'Edit User' : 'Create New User'}
+              </h3>
+            </div>
+            
+            <form onSubmit={handleFormSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Password {showEditModal ? '(leave blank to keep current)' : '*'}
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required={!showEditModal}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.number}
+                    onChange={(e) => setFormData({...formData, number: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Role *
+                  </label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({...formData, role: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="1">Admin (Role 1)</option>
+                    <option value="2">Booking Agent (Role 2)</option>
+                    <option value="3">Regular User (Role 3)</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.dob}
+                    onChange={(e) => setFormData({...formData, dob: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Gender
+                  </label>
+                  <select
+                    value={formData.gender}
+                    onChange={(e) => setFormData({...formData, gender: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.city}
+                    onChange={(e) => setFormData({...formData, city: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.state}
+                    onChange={(e) => setFormData({...formData, state: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors font-medium"
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setShowEditModal(false);
+                    setSelectedUser(null);
+                  }}
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                  ) : (
+                    showEditModal ? 'Update User' : 'Create User'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* View User Modal */}
+      {showViewModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl border border-slate-200">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <EyeIcon className="w-6 h-6 text-green-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-slate-900">User Details</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-slate-500 mb-1">Name</label>
+                <p className="text-slate-900 font-medium">{selectedUser.name || 'N/A'}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-500 mb-1">Email</label>
+                <p className="text-slate-900">{selectedUser.email || 'N/A'}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-500 mb-1">Phone</label>
+                <p className="text-slate-900">{selectedUser.number || 'N/A'}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-500 mb-1">Role</label>
+                <div>
+                  {selectedUser.role === 1 ? (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      <ShieldCheckIcon className="w-3 h-3" />
+                      Admin
+                    </span>
+                  ) : selectedUser.role === 2 ? (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <UserCircleIcon className="w-3 h-3" />
+                      Booking Agent
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <UserCircleIcon className="w-3 h-3" />
+                      Regular User
+                    </span>
+                  )}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-500 mb-1">Date of Birth</label>
+                <p className="text-slate-900">{selectedUser.dob ? new Date(selectedUser.dob).toLocaleDateString() : 'N/A'}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-500 mb-1">Gender</label>
+                <p className="text-slate-900">{selectedUser.gender || 'N/A'}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-500 mb-1">City</label>
+                <p className="text-slate-900">{selectedUser.city || 'N/A'}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-500 mb-1">State</label>
+                <p className="text-slate-900">{selectedUser.state || 'N/A'}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-500 mb-1">Joined</label>
+                <p className="text-slate-900">{selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleDateString() : 'N/A'}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-500 mb-1">User ID</label>
+                <p className="text-slate-900 font-mono">{selectedUser.id}</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 pt-6">
+              <button
+                className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors font-medium"
+                onClick={() => {
+                  setShowViewModal(false);
+                  setSelectedUser(null);
+                }}
+              >
+                Close
+              </button>
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
+                onClick={() => {
+                  setShowViewModal(false);
+                  handleEdit(selectedUser);
+                }}
+              >
+                Edit User
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Info Card */}
       <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl border border-indigo-200 p-6">
         <div className="flex items-start gap-3">
@@ -622,10 +1000,11 @@ const AllUsersPage = () => {
           <div>
             <h3 className="font-semibold text-indigo-800 mb-2">User Management</h3>
             <ul className="text-indigo-700 text-sm space-y-1">
-              <li>• View and manage all system users</li>
-              <li>• Filter users by role (Admin/User)</li>
-              <li>• Search users by name or email</li>
-              <li>• Sort users by different criteria</li>
+              <li>• Create users with all 3 roles (Admin, Booking Agent, Regular User)</li>
+              <li>• Edit user information and change roles</li>
+              <li>• View detailed user information</li>
+              <li>• Delete users (with booking validation)</li>
+              <li>• Filter users by role and search by name/email</li>
             </ul>
           </div>
         </div>

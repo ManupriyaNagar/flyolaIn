@@ -46,9 +46,13 @@ export default function AllBookingsPage() {
     const [downloadRange, setDownloadRange] = useState("page");
     const [error, setError] = useState(null);
     const [bookingDateRange, setBookingDateRange] = useState([null, null]);
+    const [flightDateRange, setFlightDateRange] = useState([null, null]);
+    const [selectedDepartureAirport, setSelectedDepartureAirport] = useState("all");
+    const [selectedArrivalAirport, setSelectedArrivalAirport] = useState("all");
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
     const [startBookingDate, endBookingDate] = bookingDateRange;
+    const [startFlightDate, endFlightDate] = flightDateRange;
 
     // Redirect if not admin
     useEffect(() => {
@@ -254,16 +258,28 @@ export default function AllBookingsPage() {
                                 booking.FlightSchedule?.arrival_airport_id
                                 ] || "N/A",
                         };
-                    })
-                    .sort(
-                        (a, b) =>
-                            new Date(b.created_at) - new Date(a.created_at)
-                    );
+                    });
 
-                // 6) commit
-                setAllData(merged);
+                // 6) sort by latest flight date first, then by booking date
+                const sortedMerged = merged.sort((a, b) => {
+                    // First sort by flight date (bookDate) - latest first
+                    const aFlightDate = a.bookDate ? new Date(a.bookDate) : new Date(0);
+                    const bFlightDate = b.bookDate ? new Date(b.bookDate) : new Date(0);
+
+                    if (aFlightDate.getTime() !== bFlightDate.getTime()) {
+                        return bFlightDate - aFlightDate; // Latest flight date first
+                    }
+
+                    // If flight dates are same, sort by booking creation date - latest first
+                    const aCreated = new Date(a.created_at);
+                    const bCreated = new Date(b.created_at);
+                    return bCreated - aCreated;
+                });
+
+                // 7) commit
+                setAllData(sortedMerged);
                 setCurrentPage(1);
-                toast.success(`Successfully loaded ${merged.length} bookings`);
+                toast.success(`Successfully loaded ${sortedMerged.length} bookings`);
             } catch (err) {
                 console.error("[BookingList] Error fetching data:", err);
                 const msg = err.message || "Failed to load data. Please try again.";
@@ -329,6 +345,21 @@ export default function AllBookingsPage() {
             data = data.filter((item) => item.userRole === selectedRole);
         }
 
+        // Departure airport filter
+        if (selectedDepartureAirport !== "all") {
+            data = data.filter((item) =>
+                item.FlightSchedule?.departure_airport_id?.toString() === selectedDepartureAirport
+            );
+        }
+
+        // Arrival airport filter
+        if (selectedArrivalAirport !== "all") {
+            data = data.filter((item) =>
+                item.FlightSchedule?.arrival_airport_id?.toString() === selectedArrivalAirport
+            );
+        }
+
+        // Search filter
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase();
             data = data.filter((item) =>
@@ -342,13 +373,44 @@ export default function AllBookingsPage() {
                     item.transactionId?.toLowerCase(),
                     item.agentId?.toLowerCase(),
                     item.userRole?.toLowerCase(),
+                    item.departureAirportName?.toLowerCase(),
+                    item.arrivalAirportName?.toLowerCase(),
                 ].some((field) => field?.includes(term))
             );
         }
 
+        // Booking date range filter (filters by when booking was created)
+        if (startBookingDate && endBookingDate) {
+            data = data.filter((item) => {
+                if (!item.created_at) return false;
+                const createdAt = new Date(item.created_at);
+                createdAt.setHours(0, 0, 0, 0);
+                const start = new Date(startBookingDate);
+                start.setHours(0, 0, 0, 0);
+                const end = new Date(endBookingDate);
+                end.setHours(23, 59, 59, 999);
+                return createdAt >= start && createdAt <= end;
+            });
+        }
+
+        // Flight date range filter (filters by flight departure date)
+        if (startFlightDate && endFlightDate) {
+            data = data.filter((item) => {
+                if (!item.bookDate) return false;
+                const flightDate = new Date(item.bookDate);
+                flightDate.setHours(0, 0, 0, 0);
+                const start = new Date(startFlightDate);
+                start.setHours(0, 0, 0, 0);
+                const end = new Date(endFlightDate);
+                end.setHours(23, 59, 59, 999);
+                return flightDate >= start && flightDate <= end;
+            });
+        }
+
+        // Legacy download range filter (for backward compatibility)
         if (["today", "tomorrow", "yesterday", "custom"].includes(downloadRange)) {
             const dateRange = getDateFilterRange(downloadRange);
-            if (dateRange) {
+            if (dateRange && downloadRange !== "custom") {
                 data = data.filter((item) => {
                     const createdAt = new Date(item.created_at);
                     createdAt.setHours(0, 0, 0, 0);
@@ -376,9 +438,17 @@ export default function AllBookingsPage() {
                 let aValue = a[sortConfig.key];
                 let bValue = b[sortConfig.key];
 
-                if (typeof aValue === 'string') {
+                // Handle date sorting specially
+                if (sortConfig.key === 'bookDate' || sortConfig.key === 'created_at') {
+                    aValue = aValue ? new Date(aValue) : new Date(0);
+                    bValue = bValue ? new Date(bValue) : new Date(0);
+                } else if (sortConfig.key === 'totalFare' || sortConfig.key === 'noOfPassengers') {
+                    // Handle numeric sorting
+                    aValue = parseFloat(aValue) || 0;
+                    bValue = parseFloat(bValue) || 0;
+                } else if (typeof aValue === 'string') {
                     aValue = aValue.toLowerCase();
-                    bValue = bValue.toLowerCase();
+                    bValue = bValue ? bValue.toLowerCase() : '';
                 }
 
                 if (aValue < bValue) {
@@ -389,10 +459,24 @@ export default function AllBookingsPage() {
                 }
                 return 0;
             });
+        } else {
+            // Default sorting: latest flight date first, then latest booking date
+            data.sort((a, b) => {
+                const aFlightDate = a.bookDate ? new Date(a.bookDate) : new Date(0);
+                const bFlightDate = b.bookDate ? new Date(b.bookDate) : new Date(0);
+
+                if (aFlightDate.getTime() !== bFlightDate.getTime()) {
+                    return bFlightDate - aFlightDate; // Latest flight date first
+                }
+
+                const aCreated = new Date(a.created_at);
+                const bCreated = new Date(b.created_at);
+                return bCreated - aCreated; // Latest booking first
+            });
         }
 
         return data;
-    }, [allData, searchTerm, downloadRange, startBookingDate, endBookingDate, selectedAgent, selectedRole, sortConfig]);
+    }, [allData, searchTerm, downloadRange, startBookingDate, endBookingDate, startFlightDate, endFlightDate, selectedAgent, selectedRole, selectedDepartureAirport, selectedArrivalAirport, sortConfig]);
 
     // Pagination
     const totalPages = Math.ceil(filteredData.length / BOOKINGS_PER_PAGE) || 1;
@@ -497,8 +581,51 @@ export default function AllBookingsPage() {
         { value: "Unknown", label: "Unknown Role" },
     ], []);
 
+    // Airport options
+    const departureAirportOptions = useMemo(() => {
+        const options = [{ value: "all", label: "All Departure Airports" }];
+        const uniqueAirports = new Set();
+
+        allData.forEach((booking) => {
+            const airportId = booking.FlightSchedule?.departure_airport_id;
+            const airportName = booking.departureAirportName;
+            if (airportId && airportName && !uniqueAirports.has(airportId)) {
+                uniqueAirports.add(airportId);
+                options.push({
+                    value: airportId.toString(),
+                    label: airportName
+                });
+            }
+        });
+
+        return options.sort((a, b) => a.label.localeCompare(b.label));
+    }, [allData]);
+
+    const arrivalAirportOptions = useMemo(() => {
+        const options = [{ value: "all", label: "All Arrival Airports" }];
+        const uniqueAirports = new Set();
+
+        allData.forEach((booking) => {
+            const airportId = booking.FlightSchedule?.arrival_airport_id;
+            const airportName = booking.arrivalAirportName;
+            if (airportId && airportName && !uniqueAirports.has(airportId)) {
+                uniqueAirports.add(airportId);
+                options.push({
+                    value: airportId.toString(),
+                    label: airportName
+                });
+            }
+        });
+
+        return options.sort((a, b) => a.label.localeCompare(b.label));
+    }, [allData]);
+
     const getSortIcon = (columnKey) => {
         if (sortConfig.key !== columnKey) {
+            // Show default sort indicator for flight date when no custom sort is applied
+            if (columnKey === 'bookDate' && !sortConfig.key) {
+                return <ArrowsUpDownIcon className="w-4 h-4 text-blue-500" />;
+            }
             return <ArrowsUpDownIcon className="w-4 h-4 text-slate-400" />;
         }
         return sortConfig.direction === 'asc' ?
@@ -699,9 +826,12 @@ export default function AllBookingsPage() {
                                 setSearchTerm("");
                                 setSelectedAgent("all");
                                 setSelectedRole("all");
+                                setSelectedDepartureAirport("all");
+                                setSelectedArrivalAirport("all");
                                 setCurrentPage(1);
                                 setDownloadRange("page");
                                 setBookingDateRange([null, null]);
+                                setFlightDateRange([null, null]);
                             }}
                             className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${status === filter
                                 ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg"
@@ -716,50 +846,210 @@ export default function AllBookingsPage() {
 
             {/* Search and Filters */}
             <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-                <div className="flex flex-col lg:flex-row gap-4">
-                    <div className="relative flex-1">
+                <div className="space-y-4">
+                    {/* Search Bar */}
+                    <div className="relative">
                         <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                         <input
                             type="text"
                             onChange={(e) => debouncedSearch(e.target.value)}
-                            placeholder="Search by ID, PNR, email, phone, passenger name, billing name, transaction ID, agent ID, or user role..."
+                            placeholder="Search by ID, PNR, email, phone, passenger name, billing name, transaction ID, agent ID, airports..."
                             className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         />
                     </div>
 
-                    <select
-                        value={selectedAgent}
-                        onChange={(e) => {
-                            setSelectedAgent(e.target.value);
-                            setCurrentPage(1);
-                        }}
-                        className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    >
-                        {agentOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
-                            </option>
-                        ))}
-                    </select>
+                    {/* Filter Row 1: Agent, Role, Airports */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <select
+                            value={selectedAgent}
+                            onChange={(e) => {
+                                setSelectedAgent(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        >
+                            {agentOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
 
-                    <select
-                        value={selectedRole}
-                        onChange={(e) => {
-                            setSelectedRole(e.target.value);
-                            setCurrentPage(1);
-                        }}
-                        className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    >
-                        {roleOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
-                            </option>
-                        ))}
-                    </select>
+                        <select
+                            value={selectedRole}
+                            onChange={(e) => {
+                                setSelectedRole(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        >
+                            {roleOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+
+                        <select
+                            value={selectedDepartureAirport}
+                            onChange={(e) => {
+                                setSelectedDepartureAirport(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        >
+                            {departureAirportOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+
+                        <select
+                            value={selectedArrivalAirport}
+                            onChange={(e) => {
+                                setSelectedArrivalAirport(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        >
+                            {arrivalAirportOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Date Filters */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-slate-200">
+                        {/* Booking Date Filter */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                                <CalendarDaysIcon className="w-4 h-4 text-blue-600" />
+                                Filter by Booking Date
+                            </label>
+                            <div className="flex gap-2">
+                                <DatePicker
+                                    selected={startBookingDate}
+                                    onChange={(date) => {
+                                        setBookingDateRange([date, endBookingDate]);
+                                        setCurrentPage(1);
+                                    }}
+                                    selectsStart
+                                    startDate={startBookingDate}
+                                    endDate={endBookingDate}
+                                    maxDate={new Date()}
+                                    placeholderText="Start Booking Date"
+                                    className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                />
+                                <DatePicker
+                                    selected={endBookingDate}
+                                    onChange={(date) => {
+                                        setBookingDateRange([startBookingDate, date]);
+                                        setCurrentPage(1);
+                                    }}
+                                    selectsEnd
+                                    startDate={startBookingDate}
+                                    endDate={endBookingDate}
+                                    minDate={startBookingDate}
+                                    maxDate={new Date()}
+                                    placeholderText="End Booking Date"
+                                    className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                />
+                                {(startBookingDate || endBookingDate) && (
+                                    <button
+                                        onClick={() => {
+                                            setBookingDateRange([null, null]);
+                                            setCurrentPage(1);
+                                        }}
+                                        className="px-3 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                                        title="Clear booking date filter"
+                                    >
+                                        <XCircleIcon className="w-5 h-5" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Flight Date Filter */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                                <CalendarDaysIcon className="w-4 h-4 text-orange-600" />
+                                Filter by Flight Date
+                            </label>
+                            <div className="flex gap-2">
+                                <DatePicker
+                                    selected={startFlightDate}
+                                    onChange={(date) => {
+                                        setFlightDateRange([date, endFlightDate]);
+                                        setCurrentPage(1);
+                                    }}
+                                    selectsStart
+                                    startDate={startFlightDate}
+                                    endDate={endFlightDate}
+                                    placeholderText="Start Flight Date"
+                                    className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                                />
+                                <DatePicker
+                                    selected={endFlightDate}
+                                    onChange={(date) => {
+                                        setFlightDateRange([startFlightDate, date]);
+                                        setCurrentPage(1);
+                                    }}
+                                    selectsEnd
+                                    startDate={startFlightDate}
+                                    endDate={endFlightDate}
+                                    minDate={startFlightDate}
+                                    placeholderText="End Flight Date"
+                                    className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                                />
+                                {(startFlightDate || endFlightDate) && (
+                                    <button
+                                        onClick={() => {
+                                            setFlightDateRange([null, null]);
+                                            setCurrentPage(1);
+                                        }}
+                                        className="px-3 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                                        title="Clear flight date filter"
+                                    >
+                                        <XCircleIcon className="w-5 h-5" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Clear All Filters Button */}
+                    {(searchTerm || selectedAgent !== "all" || selectedRole !== "all" ||
+                        selectedDepartureAirport !== "all" || selectedArrivalAirport !== "all" ||
+                        startBookingDate || endBookingDate || startFlightDate || endFlightDate) && (
+                            <div className="flex justify-center pt-4 border-t border-slate-200">
+                                <button
+                                    onClick={() => {
+                                        setSearchTerm("");
+                                        setSelectedAgent("all");
+                                        setSelectedRole("all");
+                                        setSelectedDepartureAirport("all");
+                                        setSelectedArrivalAirport("all");
+                                        setBookingDateRange([null, null]);
+                                        setFlightDateRange([null, null]);
+                                        setCurrentPage(1);
+                                        // Clear the search input
+                                        const searchInput = document.querySelector('input[type="text"]');
+                                        if (searchInput) searchInput.value = '';
+                                    }}
+                                    className="flex items-center gap-2 px-6 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors font-medium"
+                                >
+                                    <XCircleIcon className="w-4 h-4" />
+                                    Clear All Filters
+                                </button>
+                            </div>
+                        )}
                 </div>
             </div>
 
-            {/* Date Range and Export */}
+            {/* Export and Summary */}
             <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
                 <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
                     <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -768,42 +1058,26 @@ export default function AllBookingsPage() {
                             onChange={(e) => {
                                 setDownloadRange(e.target.value);
                                 setCurrentPage(1);
-                                if (e.target.value !== "custom") setBookingDateRange([null, null]);
                             }}
                             className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         >
-                            {downloadOptions.map((option) => (
+                            {downloadOptions.filter(option => option.value !== "custom").map((option) => (
                                 <option key={option.value} value={option.value}>
                                     {option.label}
                                 </option>
                             ))}
                         </select>
 
-                        {downloadRange === "custom" && (
-                            <div className="flex gap-2">
-                                <DatePicker
-                                    selected={startBookingDate}
-                                    onChange={(date) => setBookingDateRange([date, endBookingDate])}
-                                    selectsStart
-                                    startDate={startBookingDate}
-                                    endDate={endBookingDate}
-                                    maxDate={endBookingDate || new Date()}
-                                    placeholderText="Start Date"
-                                    className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                />
-                                <DatePicker
-                                    selected={endBookingDate}
-                                    onChange={(date) => setBookingDateRange([startBookingDate, date])}
-                                    selectsEnd
-                                    startDate={startBookingDate}
-                                    endDate={endBookingDate}
-                                    minDate={startBookingDate}
-                                    maxDate={new Date()}
-                                    placeholderText="End Date"
-                                    className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                />
-                            </div>
-                        )}
+                        <div className="text-sm text-slate-600 bg-slate-50 px-4 py-3 rounded-xl">
+                            <span className="font-medium">Active Filters:</span>
+                            {selectedAgent !== "all" && <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-1 rounded-md text-xs">Agent: {selectedAgent}</span>}
+                            {selectedRole !== "all" && <span className="ml-2 bg-purple-100 text-purple-800 px-2 py-1 rounded-md text-xs">Role: {roleOptions.find(r => r.value === selectedRole)?.label}</span>}
+                            {selectedDepartureAirport !== "all" && <span className="ml-2 bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs">From: {departureAirportOptions.find(a => a.value === selectedDepartureAirport)?.label}</span>}
+                            {selectedArrivalAirport !== "all" && <span className="ml-2 bg-orange-100 text-orange-800 px-2 py-1 rounded-md text-xs">To: {arrivalAirportOptions.find(a => a.value === selectedArrivalAirport)?.label}</span>}
+                            {(startBookingDate || endBookingDate) && <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-1 rounded-md text-xs">Booking Date: {startBookingDate ? startBookingDate.toLocaleDateString() : 'Any'} - {endBookingDate ? endBookingDate.toLocaleDateString() : 'Any'}</span>}
+                            {(startFlightDate || endFlightDate) && <span className="ml-2 bg-orange-100 text-orange-800 px-2 py-1 rounded-md text-xs">Flight Date: {startFlightDate ? startFlightDate.toLocaleDateString() : 'Any'} - {endFlightDate ? endFlightDate.toLocaleDateString() : 'Any'}</span>}
+                            {selectedAgent === "all" && selectedRole === "all" && selectedDepartureAirport === "all" && selectedArrivalAirport === "all" && !startBookingDate && !endBookingDate && !startFlightDate && !endFlightDate && !searchTerm && <span className="ml-2 text-slate-500">None</span>}
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-4">
@@ -833,10 +1107,15 @@ export default function AllBookingsPage() {
 ookings Table */}
             <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
                 <div className="bg-gradient-to-r from-slate-50 to-orange-50 px-6 py-4 border-b border-slate-200">
-                    <h3 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
-                        <CalendarDaysIcon className="w-6 h-6 text-orange-600" />
-                        Booking Records ({filteredData.length})
-                    </h3>
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+                            <CalendarDaysIcon className="w-6 h-6 text-orange-600" />
+                            Booking Records ({filteredData.length})
+                        </h3>
+                        <p className="text-sm text-slate-500">
+                            Sorted by latest flight date, then latest booking date
+                        </p>
+                    </div>
                 </div>
 
                 <div className="overflow-x-auto">

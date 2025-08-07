@@ -103,7 +103,7 @@ const Footer = () => {
     {
       icon: GlobeAltIcon,
       title: 'Website',
-      content: 'https://jetserveaviation.com/',
+      content: 'https://flyola.in/',
     },
   ];
 

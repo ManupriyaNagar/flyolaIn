@@ -24,12 +24,13 @@ const BookingPolicies = () => {
       bgColor: 'bg-red-50',
       borderColor: 'border-red-200',
       content: [
-        'Free cancellation up to 24 hours before departure',
-        'Cancellation charges: 25% of ticket price (24-12 hours before)',
-        'Cancellation charges: 50% of ticket price (12-2 hours before)',
-        'No refund for cancellations within 2 hours of departure',
-        'Processing fee of ₹200 applies to all cancellations'
+        'Cancellation more than 96 hours before departure: Flat ₹400 deduction per seat',
+        'Cancellation between 48 to 96 hours before departure: 25% deduction of total booking amount',
+        'Cancellation between 24 to 48 hours before departure: 50% deduction of total booking amount',
+        'Cancellation less than 24 hours before departure: No refund applicable',
+        'Refunds are credited to the original mode of payment'
       ]
+      
     },
     {
       id: 'baggage',
@@ -69,11 +70,11 @@ const BookingPolicies = () => {
       bgColor: 'bg-purple-50',
       borderColor: 'border-purple-200',
       content: [
-        'Date changes allowed up to 4 hours before departure',
-        'Change fee: ₹1,500 + fare difference (if applicable)',
-        'Same route changes only (departure/arrival cities cannot change)',
-        'Changes subject to seat availability',
-        'Maximum 3 changes allowed per booking'
+        'Rescheduling more than 48 hours before departure: ₹500 fee + fare difference (if any)',
+        'Rescheduling between 24 to 48 hours before departure: ₹1000 fee + fare difference (if any)',
+        'Rescheduling less than 24 hours before departure: Not permitted; cancellation as per refund policy advised',
+        'Rescheduling subject to seat availability on desired flight/date',
+        'Same route only: departure and arrival cities cannot be changed'
       ]
     }
   ];

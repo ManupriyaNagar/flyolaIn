@@ -146,18 +146,16 @@ export default function AllBookingsPage() {
               ? booking.BookedSeats.map((s) => s.seat_label).join(", ")
               : "N/A";
 
-            // Dynamic data only
-            const flightNumber = flightSchedule.Flight?.flight_number || "N/A";
-            const billingName = booking.billing?.billing_name || "N/A";
-            const paymentMode = payment.payment_mode || booking.pay_mode || "N/A";
-
-            // Log missing data
-            if (!booking.FlightSchedule) {
-              console.warn(`Booking ${booking.bookingNo} is missing FlightSchedule.`);
-            }
-            if (!map[depId] || !map[arrId]) {
-              console.warn(`Booking ${booking.bookingNo} has unmatched airport IDs: ${depId}, ${arrId}`);
-            }
+            // Use enhanced data from backend if available, otherwise fallback to old logic
+            const flightNumber = booking.flightNumber || flightSchedule.Flight?.flight_number || "N/A";
+            const billingName = booking.billingName || booking.billing?.billing_name || "N/A";
+            const paymentMode = booking.paymentMode || payment.payment_mode || booking.pay_mode || "N/A";
+            const departureAirportName = booking.departureAirport || (depId && map[depId] ? map[depId] : "N/A");
+            const arrivalAirportName = booking.arrivalAirport || (arrId && map[arrId] ? map[arrId] : "N/A");
+            const passengerNames = booking.passengerNames || passengers?.map((p) => p.name).join(", ") || "N/A";
+            const transactionId = booking.transactionId || payment.transaction_id || "N/A";
+            const agentId = booking.agentId || "FLYOLA";
+            const userRole = booking.userRole || "3";
 
             return {
               ...booking,
@@ -167,8 +165,12 @@ export default function AllBookingsPage() {
               flightNumber,
               billingName,
               paymentMode,
-              departureAirportName: depId && map[depId] ? map[depId] : "N/A",
-              arrivalAirportName: arrId && map[arrId] ? map[arrId] : "N/A",
+              departureAirportName,
+              arrivalAirportName,
+              passengerNames,
+              transactionId,
+              agentId,
+              userRole,
             };
           })
           .sort(
@@ -265,7 +267,7 @@ export default function AllBookingsPage() {
       Email: item.email_id || "N/A",
       ContactNumber: item.contact_no || "N/A",
       Passengers: item.noOfPassengers || 0,
-      PassengerNames: item.passengers?.map((p) => p.name).join(", ") || "N/A",
+      PassengerNames: item.passengerNames || item.passengers?.map((p) => p.name).join(", ") || "N/A",
       BillingName: item.billingName || "N/A",
       Sector: item.schedule_id || "N/A",
       FlightNumber: item.flightNumber || "N/A",
@@ -273,6 +275,9 @@ export default function AllBookingsPage() {
       TotalFare: item.totalFare ? parseFloat(item.totalFare).toFixed(2) : "N/A",
       BookingStatus: item.bookingStatus || "N/A",
       PaymentMode: item.paymentMode || "N/A",
+      TransactionId: item.transactionId || "N/A",
+      AgentId: item.agentId || "FLYOLA",
+      UserRole: item.userRole === "1" ? "Admin" : item.userRole === "2" ? "Booking Agent" : item.userRole === "3" ? "Regular User" : "Unknown",
       DepartureTime: item.FlightSchedule?.departure_time || "N/A",
       ArrivalTime: item.FlightSchedule?.arrival_time || "N/A",
       DepartureAirport: item.departureAirportName || "N/A",
@@ -461,6 +466,9 @@ export default function AllBookingsPage() {
                 "Price",
                 "Status",
                 "Payment",
+                "Transaction ID",
+                "Agent",
+                "User Role",
                 "Dep Time",
                 "Arr Time",
                 "From",
@@ -479,7 +487,7 @@ export default function AllBookingsPage() {
           <tbody className="divide-y divide-gray-100">
             {!error && isLoading ? (
               <tr>
-                <td colSpan={19} className="px-6 py-8 text-center">
+                <td colSpan={22} className="px-6 py-8 text-center">
                   <div className="flex justify-center items-center gap-2">
                     <svg
                       className="animate-spin h-6 w-6 text-blue-500"
@@ -526,7 +534,15 @@ export default function AllBookingsPage() {
                   <td className="px-6 py-4 whitespace-nowrap">{item.email_id || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.contact_no || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.noOfPassengers || 0}</td>
-                  <td className="px-6 py-4">{item.passengers?.map((p) => p.name).join(", ") || "N/A"}</td>
+
+
+
+
+                  <td className="px-4 py-2 whitespace-nowrap w-80">
+                                            <div className="max-w-[320px] truncate text-slate-700" title={item.passengers?.map((p) => p.name).join(", ") || "N/A"}>
+                                                {item.passengers?.map((p) => p.name).join(", ") || "N/A"}
+                                            </div>
+                                        </td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.billingName || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.schedule_id || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.flightNumber || "N/A"}</td>
@@ -552,16 +568,41 @@ export default function AllBookingsPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
                       className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                        item.paymentMode === "UPI"
+                        item.paymentMode === "RAZORPAY"
                           ? "bg-blue-100 text-blue-800"
                           : item.paymentMode === "ADMIN"
                           ? "bg-green-100 text-green-800"
+                          : item.paymentMode === "AGENT"
+                          ? "bg-purple-100 text-purple-800"
                           : item.paymentMode === "DUMMY"
                           ? "bg-yellow-100 text-yellow-800"
                           : "bg-gray-100 text-gray-800"
                       }`}
                     >
                       {item.paymentMode || "N/A"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
+                    {item.transactionId || "N/A"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-3 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">
+                      {item.agentId || "FLYOLA"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                        item.userRole === "1"
+                          ? "bg-red-100 text-red-800"
+                          : item.userRole === "2"
+                          ? "bg-blue-100 text-blue-800"
+                          : item.userRole === "3"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {item.userRole === "1" ? "Admin" : item.userRole === "2" ? "Agent" : item.userRole === "3" ? "User" : "Unknown"}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -585,7 +626,7 @@ export default function AllBookingsPage() {
               ))
             ) : (
               <tr>
-                <td colSpan={19} className="px-6 py-8 text-center text-gray-600">
+                <td colSpan={22} className="px-6 py-8 text-center text-gray-600">
                   {searchTerm ? "No records match your search." : error || "No bookings available."}
                 </td>
               </tr>
