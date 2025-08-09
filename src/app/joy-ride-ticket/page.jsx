@@ -11,13 +11,16 @@ export default function JoyrideTicketPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const bookingData = localStorage.getItem('recentBooking');
-    if (bookingData) {
-      setBooking(JSON.parse(bookingData));
-    } else {
-      setError('No booking data found. Please book a joyride first.');
-      // Optionally redirect after a delay or not at all
-      // setTimeout(() => router.push('/joyride-booking'), 3000);
+    // Check if we're in the browser environment
+    if (typeof window !== 'undefined') {
+      const bookingData = localStorage.getItem('recentBooking');
+      if (bookingData) {
+        setBooking(JSON.parse(bookingData));
+      } else {
+        setError('No booking data found. Please book a joyride first.');
+        // Optionally redirect after a delay or not at all
+        // setTimeout(() => router.push('/joyride-booking'), 3000);
+      }
     }
 
     // Removed the cleanup function to prevent clearing localStorage prematurely
@@ -192,7 +195,9 @@ export default function JoyrideTicketPage() {
     doc.save('joyride-ticket.pdf');
 
     // Clear localStorage after downloading the PDF
-    localStorage.removeItem('recentBooking');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('recentBooking');
+    }
   };
 
   if (!booking && !error) {

@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import BASE_URL from "@/baseUrl/baseUrl";
 
-const DebugTicketPage = () => {
+const DebugTicketContent = () => {
   const [apiData, setApiData] = useState(null);
   const [formattedData, setFormattedData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -213,6 +213,18 @@ const DebugTicketPage = () => {
         </ul>
       </div>
     </div>
+  );
+};
+
+const DebugTicketPage = () => {
+  return (
+    <Suspense fallback={
+      <div style={{ padding: "40px", fontFamily: "'Inter', sans-serif" }}>
+        <h1>Loading debug page...</h1>
+      </div>
+    }>
+      <DebugTicketContent />
+    </Suspense>
   );
 };
 
