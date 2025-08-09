@@ -85,9 +85,7 @@ export function AuthProvider({ children }) {
     router.push("/sign-in");
   };
 
-  if (authState.isLoading) {
-    return <div>Loading authentication…</div>;
-  }
+  
 
   return (
     <AuthContext.Provider value={{ authState, setAuthState, login, logout }}>

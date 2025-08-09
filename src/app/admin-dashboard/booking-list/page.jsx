@@ -112,6 +112,7 @@ export default function AllBookingsPage() {
                     `${BASE_URL}/payments`,                  // 5
                     `${BASE_URL}/flights`,                   // 6
                     `${BASE_URL}/users/all`,                 // 7
+                    `${BASE_URL}/bookings/irctc-bookings`,   // 8 - IRCTC bookings
                 ];
 
                 // 1) fetch all
@@ -170,6 +171,7 @@ export default function AllBookingsPage() {
                     paymentData,
                     flightsData,
                     usersData,
+                    irctcBookingsData,
                 ] = data;
 
                 // 4) build maps
@@ -203,8 +205,17 @@ export default function AllBookingsPage() {
                 setAgentMap(agentMap);
                 setUserRoleMap(userRoleMap);
 
-                // 5) merge
-                const merged = bookingsData
+                // 5) Process IRCTC bookings data
+                const processedIrctcBookings = Array.isArray(irctcBookingsData?.data) 
+                    ? irctcBookingsData.data 
+                    : Array.isArray(irctcBookingsData) 
+                    ? irctcBookingsData 
+                    : [];
+
+                console.log('IRCTC Bookings Data:', processedIrctcBookings);
+
+                // 6) merge regular bookings
+                const mergedRegularBookings = bookingsData
                     .map((booking) => {
                         // find matching seat
                         const matchSeat =
@@ -260,8 +271,45 @@ export default function AllBookingsPage() {
                                 airportMap[
                                 booking.FlightSchedule?.arrival_airport_id
                                 ] || "N/A",
+                            bookingSource: "FLYOLA", // Mark as regular booking
                         };
                     });
+
+                // 7) merge IRCTC bookings
+                const mergedIrctcBookings = processedIrctcBookings
+                    .map((booking) => {
+                        // passengers list
+                        const passengers = Array.isArray(booking.Passengers)
+                            ? booking.Passengers.filter((p) => p?.name)
+                            : [];
+
+                        // seat labels
+                        const seatLabels = Array.isArray(booking.BookedSeats)
+                            ? booking.BookedSeats.map((s) => s.seat_label).join(", ")
+                            : booking.seatLabels || "N/A";
+
+                        return {
+                            ...booking,
+                            FlightSchedule: booking.FlightSchedule || {},
+                            booked_seat: seatLabels,
+                            passengers,
+                            flightNumber: flightMap[booking.schedule_id] || "N/A",
+                            billingName: booking.billing?.billing_name || "N/A",
+                            paymentMode: booking.Payments?.[0]?.payment_mode || "IRCTC",
+                            agentId: "IRCTC", // Mark as IRCTC booking
+                            userRole: userRoleMap[booking.bookedUserId] || "Unknown",
+                            paymentId: booking.Payments?.[0]?.payment_id || "IRCTC_PAYMENT",
+                            transactionId: booking.transactionId || paymentMap[booking.id] || "IRCTC_TXN",
+                            departureAirportName:
+                                airportMap[booking.FlightSchedule?.departure_airport_id] || "N/A",
+                            arrivalAirportName:
+                                airportMap[booking.FlightSchedule?.arrival_airport_id] || "N/A",
+                            bookingSource: "IRCTC", // Mark as IRCTC booking
+                        };
+                    });
+
+                // 8) Combine all bookings
+                const merged = [...mergedRegularBookings, ...mergedIrctcBookings];
 
                 // 6) sort by latest flight date first, then by booking date
                 const sortedMerged = merged.sort((a, b) => {
@@ -543,6 +591,7 @@ export default function AllBookingsPage() {
                     TransactionId: item.transactionId || "N/A",
                     PaymentId: item.paymentId || "N/A",
                     AgentId: item.agentId || "FLYOLA",
+                    BookingSource: item.bookingSource || "FLYOLA",
                     UserRole: item.userRole === "1" ? "Admin" : item.userRole === "2" ? "Booking Agent" : item.userRole === "3" ? "Regular User" : "Unknown",
                     DepartureTime: item.FlightSchedule?.departure_time || "N/A",
                     ArrivalTime: item.FlightSchedule?.arrival_time || "N/A",
@@ -592,10 +641,22 @@ export default function AllBookingsPage() {
     // Agent options
     const agentOptions = useMemo(() => {
         const options = [{ value: "all", label: "All Agents" }];
+        
+        // Add IRCTC option
+        options.push({ value: "IRCTC", label: "IRCTC" });
+        
+        // Add other agents from agentMap
         Object.entries(agentMap).forEach(([id, agentId]) => {
-            options.push({ value: agentId, label: agentId });
+            if (agentId !== "IRCTC") { // Avoid duplicates
+                options.push({ value: agentId, label: agentId });
+            }
         });
-        return options;
+        
+        return options.sort((a, b) => {
+            if (a.value === "all") return -1;
+            if (b.value === "all") return 1;
+            return a.label.localeCompare(b.label);
+        });
     }, [agentMap]);
 
     // Role options
@@ -1167,6 +1228,7 @@ ookings Table */}
                                     { key: 'transactionId', label: 'Transaction ID', sortable: false, width: 'min-w-[140px]' },
                                     { key: 'paymentId', label: 'Payment ID', sortable: false, width: 'min-w-[140px]' },
                                     { key: 'agentId', label: 'Agent ID', sortable: true, width: 'min-w-[120px]' },
+                                    { key: 'bookingSource', label: 'Source', sortable: true, width: 'min-w-[100px]' },
                                     { key: 'userRole', label: 'User Role', sortable: true, width: 'min-w-[120px]' },
                                     { key: 'departure_time', label: 'Dep Time', sortable: false, width: 'min-w-[120px]' },
                                     { key: 'arrival_time', label: 'Arr Time', sortable: false, width: 'min-w-[120px]' },
@@ -1191,7 +1253,7 @@ ookings Table */}
                         <tbody className="divide-y divide-slate-200">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={24} className="px-6 py-12 text-center">
+                                    <td colSpan={25} className="px-6 py-12 text-center">
                                         <div className="flex flex-col items-center gap-3">
                                             <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
                                             <span className="text-slate-500">Loading bookings...</span>
@@ -1258,6 +1320,15 @@ ookings Table */}
                                             {booking.agentId}
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                booking.bookingSource === 'IRCTC' 
+                                                    ? 'bg-orange-100 text-orange-800' 
+                                                    : 'bg-blue-100 text-blue-800'
+                                            }`}>
+                                                {booking.bookingSource || 'FLYOLA'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap">
                                             {getRoleBadge(booking.userRole)}
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap text-slate-700">
@@ -1297,7 +1368,7 @@ ookings Table */}
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={24} className="px-6 py-12 text-center">
+                                    <td colSpan={25} className="px-6 py-12 text-center">
                                         <div className="flex flex-col items-center gap-3">
                                             <CalendarDaysIcon className="w-12 h-12 text-slate-300" />
                                             <div>
