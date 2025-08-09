@@ -34,7 +34,7 @@ export default function AllBookingsPage() {
     const router = useRouter();
 
     const [allData, setAllData] = useState([]);
-    const [status, setStatus] = useState("Confirmed");
+    const [status, setStatus] = useState("All Booking");
     const [isLoading, setIsLoading] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState("");
@@ -220,6 +220,18 @@ export default function AllBookingsPage() {
                 // Debug: Check how many IRCTC bookings are in regular bookings
                 const irctcInRegular = bookingsData.filter(b => agentMap[b.agentId] === "IRCTC");
                 console.log('IRCTC bookings found in regular endpoint:', irctcInRegular.length);
+                
+                // Debug: Log specific booking details
+                console.log('Sample regular bookings with agentId:', bookingsData.slice(0, 3).map(b => ({
+                    id: b.id,
+                    pnr: b.pnr,
+                    agentId: b.agentId,
+                    mappedAgent: agentMap[b.agentId],
+                    bookingStatus: b.bookingStatus
+                })));
+                
+                // Debug: Check current status filter
+                console.log('Current status filter:', status);
 
                 // 6) merge regular bookings
                 const mergedRegularBookings = bookingsData
@@ -605,8 +617,7 @@ export default function AllBookingsPage() {
                     Passengers: item.noOfPassengers || 0,
                     PassengerNames: passengerNames,
                     BillingName: item.billingName || "N/A",
-                    Sector: item.schedule_id || "N/A",
-                    FlightNumber: item.flightNumber || "N/A",
+
                     BookedSeats: item.booked_seat || "N/A",
                     TotalFare: item.totalFare ? parseFloat(item.totalFare).toFixed(2) : "N/A",
                     BookingStatus: item.bookingStatus || "N/A",
@@ -1242,8 +1253,6 @@ ookings Table */}
                                     { key: 'noOfPassengers', label: 'Passengers', sortable: true, width: 'min-w-[100px]' },
                                     { key: 'passengers', label: 'Names', sortable: false, width: 'min-w-[320px]' },
                                     { key: 'billingName', label: 'Billing Name', sortable: false, width: 'min-w-[200px]' },
-                                    { key: 'schedule_id', label: 'Sector', sortable: false, width: 'min-w-[100px]' },
-                                    { key: 'flightNumber', label: 'Flight', sortable: false, width: 'min-w-[100px]' },
                                     { key: 'booked_seat', label: 'Seats', sortable: false, width: 'min-w-[120px]' },
                                     { key: 'totalFare', label: 'Price', sortable: true, width: 'min-w-[100px]' },
                                     { key: 'bookingStatus', label: 'Status', sortable: true, width: 'min-w-[120px]' },
@@ -1276,7 +1285,7 @@ ookings Table */}
                         <tbody className="divide-y divide-slate-200">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={25} className="px-6 py-12 text-center">
+                                    <td colSpan={23} className="px-6 py-12 text-center">
                                         <div className="flex flex-col items-center gap-3">
                                             <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
                                             <span className="text-slate-500">Loading bookings...</span>
@@ -1314,12 +1323,6 @@ ookings Table */}
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap text-slate-700">
                                             {booking.billingName || "N/A"}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
-                                            {booking.schedule_id || "N/A"}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-slate-700">
-                                            {booking.flightNumber || "N/A"}
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap text-slate-700">
                                             {booking.booked_seat || "N/A"}
@@ -1390,7 +1393,7 @@ ookings Table */}
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={25} className="px-6 py-12 text-center">
+                                    <td colSpan={23} className="px-6 py-12 text-center">
                                         <div className="flex flex-col items-center gap-3">
                                             <CalendarDaysIcon className="w-12 h-12 text-slate-300" />
                                             <div>

@@ -267,10 +267,7 @@ export default function AllBookingsPage() {
       Email: item.email_id || "N/A",
       ContactNumber: item.contact_no || "N/A",
       Passengers: item.noOfPassengers || 0,
-      PassengerNames: item.passengerNames || item.passengers?.map((p) => p.name).join(", ") || "N/A",
       BillingName: item.billingName || "N/A",
-      Sector: item.schedule_id || "N/A",
-      FlightNumber: item.flightNumber || "N/A",
       BookedSeats: item.booked_seat || "N/A",
       TotalFare: item.totalFare ? parseFloat(item.totalFare).toFixed(2) : "N/A",
       BookingStatus: item.bookingStatus || "N/A",
@@ -458,10 +455,7 @@ export default function AllBookingsPage() {
                 "Email",
                 "Phone",
                 "Passengers",
-                "Names",
                 "Billing Name",
-                "Sector",
-                "Flight Number",
                 "Seats",
                 "Price",
                 "Status",
@@ -487,7 +481,7 @@ export default function AllBookingsPage() {
           <tbody className="divide-y divide-gray-100">
             {!error && isLoading ? (
               <tr>
-                <td colSpan={22} className="px-6 py-8 text-center">
+                <td colSpan={20} className="px-6 py-8 text-center">
                   <div className="flex justify-center items-center gap-2">
                     <svg
                       className="animate-spin h-6 w-6 text-blue-500"
@@ -534,18 +528,7 @@ export default function AllBookingsPage() {
                   <td className="px-6 py-4 whitespace-nowrap">{item.email_id || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.contact_no || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.noOfPassengers || 0}</td>
-
-
-
-
-                  <td className="px-4 py-2 whitespace-nowrap w-80">
-                                            <div className="max-w-[320px] truncate text-slate-700" title={item.passengers?.map((p) => p.name).join(", ") || "N/A"}>
-                                                {item.passengers?.map((p) => p.name).join(", ") || "N/A"}
-                                            </div>
-                                        </td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.billingName || "N/A"}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{item.schedule_id || "N/A"}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{item.flightNumber || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.booked_seat || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {item.totalFare ? `₹${parseFloat(item.totalFare).toFixed(2)}` : "N/A"}
