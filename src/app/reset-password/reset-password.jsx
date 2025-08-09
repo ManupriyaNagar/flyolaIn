@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import BASE_URL from "@/baseUrl/baseUrl";
 
-const ResetPassword = () => {
+// Loading component for Suspense fallback
+const ResetPasswordLoadingFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="flex flex-col items-center gap-4">
+      <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <p className="text-gray-600">Loading reset password page...</p>
+    </div>
+  </div>
+);
+
+// Main content component that uses useSearchParams
+const ResetPasswordContent = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -85,6 +96,15 @@ const ResetPassword = () => {
         </CardContent>
       </Card>
     </div>
+  );
+};
+
+// Main component with Suspense boundary
+const ResetPassword = () => {
+  return (
+    <Suspense fallback={<ResetPasswordLoadingFallback />}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 };
 

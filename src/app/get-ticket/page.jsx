@@ -1,11 +1,52 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import ProfessionalTicket from "../../components/SingleTicket/ProfessionalTicket";
 import BASE_URL from "@/baseUrl/baseUrl";
 
-const GetTicketPage = () => {
+// Loading component for Suspense fallback
+const GetTicketLoadingFallback = () => (
+  <div style={{
+    backgroundColor: "#f9fafb",
+    minHeight: "100vh",
+    paddingTop: "80px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+  }}>
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: "16px",
+      padding: "24px",
+      backgroundColor: "white",
+      borderRadius: "8px",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+    }}>
+      <div style={{
+        width: "24px",
+        height: "24px",
+        borderRadius: "50%",
+        border: "2px solid #e2e8f0",
+        borderTopColor: "#1e40af",
+        animation: "spin 1s linear infinite"
+      }} />
+      <p style={{
+        fontSize: "14px",
+        fontWeight: "500",
+        color: "#475569"
+      }}>
+        Loading ticket page...
+      </p>
+    </div>
+  </div>
+);
+
+// Main content component that uses useSearchParams
+const GetTicketContent = () => {
   const [ticketData, setTicketData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -543,6 +584,15 @@ const GetTicketPage = () => {
         </>
       )}
     </div>
+  );
+};
+
+// Main component with Suspense boundary
+const GetTicketPage = () => {
+  return (
+    <Suspense fallback={<GetTicketLoadingFallback />}>
+      <GetTicketContent />
+    </Suspense>
   );
 };
 

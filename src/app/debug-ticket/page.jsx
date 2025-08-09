@@ -1,10 +1,40 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import BASE_URL from "@/baseUrl/baseUrl";
 
-const DebugTicketPage = () => {
+// Loading component for Suspense fallback
+const LoadingFallback = () => (
+  <div style={{ 
+    padding: "40px", 
+    fontFamily: "'Inter', sans-serif",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: "50vh"
+  }}>
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: "16px"
+    }}>
+      <div style={{
+        width: "32px",
+        height: "32px",
+        border: "3px solid #e2e8f0",
+        borderTopColor: "#1e40af",
+        borderRadius: "50%",
+        animation: "spin 1s linear infinite"
+      }} />
+      <h1>Loading debug page...</h1>
+    </div>
+  </div>
+);
+
+// Main content component that uses useSearchParams
+const DebugTicketContent = () => {
   const [apiData, setApiData] = useState(null);
   const [formattedData, setFormattedData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -213,6 +243,15 @@ const DebugTicketPage = () => {
         </ul>
       </div>
     </div>
+  );
+};
+
+// Main component with Suspense boundary
+const DebugTicketPage = () => {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <DebugTicketContent />
+    </Suspense>
   );
 };
 

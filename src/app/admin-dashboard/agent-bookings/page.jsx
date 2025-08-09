@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { 
   FaArrowLeft,
@@ -32,7 +32,18 @@ import {
 import Link from "next/link";
 import BASE_URL from "@/baseUrl/baseUrl";
 
-export default function AgentBookingsPage() {
+// Loading component for Suspense fallback
+const AgentBookingsLoadingFallback = () => (
+  <div className="flex items-center justify-center min-h-96">
+    <div className="flex flex-col items-center gap-4">
+      <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <p className="text-gray-600">Loading agent bookings...</p>
+    </div>
+  </div>
+);
+
+// Main content component that uses useSearchParams
+function AgentBookingsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const agentId = searchParams.get('agentId');
@@ -587,5 +598,14 @@ export default function AgentBookingsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function AgentBookingsPage() {
+  return (
+    <Suspense fallback={<AgentBookingsLoadingFallback />}>
+      <AgentBookingsContent />
+    </Suspense>
   );
 }
