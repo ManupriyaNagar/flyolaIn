@@ -69,8 +69,8 @@ export default function Loader({ onLoadingComplete = () => { }, inline = false, 
                 key={i}
                 className="absolute w-2 h-2 bg-white/20 rounded-full"
                 initial={{
-                  x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1200),
-                  y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 800),
+                  x: Math.random() * window.innerWidth,
+                  y: Math.random() * window.innerHeight,
                   scale: 0
                 }}
                 animate={{

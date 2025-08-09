@@ -206,13 +206,20 @@ export default function AllBookingsPage() {
                 setUserRoleMap(userRoleMap);
 
                 // 5) Process IRCTC bookings data
-                const processedIrctcBookings = Array.isArray(irctcBookingsData?.data) 
-                    ? irctcBookingsData.data 
-                    : Array.isArray(irctcBookingsData) 
-                    ? irctcBookingsData 
-                    : [];
+                const processedIrctcBookings = Array.isArray(irctcBookingsData?.data)
+                    ? irctcBookingsData.data
+                    : Array.isArray(irctcBookingsData)
+                        ? irctcBookingsData
+                        : [];
 
                 console.log('IRCTC Bookings Data:', processedIrctcBookings);
+                console.log('Agent Map:', agentMap);
+                console.log('Regular Bookings Count:', bookingsData.length);
+                console.log('IRCTC Bookings Count:', processedIrctcBookings.length);
+
+                // Debug: Check how many IRCTC bookings are in regular bookings
+                const irctcInRegular = bookingsData.filter(b => agentMap[b.agentId] === "IRCTC");
+                console.log('IRCTC bookings found in regular endpoint:', irctcInRegular.length);
 
                 // 6) merge regular bookings
                 const mergedRegularBookings = bookingsData
@@ -271,7 +278,7 @@ export default function AllBookingsPage() {
                                 airportMap[
                                 booking.FlightSchedule?.arrival_airport_id
                                 ] || "N/A",
-                            bookingSource: "FLYOLA", // Mark as regular booking
+                            bookingSource: (agentMap[booking.agentId] === "IRCTC") ? "IRCTC" : "FLYOLA", // Correctly identify booking source
                         };
                     });
 
@@ -308,8 +315,24 @@ export default function AllBookingsPage() {
                         };
                     });
 
-                // 8) Combine all bookings
-                const merged = [...mergedRegularBookings, ...mergedIrctcBookings];
+                // 8) Combine all bookings and remove duplicates
+                // Create a Map to track unique bookings by ID to avoid duplicates
+                const bookingMap = new Map();
+
+                // Add regular bookings first
+                mergedRegularBookings.forEach(booking => {
+                    bookingMap.set(booking.id, booking);
+                });
+
+                // Add IRCTC bookings, but only if they're not already in the map
+                mergedIrctcBookings.forEach(booking => {
+                    if (!bookingMap.has(booking.id)) {
+                        bookingMap.set(booking.id, booking);
+                    }
+                });
+
+                // Convert back to array
+                const merged = Array.from(bookingMap.values());
 
                 // 6) sort by latest flight date first, then by booking date
                 const sortedMerged = merged.sort((a, b) => {
@@ -390,9 +413,9 @@ export default function AllBookingsPage() {
 
     const handleCancellationSuccess = (cancellationData) => {
         // Update the booking status in the local state
-        setAllData(prevData => 
-            prevData.map(booking => 
-                booking.id === cancellationData.bookingId 
+        setAllData(prevData =>
+            prevData.map(booking =>
+                booking.id === cancellationData.bookingId
                     ? { ...booking, bookingStatus: 'CANCELLED' }
                     : booking
             )
@@ -641,17 +664,17 @@ export default function AllBookingsPage() {
     // Agent options
     const agentOptions = useMemo(() => {
         const options = [{ value: "all", label: "All Agents" }];
-        
+
         // Add IRCTC option
         options.push({ value: "IRCTC", label: "IRCTC" });
-        
+
         // Add other agents from agentMap
         Object.entries(agentMap).forEach(([id, agentId]) => {
             if (agentId !== "IRCTC") { // Avoid duplicates
                 options.push({ value: agentId, label: agentId });
             }
         });
-        
+
         return options.sort((a, b) => {
             if (a.value === "all") return -1;
             if (b.value === "all") return 1;
@@ -1320,11 +1343,10 @@ ookings Table */}
                                             {booking.agentId}
                                         </td>
                                         <td className="px-4 py-2 whitespace-nowrap">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                booking.bookingSource === 'IRCTC' 
-                                                    ? 'bg-orange-100 text-orange-800' 
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${booking.bookingSource === 'IRCTC'
+                                                    ? 'bg-orange-100 text-orange-800'
                                                     : 'bg-blue-100 text-blue-800'
-                                            }`}>
+                                                }`}>
                                                 {booking.bookingSource || 'FLYOLA'}
                                             </span>
                                         </td>
