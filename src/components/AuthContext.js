@@ -24,6 +24,11 @@ export function AuthProvider({ children }) {
     if (token && saved) {
       const parsed = JSON.parse(saved);
       setAuthState({ ...parsed, isLoading: true });
+      
+      // Ensure token is also in cookies for middleware (for existing users)
+      if (!document.cookie.includes('token=')) {
+        document.cookie = `token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax; Secure=${window.location.protocol === 'https:'}`;
+      }
 
       // Try to verify the token with retry logic for hosted environments
       const verifyToken = async (retryCount = 0) => {
@@ -78,8 +83,11 @@ export function AuthProvider({ children }) {
   const login = (token, user) => {
     console.log('[AuthContext] Login called with:', { token: token ? 'present' : 'missing', user });
 
-    // Store token
+    // Store token in both localStorage and cookies
     localStorage.setItem("token", token);
+    
+    // Set cookie with proper settings for middleware
+    document.cookie = `token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax; Secure=${window.location.protocol === 'https:'}`;
 
     // Update auth state
     const newState = {
@@ -99,6 +107,13 @@ export function AuthProvider({ children }) {
     console.log('[AuthContext] Logout called');
     localStorage.removeItem("token");
     localStorage.removeItem("authState");
+    localStorage.removeItem("userData");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("userData");
+    
+    // Clear the cookie
+    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+    
     setAuthState({ ...INITIAL, isLoading: false });
     router.push("/sign-in");
   };
