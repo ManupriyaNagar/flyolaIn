@@ -25,27 +25,29 @@ export function AuthProvider({ children }) {
       const parsed = JSON.parse(saved);
       setAuthState({ ...parsed, isLoading: true });
 
-      (async () => {
+      // Try to verify the token with retry logic for hosted environments
+      const verifyToken = async (retryCount = 0) => {
         try {
           const { id, email, role } = await API.users.getProfile();
           const newState = {
             isLoading: false,
             isLoggedIn: true,
-            user: { id, email, role: String(role) }, // Include role
-            userRole: String(role), // Keep for compatibility
+            user: { id, email, role: String(role) },
+            userRole: String(role),
           };
-          console.log("[AuthProvider] Verified authState:", newState); // Debug
+          console.log("[AuthProvider] Verified authState:", newState);
           setAuthState(newState);
           localStorage.setItem("authState", JSON.stringify(newState));
         } catch (err) {
           console.error("[AuthContext] Profile fetch error:", err);
 
-          // Log out if error is auth-related (401/403) or user not found (404)
-          if (err?.response?.status === 401 ||
-            err?.response?.status === 403 ||
-            err?.response?.status === 404 ||
-            err?.message?.includes("User not found")) {
-            console.log("[AuthContext] Auth error detected, logging out user");
+          // Only log out for specific authentication errors
+          const isAuthError = err?.response?.status === 401 || 
+                             err?.response?.status === 403 ||
+                             (err?.response?.status === 404 && err?.message?.includes("User not found"));
+
+          if (isAuthError) {
+            console.log("[AuthContext] Authentication error detected, logging out user");
             setAuthState({ ...INITIAL, isLoading: false });
             localStorage.removeItem("authState");
             localStorage.removeItem("token");
@@ -54,12 +56,20 @@ export function AuthProvider({ children }) {
             sessionStorage.removeItem("userData");
             router.push("/sign-in");
           } else {
-            // For other errors (network/server), keep user logged in and just stop loading
-            setAuthState((prev) => ({ ...prev, isLoading: false }));
-            console.error("[AuthContext] Non-auth error during profile fetch:", err);
+            // For network/server errors, retry once after a delay, then keep user logged in
+            if (retryCount === 0) {
+              console.log("[AuthContext] Network/server error, retrying in 2 seconds...");
+              setTimeout(() => verifyToken(1), 2000);
+            } else {
+              console.log("[AuthContext] Retry failed, keeping user logged in with cached data");
+              // Use cached user data and keep them logged in
+              setAuthState((prev) => ({ ...prev, isLoading: false }));
+            }
           }
         }
-      })();
+      };
+
+      verifyToken();
     } else {
       setAuthState({ ...INITIAL, isLoading: false });
     }
