@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 const Header2 = () => {
   return (
     <motion.header 
-      className="bg-gradient-to-r from-blue-900 via-indigo-800 to-purple-700 shadow-2xl border-b border-indigo-300 rounded-2xl mt-2 overflow-hidden relative"
+      className="bg-gradient-to-r from-blue-700 via-blue-700 to-blue-700 shadow-2xl border-b border-indigo-300 rounded-2xl mt-2 overflow-hidden relative"
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}

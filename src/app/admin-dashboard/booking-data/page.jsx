@@ -9,6 +9,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { debounce } from "lodash";
 import BASE_URL from "@/baseUrl/baseUrl";
+import BookingDetailsModal from "@/components/BookingDetailsModal";
 
 const BOOKINGS_PER_PAGE = 50;
 
@@ -24,6 +25,8 @@ export default function AllBookingsPage() {
   const [airportMap, setAirportMap] = useState({});
   const [downloadRange, setDownloadRange] = useState("page");
   const [error, setError] = useState(null);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [showBookingModal, setShowBookingModal] = useState(false);
 
   // Redirect if not admin
   useEffect(() => {
@@ -337,8 +340,9 @@ export default function AllBookingsPage() {
   };
 
   // View booking handler
-  const handleViewBooking = (bookingId) => {
-    router.push(`/booking-details/${bookingId}`);
+  const handleViewBooking = (booking) => {
+    setSelectedBooking(booking);
+    setShowBookingModal(true);
   };
 
   // JSX
@@ -357,11 +361,10 @@ export default function AllBookingsPage() {
               setSearchTerm("");
               setCurrentPage(1);
             }}
-            className={`px-5 py-2 rounded-full font-medium transition-all duration-200 ${
-              status === filter
-                ? "bg-blue-600 text-white shadow-md"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
+            className={`px-5 py-2 rounded-full font-medium transition-all duration-200 ${status === filter
+              ? "bg-blue-600 text-white shadow-md"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
             aria-pressed={status === filter}
           >
             {filter}
@@ -450,11 +453,12 @@ export default function AllBookingsPage() {
               {[
                 "Booking ID",
                 "PNR",
+                "Flight No",
                 "Fly Date",
                 "Booking Date",
                 "Email",
                 "Phone",
-                "Passengers",
+                "Passenger Names",
                 "Billing Name",
                 "Seats",
                 "Price",
@@ -465,8 +469,6 @@ export default function AllBookingsPage() {
                 "User Role",
                 "Dep Time",
                 "Arr Time",
-                "From",
-                "To",
                 "Action",
               ].map((h) => (
                 <th
@@ -519,6 +521,7 @@ export default function AllBookingsPage() {
                     {item.bookingNo || "N/A"}
                   </th>
                   <td className="px-6 py-4 whitespace-nowrap">{item.pnr || "N/A"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{item.flightNumber || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {item.bookDate ? new Date(item.bookDate).toLocaleDateString() : "N/A"}
                   </td>
@@ -527,7 +530,7 @@ export default function AllBookingsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.email_id || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.contact_no || "N/A"}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{item.noOfPassengers || 0}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{item.passengerNames || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.billingName || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{item.booked_seat || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -535,32 +538,30 @@ export default function AllBookingsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                        item.bookingStatus === "Confirmed"
-                          ? "bg-green-100 text-green-800"
-                          : item.bookingStatus === "Pending"
+                      className={`px-3 py-1 text-xs font-semibold rounded-full ${item.bookingStatus === "Confirmed"
+                        ? "bg-green-100 text-green-800"
+                        : item.bookingStatus === "Pending"
                           ? "bg-yellow-100 text-yellow-800"
                           : item.bookingStatus === "Cancelled"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
                     >
                       {item.bookingStatus || "N/A"}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                        item.paymentMode === "RAZORPAY"
-                          ? "bg-blue-100 text-blue-800"
-                          : item.paymentMode === "ADMIN"
+                      className={`px-3 py-1 text-xs font-semibold rounded-full ${item.paymentMode === "RAZORPAY"
+                        ? "bg-blue-100 text-blue-800"
+                        : item.paymentMode === "ADMIN"
                           ? "bg-green-100 text-green-800"
                           : item.paymentMode === "AGENT"
-                          ? "bg-purple-100 text-purple-800"
-                          : item.paymentMode === "DUMMY"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
+                            ? "bg-purple-100 text-purple-800"
+                            : item.paymentMode === "DUMMY"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-gray-100 text-gray-800"
+                        }`}
                     >
                       {item.paymentMode || "N/A"}
                     </span>
@@ -575,15 +576,14 @@ export default function AllBookingsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                        item.userRole === "1"
-                          ? "bg-red-100 text-red-800"
-                          : item.userRole === "2"
+                      className={`px-3 py-1 text-xs font-semibold rounded-full ${item.userRole === "1"
+                        ? "bg-red-100 text-red-800"
+                        : item.userRole === "2"
                           ? "bg-blue-100 text-blue-800"
                           : item.userRole === "3"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
+                            ? "bg-green-100 text-green-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
                     >
                       {item.userRole === "1" ? "Admin" : item.userRole === "2" ? "Agent" : item.userRole === "3" ? "User" : "Unknown"}
                     </span>
@@ -594,11 +594,9 @@ export default function AllBookingsPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     {item.FlightSchedule?.arrival_time || "N/A"}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{item.departureAirportName || "N/A"}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{item.arrivalAirportName || "N/A"}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
-                      onClick={() => handleViewBooking(item.id)}
+                      onClick={() => handleViewBooking(item)}
                       className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-150"
                       aria-label={`View booking ${item.bookingNo || "N/A"}`}
                     >
@@ -624,11 +622,10 @@ export default function AllBookingsPage() {
           <button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
-              currentPage === 1
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${currentPage === 1
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
             aria-label="Previous page"
           >
             Previous
@@ -642,11 +639,10 @@ export default function AllBookingsPage() {
               <button
                 key={item}
                 onClick={() => setCurrentPage(item)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
-                  currentPage === item
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${currentPage === item
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
                 aria-label={`Page ${item}`}
               >
                 {item}
@@ -656,17 +652,26 @@ export default function AllBookingsPage() {
           <button
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
-              currentPage === totalPages
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${currentPage === totalPages
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
             aria-label="Next page"
           >
             Next
           </button>
         </div>
       )}
+
+      {/* Booking Details Modal */}
+      <BookingDetailsModal
+        booking={selectedBooking}
+        isOpen={showBookingModal}
+        onClose={() => {
+          setShowBookingModal(false);
+          setSelectedBooking(null);
+        }}
+      />
     </div>
   );
 }

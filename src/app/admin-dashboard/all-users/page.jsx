@@ -76,7 +76,7 @@ const AllUsersPage = () => {
 
         console.log("[AllUsersPage] Fetching users with token:", token ? "present" : "missing");
         console.log("[AllUsersPage] Request URL:", `${BASE_URL}/users/all`);
-        
+
         const res = await fetch(`${BASE_URL}/users/all`, {
           method: "GET",
           headers: {
@@ -84,9 +84,9 @@ const AllUsersPage = () => {
             Authorization: `Bearer ${token}`,
           },
         });
-        
+
         console.log("[AllUsersPage] Response status:", res.status);
-        
+
         if (!res.ok) {
           if (res.status === 401) {
             throw new Error("Authentication failed. Please log in again.");
@@ -98,17 +98,17 @@ const AllUsersPage = () => {
             throw new Error(`Server error: ${res.status} ${res.statusText}`);
           }
         }
-        
+
         const data = await res.json();
         console.log("[AllUsersPage] Users data received:", data);
-        
+
         setUsers(Array.isArray(data) ? data : []);
         toast.success(`Successfully loaded ${Array.isArray(data) ? data.length : 0} users`);
       } catch (err) {
         console.error("[AllUsersPage] Error fetching users:", err);
         setError(`Failed to load users: ${err.message}`);
         toast.error(`Failed to load users: ${err.message}`);
-        
+
         if (err.message.includes("Authentication") || err.message.includes("Access denied")) {
           setTimeout(() => router.push("/sign-in"), 2000);
         }
@@ -116,7 +116,7 @@ const AllUsersPage = () => {
         setLoading(false);
       }
     };
-    
+
     fetchUsers();
   }, [authState, router]);
 
@@ -133,13 +133,13 @@ const AllUsersPage = () => {
   const filteredUsers = useMemo(() => {
     let filtered = users.filter((user) => {
       const term = searchTerm.toLowerCase();
-      const matchesSearch = 
-        user.name?.toLowerCase().includes(term) || 
+      const matchesSearch =
+        user.name?.toLowerCase().includes(term) ||
         user.email?.toLowerCase().includes(term);
-      
-      const matchesRole = roleFilter === "all" || 
+
+      const matchesRole = roleFilter === "all" ||
         String(user.role) === String(roleFilter);
-      
+
       return matchesSearch && matchesRole;
     });
 
@@ -148,12 +148,12 @@ const AllUsersPage = () => {
       filtered.sort((a, b) => {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
-        
+
         if (typeof aValue === 'string') {
           aValue = aValue.toLowerCase();
           bValue = bValue.toLowerCase();
         }
-        
+
         if (aValue < bValue) {
           return sortConfig.direction === 'asc' ? -1 : 1;
         }
@@ -286,7 +286,7 @@ const AllUsersPage = () => {
           Authorization: `Bearer ${token}`,
         },
       });
-      
+
       if (usersResponse.ok) {
         const updatedUsers = await usersResponse.json();
         setUsers(updatedUsers);
@@ -306,7 +306,7 @@ const AllUsersPage = () => {
 
   const handleDelete = async () => {
     if (!showDeleteConfirm) return;
-    
+
     setLoading(true);
     try {
       const token = localStorage.getItem("token") || "";
@@ -317,11 +317,11 @@ const AllUsersPage = () => {
           Authorization: `Bearer ${token}`,
         },
       });
-      
+
       if (!response.ok) {
         throw new Error("Failed to delete user");
       }
-      
+
       setUsers(users.filter(u => u.id !== showDeleteConfirm.id));
       toast.success(`User ${showDeleteConfirm.name} deleted successfully!`);
     } catch (err) {
@@ -337,7 +337,7 @@ const AllUsersPage = () => {
     if (sortConfig.key !== columnKey) {
       return <ArrowsUpDownIcon className="w-4 h-4 text-slate-400" />;
     }
-    return sortConfig.direction === 'asc' ? 
+    return sortConfig.direction === 'asc' ?
       <ArrowsUpDownIcon className="w-4 h-4 text-blue-500 rotate-180" /> :
       <ArrowsUpDownIcon className="w-4 h-4 text-blue-500" />;
   };
@@ -376,7 +376,7 @@ const AllUsersPage = () => {
   return (
     <div className="space-y-8">
       <ToastContainer position="top-right" autoClose={3000} />
-      
+
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
@@ -388,7 +388,7 @@ const AllUsersPage = () => {
           </h1>
           <p className="text-slate-600 mt-2">Manage and monitor all system users</p>
         </div>
-        
+
         <button
           className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:from-emerald-600 hover:to-teal-600 transition-all duration-200 shadow-lg font-semibold"
           onClick={handleCreate}
@@ -479,7 +479,7 @@ const AllUsersPage = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Debug Information */}
           <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
             <h3 className="text-yellow-800 font-semibold mb-3">Debug Information</h3>
@@ -517,9 +517,8 @@ const AllUsersPage = () => {
                 ].map((column) => (
                   <th
                     key={column.key}
-                    className={`px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider ${
-                      column.sortable ? 'cursor-pointer hover:bg-slate-100 transition-colors' : ''
-                    }`}
+                    className={`px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider ${column.sortable ? 'cursor-pointer hover:bg-slate-100 transition-colors' : ''
+                      }`}
                     onClick={column.sortable ? () => handleSort(column.key) : undefined}
                   >
                     <div className="flex items-center gap-2">
@@ -549,10 +548,10 @@ const AllUsersPage = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         {user.avatarUrl ? (
-                          <img 
-                            src={user.avatarUrl} 
-                            alt={user.name} 
-                            className="w-10 h-10 rounded-full object-cover border-2 border-slate-200" 
+                          <img
+                            src={user.avatarUrl}
+                            alt={user.name}
+                            className="w-10 h-10 rounded-full object-cover border-2 border-slate-200"
                           />
                         ) : (
                           <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-semibold text-sm border-2 border-indigo-200">
@@ -650,11 +649,10 @@ const AllUsersPage = () => {
                     key={p}
                     onClick={() => setCurrentPage(p)}
                     disabled={loading}
-                    className={`px-3 py-2 rounded-lg transition-colors ${
-                      currentPage === p
-                        ? "bg-indigo-600 text-white"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    } disabled:opacity-50`}
+                    className={`px-3 py-2 rounded-lg transition-colors ${currentPage === p
+                      ? "bg-indigo-600 text-white"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      } disabled:opacity-50`}
                   >
                     {p}
                   </button>
@@ -684,7 +682,7 @@ const AllUsersPage = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-200">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-red-100 rounded-lg">
@@ -692,12 +690,12 @@ const AllUsersPage = () => {
               </div>
               <h3 className="text-lg font-semibold text-slate-900">Confirm Delete</h3>
             </div>
-            
+
             <p className="text-slate-600 mb-6">
-              Are you sure you want to delete user <strong>{showDeleteConfirm.name}</strong>? 
+              Are you sure you want to delete user <strong>{showDeleteConfirm.name}</strong>?
               This action cannot be undone.
             </p>
-            
+
             <div className="flex gap-3">
               <button
                 className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors font-medium"
@@ -724,7 +722,7 @@ const AllUsersPage = () => {
 
       {/* Create/Edit User Modal */}
       {(showCreateModal || showEditModal) && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -734,7 +732,7 @@ const AllUsersPage = () => {
                 {showEditModal ? 'Edit User' : 'Create New User'}
               </h3>
             </div>
-            
+
             <form onSubmit={handleFormSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -744,12 +742,12 @@ const AllUsersPage = () => {
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Email *
@@ -757,12 +755,12 @@ const AllUsersPage = () => {
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Password {showEditModal ? '(leave blank to keep current)' : '*'}
@@ -770,12 +768,12 @@ const AllUsersPage = () => {
                   <input
                     type="password"
                     value={formData.password}
-                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required={!showEditModal}
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Phone Number
@@ -783,18 +781,18 @@ const AllUsersPage = () => {
                   <input
                     type="tel"
                     value={formData.number}
-                    onChange={(e) => setFormData({...formData, number: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, number: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Role *
                   </label>
                   <select
                     value={formData.role}
-                    onChange={(e) => setFormData({...formData, role: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
@@ -803,7 +801,7 @@ const AllUsersPage = () => {
                     <option value="3">Regular User (Role 3)</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Date of Birth
@@ -811,18 +809,18 @@ const AllUsersPage = () => {
                   <input
                     type="date"
                     value={formData.dob}
-                    onChange={(e) => setFormData({...formData, dob: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Gender
                   </label>
                   <select
                     value={formData.gender}
-                    onChange={(e) => setFormData({...formData, gender: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select Gender</option>
@@ -831,7 +829,7 @@ const AllUsersPage = () => {
                     <option value="Other">Other</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     City
@@ -839,11 +837,11 @@ const AllUsersPage = () => {
                   <input
                     type="text"
                     value={formData.city}
-                    onChange={(e) => setFormData({...formData, city: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     State
@@ -851,12 +849,12 @@ const AllUsersPage = () => {
                   <input
                     type="text"
                     value={formData.state}
-                    onChange={(e) => setFormData({...formData, state: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
-              
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -889,7 +887,7 @@ const AllUsersPage = () => {
 
       {/* View User Modal */}
       {showViewModal && selectedUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl border border-slate-200">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-green-100 rounded-lg">
@@ -897,23 +895,23 @@ const AllUsersPage = () => {
               </div>
               <h3 className="text-xl font-semibold text-slate-900">User Details</h3>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-slate-500 mb-1">Name</label>
                 <p className="text-slate-900 font-medium">{selectedUser.name || 'N/A'}</p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-500 mb-1">Email</label>
                 <p className="text-slate-900">{selectedUser.email || 'N/A'}</p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-500 mb-1">Phone</label>
                 <p className="text-slate-900">{selectedUser.number || 'N/A'}</p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-500 mb-1">Role</label>
                 <div>
@@ -935,38 +933,38 @@ const AllUsersPage = () => {
                   )}
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-500 mb-1">Date of Birth</label>
                 <p className="text-slate-900">{selectedUser.dob ? new Date(selectedUser.dob).toLocaleDateString() : 'N/A'}</p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-500 mb-1">Gender</label>
                 <p className="text-slate-900">{selectedUser.gender || 'N/A'}</p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-500 mb-1">City</label>
                 <p className="text-slate-900">{selectedUser.city || 'N/A'}</p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-500 mb-1">State</label>
                 <p className="text-slate-900">{selectedUser.state || 'N/A'}</p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-500 mb-1">Joined</label>
                 <p className="text-slate-900">{selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleDateString() : 'N/A'}</p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-500 mb-1">User ID</label>
                 <p className="text-slate-900 font-mono">{selectedUser.id}</p>
               </div>
             </div>
-            
+
             <div className="flex gap-3 pt-6">
               <button
                 className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors font-medium"

@@ -26,6 +26,7 @@ import {
     BanknotesIcon,
 } from "@heroicons/react/24/outline";
 import AdminCancellationModal from "@/components/AdminCancellationModal";
+import BookingDetailsModal from "@/components/BookingDetailsModal";
 
 const BOOKINGS_PER_PAGE = 50;
 
@@ -53,6 +54,7 @@ export default function AllBookingsPage() {
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [showCancellationModal, setShowCancellationModal] = useState(false);
+    const [showBookingModal, setShowBookingModal] = useState(false);
 
     const [startBookingDate, endBookingDate] = bookingDateRange;
     const [startFlightDate, endFlightDate] = flightDateRange;
@@ -438,6 +440,12 @@ export default function AllBookingsPage() {
     // Check if booking can be cancelled by admin
     const canAdminCancelBooking = (booking) => {
         return booking.bookingStatus === 'CONFIRMED' || booking.bookingStatus === 'SUCCESS';
+    };
+
+    // Handle view booking
+    const handleViewBooking = (booking) => {
+        setSelectedBooking(booking);
+        setShowBookingModal(true);
     };
 
     // Filtered data
@@ -1371,7 +1379,7 @@ ookings Table */}
                                         <td className="px-4 py-2 whitespace-nowrap">
                                             <div className="flex items-center gap-2">
                                                 <button
-                                                    onClick={() => router.push(`/booking-details/${booking.id}`)}
+                                                    onClick={() => handleViewBooking(booking)}
                                                     className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                                                 >
                                                     <EyeIcon className="w-4 h-4" />
@@ -1460,6 +1468,16 @@ ookings Table */}
                 }}
                 booking={selectedBooking}
                 onCancellationSuccess={handleCancellationSuccess}
+            />
+
+            {/* Booking Details Modal */}
+            <BookingDetailsModal
+                booking={selectedBooking}
+                isOpen={showBookingModal}
+                onClose={() => {
+                    setShowBookingModal(false);
+                    setSelectedBooking(null);
+                }}
             />
         </div>
     );

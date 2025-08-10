@@ -323,9 +323,9 @@ const FlightCard = ({ flightSchedule, flights, airports, authState, dates, selec
 
             <motion.button
               onClick={handleBookNowClick}
-              className={`w-full py-4 px-6 rounded-xl text-base font-semibold transition-all duration-200 ${isSoldOut || isBookingDisabled
+              className={`w-full py-4 px-6 rounded-xl text-base font-semibold ${isSoldOut || isBookingDisabled
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-gradient-to-r from-green-600 to-blue-600 text-white hover:from-green-700 hover:to-blue-700 shadow-lg hover:shadow-xl"
+                : "bg-gradient-to-r from-blue-600 to-blue-600 text-white hover:from-blue-700 hover:to-blue-700 shadow-lg hover:shadow-xl"
                 }`}
               disabled={isSoldOut || isBookingDisabled}
               whileHover={!isSoldOut && !isBookingDisabled ? { scale: 1.05 } : {}}
