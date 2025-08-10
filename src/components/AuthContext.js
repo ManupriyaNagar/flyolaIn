@@ -26,7 +26,14 @@ export function AuthProvider({ children }) {
       setAuthState({ ...parsed, isLoading: true });
       
       // Ensure token is also in cookies for middleware (for existing users)
-      if (!document.cookie.includes('token=')) {
+      const getCookie = (name) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+      };
+      
+      if (!getCookie('token')) {
         document.cookie = `token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax; Secure=${window.location.protocol === 'https:'}`;
       }
 
@@ -59,7 +66,18 @@ export function AuthProvider({ children }) {
             localStorage.removeItem("userData");
             sessionStorage.removeItem("token");
             sessionStorage.removeItem("userData");
-            router.push("/sign-in");
+            
+            // Clear the cookie
+            document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+            
+            // Only redirect to sign-in if user is on a protected route
+            const currentPath = window.location.pathname;
+            const protectedRoutes = ['/admin-dashboard', '/agent-dashboard', '/user-dashboard', '/booking-agent-dashboard'];
+            const isOnProtectedRoute = protectedRoutes.some(route => currentPath.startsWith(route));
+            
+            if (isOnProtectedRoute) {
+              router.push("/sign-in");
+            }
           } else {
             // For network/server errors, retry once after a delay, then keep user logged in
             if (retryCount === 0) {

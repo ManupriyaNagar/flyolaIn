@@ -16,7 +16,6 @@ const ROUTE_ACCESS = {
   '/agent-dashboard': [ROLES.AGENT],
   '/user-dashboard': [ROLES.USER],
   '/booking-agent-dashboard': [ROLES.AGENT],
-  '/scheduled-flight': [ROLES.USER, ROLES.AGENT], // Users and agents can access
   '/booking': [ROLES.USER, ROLES.AGENT], // Users and agents can access booking page
   '/combined-booking-page': [ROLES.USER, ROLES.AGENT],
   '/get-ticket': [ROLES.USER, ROLES.AGENT],
@@ -29,7 +28,6 @@ const PROTECTED_ROUTES = [
   '/agent-dashboard', 
   '/user-dashboard',
   '/booking-agent-dashboard',
-  '/scheduled-flight',
   '/booking',
   '/combined-booking-page',
   '/get-ticket',
@@ -111,7 +109,6 @@ export const config = {
     '/agent-dashboard/:path*',
     '/user-dashboard/:path*', 
     '/booking-agent-dashboard/:path*',
-    '/scheduled-flight/:path*',
     '/booking/:path*',
     '/combined-booking-page/:path*',
     '/get-ticket/:path*',

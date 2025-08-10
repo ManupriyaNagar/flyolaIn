@@ -57,13 +57,16 @@ const SignInPage = () => {
   const { login, authState } = useAuth();
   const router = useRouter();
 
-  // Redirect if already logged in
+  // Redirect if already logged in (only when user directly visits sign-in page)
   useEffect(() => {
-    if (authState.isLoggedIn) {
-      const redirectTo = authState.userRole === '1' ? '/admin-dashboard' : '/';
+    if (authState.isLoggedIn && !authState.isLoading) {
+      // Only redirect if user directly navigated to sign-in page, not from auth errors
+      const redirectTo = authState.userRole === '1' ? '/admin-dashboard' : 
+                        authState.userRole === '2' ? '/agent-dashboard' : 
+                        '/user-dashboard';
       router.push(redirectTo);
     }
-  }, [authState.isLoggedIn, authState.userRole, router]);
+  }, [authState.isLoggedIn, authState.userRole, authState.isLoading, router]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -132,7 +135,9 @@ const SignInPage = () => {
 
       // Redirect based on user role
       setTimeout(() => {
-        const redirectTo = data.user.role === '1' ? '/admin-dashboard' : '/';
+        const redirectTo = data.user.role === '1' ? '/admin-dashboard' : 
+                          data.user.role === '2' ? '/agent-dashboard' : 
+                          '/user-dashboard';
         router.push(redirectTo);
       }, 1500);
     } catch (error) {
